@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "lint": "eslint .",
-    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Player.js && node --check src/services/playerService.js && node --check src/controllers/playerController.js && node --check src/validators/playerValidators.js && node --check scripts/seedAdmin.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Player.js && node --check src/models/Match.js && node --check src/services/playerService.js && node --check src/services/matchService.js && node --check src/controllers/playerController.js && node --check src/controllers/matchController.js && node --check src/validators/playerValidators.js && node --check src/validators/matchValidators.js && node --check scripts/seedAdmin.js",
     "test": "node --test"
   },
   "engines": {

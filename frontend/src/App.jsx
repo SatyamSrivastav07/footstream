@@ -10,6 +10,11 @@ import AdminSquadViewPage from './pages/AdminSquadViewPage.jsx';
 import ProtectedRoute from './routes/ProtectedRoute.jsx';
 import RoleRoute from './routes/RoleRoute.jsx';
 import { useAuth } from './context/AuthContext.jsx';
+import TeamMatchesPage from './pages/TeamMatchesPage.jsx';
+import MatchEditorPage from './pages/MatchEditorPage.jsx';
+import TeamMatchDetailsPage from './pages/TeamMatchDetailsPage.jsx';
+import AdminMatchesPage from './pages/AdminMatchesPage.jsx';
+import AdminMatchDetailsPage from './pages/AdminMatchDetailsPage.jsx';
 
 function DashboardRedirect() {
   const { user } = useAuth();
@@ -26,10 +31,16 @@ function App() {
           <Route element={<RoleRoute roles={['superAdmin']} />}>
             <Route path="/admin" element={<SuperAdminDashboard />} />
             <Route path="/admin/teams/:teamId/squad" element={<AdminSquadViewPage />} />
+            <Route path="/admin/matches" element={<AdminMatchesPage />} />
+            <Route path="/admin/matches/:matchId" element={<AdminMatchDetailsPage />} />
           </Route>
           <Route element={<RoleRoute roles={['teamAdmin']} />}>
             <Route path="/team" element={<TeamAdminDashboard />} />
             <Route path="/team/squad" element={<SquadManagementPage />} />
+            <Route path="/team/matches" element={<TeamMatchesPage />} />
+            <Route path="/team/matches/new" element={<MatchEditorPage />} />
+            <Route path="/team/matches/:matchId" element={<TeamMatchDetailsPage />} />
+            <Route path="/team/matches/:matchId/edit" element={<MatchEditorPage />} />
           </Route>
         </Route>
       </Route>

@@ -1,4 +1,4 @@
-import { Building2, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { Building2, CalendarDays, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Brand from '../components/Brand.jsx';
@@ -41,6 +41,9 @@ export default function DashboardLayout() {
               <UsersRound size={18} /> Squad
             </NavLink>
           )}
+          <NavLink to={user.role === 'superAdmin' ? '/admin/matches' : '/team/matches'} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+            <CalendarDays size={18} /> Matches
+          </NavLink>
         </nav>
 
         <div className="mt-auto rounded-2xl border border-white/[0.07] bg-white/[0.035] p-4">

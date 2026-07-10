@@ -16,6 +16,9 @@ import {
   statusValidator,
 } from '../validators/adminValidators.js';
 import { teamIdValidator } from '../validators/playerValidators.js';
+import { getAdminMatch, listAdminMatches } from '../controllers/matchController.js';
+import { validateWithStatus } from '../middleware/validate.js';
+import { adminListMatchesValidator, matchIdValidator } from '../validators/matchValidators.js';
 
 const router = Router();
 
@@ -24,5 +27,8 @@ router.route('/teams').get(getTeams).post(createTeamValidator, validate, createT
 router.get('/teams/:teamId/players', teamIdValidator, validate, listPlayersForAdmin);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);
+const validateMatch = validateWithStatus(400);
+router.get('/matches', adminListMatchesValidator, validateMatch, listAdminMatches);
+router.get('/matches/:matchId', matchIdValidator, validateMatch, getAdminMatch);
 
 export default router;

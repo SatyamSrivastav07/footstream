@@ -18,6 +18,21 @@ import {
   updatePlayerStatusValidator,
   updatePlayerValidator,
 } from '../validators/playerValidators.js';
+import {
+  cancelTeamMatch,
+  createTeamMatch,
+  deleteTeamMatch,
+  getTeamMatch,
+  listTeamMatches,
+  updateTeamMatch,
+} from '../controllers/matchController.js';
+import { validateWithStatus } from '../middleware/validate.js';
+import {
+  createMatchValidator,
+  listMatchesValidator,
+  matchIdValidator,
+  updateMatchValidator,
+} from '../validators/matchValidators.js';
 
 const router = Router();
 
@@ -31,5 +46,14 @@ router.route('/players/:playerId')
   .get(playerIdValidator, validate, getTeamPlayer)
   .patch(updatePlayerValidator, validate, updateTeamPlayer)
   .delete(playerIdValidator, validate, deleteTeamPlayer);
+const validateMatch = validateWithStatus(400);
+router.route('/matches')
+  .get(listMatchesValidator, validateMatch, listTeamMatches)
+  .post(createMatchValidator, validateMatch, createTeamMatch);
+router.patch('/matches/:matchId/cancel', matchIdValidator, validateMatch, cancelTeamMatch);
+router.route('/matches/:matchId')
+  .get(matchIdValidator, validateMatch, getTeamMatch)
+  .patch(updateMatchValidator, validateMatch, updateTeamMatch)
+  .delete(matchIdValidator, validateMatch, deleteTeamMatch);
 
 export default router;
