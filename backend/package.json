@@ -1,0 +1,36 @@
+{
+  "name": "footstream-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FootStream Phase 1 REST API",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "seed:admin": "node scripts/seedAdmin.js",
+    "lint": "eslint .",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Player.js && node --check src/services/playerService.js && node --check src/controllers/playerController.js && node --check src/validators/playerValidators.js && node --check scripts/seedAdmin.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "express-validator": "^7.3.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.3",
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "prettier": "^3.6.2"
+  }
+}
