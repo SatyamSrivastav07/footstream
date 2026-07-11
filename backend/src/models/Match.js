@@ -37,6 +37,21 @@ const playerSnapshotSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const resultSchema = new mongoose.Schema({
+  outcome: { type: String, enum: ['win', 'draw', 'loss'], required: true },
+  winnerSide: { type: String, enum: ['team', 'opponent', 'draw'], required: true },
+  finalTeamScore: { type: Number, min: 0, required: true },
+  finalOpponentScore: { type: Number, min: 0, required: true },
+}, { _id: false });
+
+const manOfTheMatchSchema = new mongoose.Schema({
+  player: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: true },
+  name: { type: String, required: true, trim: true },
+  jerseyNumber: { type: Number, default: null },
+  position: { type: String, required: true },
+  photoUrl: { type: String, default: '' },
+}, { _id: false });
+
 const matchSchema = new mongoose.Schema(
   {
     team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
@@ -74,6 +89,12 @@ const matchSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     cancelledAt: { type: Date, default: null },
+    result: { type: resultSchema, default: null },
+    manOfTheMatch: { type: manOfTheMatchSchema, default: null },
+    completionNotes: { type: String, trim: true, maxlength: 2000, default: '' },
+    attendance: { type: Number, min: 0, default: null },
+    resultConfirmedAt: { type: Date, default: null },
+    resultConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );
@@ -95,6 +116,7 @@ matchSchema.set('toJSON', {
     delete returned.__v;
     delete returned.createdBy;
     delete returned.updatedBy;
+    delete returned.resultConfirmedBy;
     return returned;
   },
 });

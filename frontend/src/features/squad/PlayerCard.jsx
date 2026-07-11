@@ -1,4 +1,5 @@
-import { Crown, Pencil, RotateCcw, Shield, UserX } from 'lucide-react';
+import { BarChart3, Crown, Pencil, RotateCcw, Shield, UserX } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import PlayerAvatar from './PlayerAvatar.jsx';
 import { AVAILABILITY, availabilityLabel } from './constants.js';
 
@@ -9,7 +10,7 @@ const badgeClass = {
   unavailable: 'border-white/10 bg-white/[0.05] text-white/50',
 };
 
-export default function PlayerCard({ player, readOnly = false, onEdit, onStatusChange, onDeactivate, onReactivate }) {
+export default function PlayerCard({ player, readOnly = false, statsPath, onEdit, onStatusChange, onDeactivate, onReactivate }) {
   return (
     <article className={`group overflow-hidden rounded-3xl border bg-white/[0.025] transition ${player.isActive ? 'border-white/[0.08] hover:-translate-y-0.5 hover:border-lime-300/20' : 'border-white/[0.05] opacity-65'}`}>
       <div className="relative aspect-[4/3] overflow-hidden">
@@ -36,6 +37,7 @@ export default function PlayerCard({ player, readOnly = false, onEdit, onStatusC
           <div className="border-x border-white/[0.06]"><dt className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/30">Year</dt><dd className="mt-1 truncate px-1 text-sm font-semibold text-white/80">{player.academicYear || '—'}</dd></div>
           <div><dt className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/30">Foot</dt><dd className="mt-1 text-sm font-semibold text-white/80">{player.preferredFoot || '—'}</dd></div>
         </dl>
+        <Link to={statsPath || `/team/players/${player._id}/statistics`} className="secondary-button mt-4 w-full"><BarChart3 size={16} /> Career statistics</Link>
 
         {!readOnly && (
           <div className="mt-4 space-y-3">
@@ -58,4 +60,3 @@ export default function PlayerCard({ player, readOnly = false, onEdit, onStatusC
     </article>
   );
 }
-

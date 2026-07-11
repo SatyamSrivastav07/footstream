@@ -32,9 +32,8 @@ export default function AdminSquadViewPage() {
       </header>
       {error && <div className="mt-7 rounded-xl border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm text-red-100" role="alert">{error}</div>}
       <section className="mt-8">
-        {loading ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /></div> : players.length === 0 ? <EmptyState title="No players recorded" message="The assigned team administrator has not added permanent squad members yet." /> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{players.map((player) => <PlayerCard key={player._id} player={player} readOnly />)}</div>}
+        {loading ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /></div> : players.length === 0 ? <EmptyState title="No players recorded" message="The assigned team administrator has not added permanent squad members yet." /> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{players.map((player) => <PlayerCard key={player._id} player={player} readOnly statsPath={`/admin/players/${player._id}/statistics`} />)}</div>}
       </section>
     </>
   );
 }
-

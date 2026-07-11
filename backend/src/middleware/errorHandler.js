@@ -9,6 +9,9 @@ export const errorHandler = (error, _req, res, _next) => {
 
   if (error.name === 'CastError') {
     normalized = new AppError('The requested resource identifier is invalid.', 400, 'INVALID_ID');
+  } else if (error.name === 'MulterError') {
+    const messages = { LIMIT_FILE_SIZE: 'Each photo must be 5 MB or smaller.', LIMIT_FILE_COUNT: 'Upload at most 10 photos per request.', LIMIT_UNEXPECTED_FILE: 'Upload at most 10 files using the photos field.' };
+    normalized = new AppError(messages[error.code] || 'The photo upload is invalid.', 400, 'INVALID_PHOTO_UPLOAD');
   } else if (error.code === 11000) {
     if (error.keyValue?.jerseyNumber !== undefined) {
       normalized = new AppError('That jersey number is already assigned to an active player.', 409, 'JERSEY_IN_USE');

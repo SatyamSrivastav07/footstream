@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 4**: the MERN foundation, administration, permanent squads, match scheduling, live match control, event timelines, scoreboards, undo, and real-time viewing.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5**: the MERN foundation, administration, permanent squads, match scheduling, live match control, event timelines, results, photos, statistics, and real-time viewing.
 
-Career statistics, match photos, Man of the Match, YouTube streaming, deployment, and payment features are intentionally not included.
+YouTube streaming, deployment, and payment features are intentionally not included.
 
 ## Phase 1 Features
 
@@ -55,11 +55,20 @@ Career statistics, match photos, Man of the Match, YouTube streaming, deployment
 - Socket.IO match rooms for state, event, undo, and transition updates.
 - Responsive team-admin live control, public `/live/:matchId`, and read-only super-admin oversight.
 
+## Phase 5 Features
+
+- Final score and outcome calculation from non-undone scoring events; clients cannot submit protected score or winner fields.
+- Man of the Match restricted to the saved own-team match squad, plus attendance and completion notes.
+- Direct Cloudinary match-photo uploads with captions, categories, validation, previews, editing, and storage-first deletion.
+- Player career statistics derived from completed matches, lineup snapshots, and active events instead of mutable counters.
+- Team record, goals for/against, goal difference, rounded win percentage, deterministic leaderboards, and filterable history.
+- Team-admin management, super-admin read-only oversight, and anonymous public result/statistics/history pages.
+
 ## Technology
 
 ### Backend
 
-Node.js, Express, MongoDB, Mongoose, Socket.IO, JWT, bcryptjs, express-validator, cookie-parser, Helmet, CORS, Morgan, dotenv, and express-rate-limit.
+Node.js, Express, MongoDB, Mongoose, Socket.IO, JWT, bcryptjs, express-validator, Multer, Cloudinary, cookie-parser, Helmet, CORS, Morgan, dotenv, and express-rate-limit.
 
 ### Frontend
 
@@ -295,8 +304,12 @@ Edit `backend/.env` and replace at least:
 - `SUPER_ADMIN_EMAIL` with the initial administrator email;
 - `SUPER_ADMIN_PASSWORD` with a strong initial password;
 - `MONGODB_URI` if MongoDB is not at the default local address.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` from a free Cloudinary account to enable match-photo uploads.
+- `CLOUDINARY_FOLDER` if the default `footstream/matches` root should be changed.
 
 The default frontend API URL is `http://localhost:5000/api`. The backend permits `http://localhost:5173` by default.
+
+Cloudinary credentials belong only in `backend/.env`. Photos are uploaded under `<CLOUDINARY_FOLDER>/<matchId>/`; MongoDB stores searchable metadata, not image bytes.
 
 Never commit either `.env` file.
 
@@ -414,3 +427,56 @@ Deployment itself belongs to Phase 6 and is not included in this implementation.
 10. Sign in as another team admin and verify the match cannot be controlled.
 11. Sign in as super admin and open **Live oversight**; confirm there are no mutation controls.
 12. Disconnect/reconnect a viewer and verify REST synchronization restores current state.
+
+## Phase 5 API List
+
+All team routes require an active `teamAdmin`; all admin routes require `superAdmin`. Public routes are anonymous and read-only.
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET`, `PATCH` | `/api/team/matches/:matchId/result` | Team admin | Read or confirm derived result metadata |
+| `GET`, `POST` | `/api/team/matches/:matchId/photos` | Team admin | List or upload up to 10 photos per request |
+| `PATCH`, `DELETE` | `/api/team/matches/:matchId/photos/:photoId` | Team admin | Edit metadata or storage-first delete |
+| `GET` | `/api/team/statistics` | Team admin | Owned-team totals |
+| `GET` | `/api/team/players/:playerId/statistics` | Team admin | Owned-player career totals |
+| `GET` | `/api/team/leaderboards?type=&limit=` | Team admin | Goals, assists, appearances, or MOTM |
+| `GET` | `/api/team/history` | Team admin | Filterable completed-match history |
+| `GET` | `/api/admin/teams/:teamId/statistics` | Super admin | Read-only team totals |
+| `GET` | `/api/admin/teams/:teamId/leaderboards` | Super admin | Read-only leaderboards |
+| `GET` | `/api/admin/teams/:teamId/history` | Super admin | Read-only team history |
+| `GET` | `/api/admin/players/:playerId/statistics` | Super admin | Read-only player totals |
+| `GET` | `/api/admin/matches/:matchId/result` | Super admin | Read-only final result |
+| `GET` | `/api/admin/matches/:matchId/photos` | Super admin | Read-only match gallery |
+| `GET` | `/api/public/teams/:teamId/statistics` | Public | Sanitized team totals |
+| `GET` | `/api/public/teams/:teamId/leaderboards` | Public | Sanitized leaderboards |
+| `GET` | `/api/public/teams/:teamId/history` | Public | Sanitized history |
+| `GET` | `/api/public/players/:playerId/statistics` | Public | Sanitized career totals |
+| `GET` | `/api/public/matches/:matchId/result` | Public | Sanitized final result |
+| `GET` | `/api/public/matches/:matchId/photos` | Public | Sanitized gallery |
+
+History accepts `from`, `to`, `opponent`, `tournament`, and `outcome`. Leaderboards accept `type=goals|assists|appearances|motm` and `limit` from 1 to 50.
+
+## Phase 5 Calculation and Storage Rules
+
+- Only active, completed matches contribute. Undone events never contribute.
+- A starter receives one start and one appearance. A substitute receives an appearance only when an active substitution event records that player entering; unused substitutes do not appear.
+- Player names, position, number, and photo identity come from saved historical snapshots, so later player-card edits do not rewrite past matches.
+- Team goals and outcomes are recalculated from goal, scored-penalty, and own-goal events. Win percentage is `(wins / matches played) * 100`, rounded to two decimal places.
+- Leaderboard ties are resolved by value descending, player name ascending, then player ID ascending.
+- Uploads accept JPEG, PNG, or WebP, require valid file signatures, have a 5 MB per-file limit, a 10-file request limit, and a 20-active-photo match limit.
+- If upload or MongoDB persistence fails, already-uploaded Cloudinary assets and partial metadata are cleaned up. Deletion removes the Cloudinary asset first; MongoDB is soft-deleted only after storage confirms success. Operators should investigate Cloudinary or database outages before retrying a failed deletion.
+
+## Manual Phase 5 Test Checklist
+
+1. Complete a match containing team/opponent goals and an undone event, then open **Result** and verify the final score ignores the undone event.
+2. Submit attendance, notes, and a Man of the Match from the saved squad; verify score, outcome, and winner cannot be overridden through the API.
+3. Try selecting a player outside the match squad and confirm rejection.
+4. Upload JPEG, PNG, and WebP photos; verify previews, progress, gallery categories, captions, and metadata editing.
+5. Confirm files larger than 5 MB, spoofed image content, more than 10 files, and more than 20 active match photos are rejected.
+6. Delete a photo and confirm it disappears from Cloudinary and the active gallery.
+7. Open **Statistics** and verify starters, used/unused substitutes, goals, assists, cards, penalties, own goals, and MOTM totals against the event timeline.
+8. Verify team W-D-L, goals for/against, goal difference, win percentage, and each deterministic leaderboard.
+9. Filter **History** by date, opponent, tournament, and outcome, then open a result.
+10. Deactivate or edit a player and confirm historical identity/statistics remain available.
+11. Sign in as super admin and verify statistics, history, player statistics, results, and photos are read-only.
+12. Open `/teams/:teamId/stats`, `/teams/:teamId/history`, `/players/:playerId/stats`, and `/matches/:matchId/result` anonymously and verify no internal user or Cloudinary public-ID fields are exposed.

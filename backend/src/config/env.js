@@ -27,7 +27,12 @@ const env = Object.freeze({
   cookieMaxAge: Number(process.env.COOKIE_MAX_AGE_MS) || 8 * 60 * 60 * 1000,
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   isProduction: process.env.NODE_ENV === 'production',
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+    folder: process.env.CLOUDINARY_FOLDER || 'footstream/matches',
+  },
 });
 
 export default env;
-

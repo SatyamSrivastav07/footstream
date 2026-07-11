@@ -1,4 +1,4 @@
-import { CalendarDays, Eye, MapPin, Pencil, Radio, Trash2, XCircle } from 'lucide-react';
+import { CalendarDays, Eye, MapPin, Pencil, Radio, Trash2, Trophy, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatLocalDateTime, label } from './constants.js';
 
@@ -31,6 +31,7 @@ export default function MatchCard({ match, basePath, readOnly = false, onCancel,
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link to={`${basePath}/${match._id}`} className="secondary-button flex-1 px-3"><Eye size={15} /> View</Link>
+        {match.status === 'completed' && <Link to={`${basePath}/${match._id}/result`} className="primary-button px-3"><Trophy size={15} /> Result</Link>}
         {!readOnly && ['scheduled', 'live', 'half_time'].includes(match.status) && <Link to={`${basePath}/${match._id}/live`} className="primary-button px-3"><Radio size={15} /> Live control</Link>}
         {!readOnly && match.status === 'scheduled' && <>
           <Link to={`${basePath}/${match._id}/edit`} className="secondary-button px-3"><Pencil size={15} /> Edit</Link>
@@ -41,4 +42,3 @@ export default function MatchCard({ match, basePath, readOnly = false, onCancel,
     </article>
   );
 }
-

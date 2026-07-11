@@ -18,10 +18,18 @@ import AdminMatchDetailsPage from './pages/AdminMatchDetailsPage.jsx';
 import TeamLiveControlPage from './pages/TeamLiveControlPage.jsx';
 import AdminLiveOversightPage from './pages/AdminLiveOversightPage.jsx';
 import PublicLivePage from './pages/PublicLivePage.jsx';
+import StatisticsPage from './pages/StatisticsPage.jsx';
+import HistoryPage from './pages/HistoryPage.jsx';
+import PlayerStatisticsPage from './pages/PlayerStatisticsPage.jsx';
+import MatchResultPage from './pages/MatchResultPage.jsx';
 
 function DashboardRedirect() {
   const { user } = useAuth();
   return <Navigate to={user.role === 'superAdmin' ? '/admin' : '/team'} replace />;
+}
+
+function PublicPage({ children }) {
+  return <main className="min-h-screen bg-[#07110d] px-5 py-10 text-white sm:px-8"><div className="mx-auto max-w-[1440px]">{children}</div></main>;
 }
 
 function App() {
@@ -29,6 +37,10 @@ function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/live/:matchId" element={<PublicLivePage />} />
+      <Route path="/teams/:teamId/stats" element={<PublicPage><StatisticsPage audience="public" /></PublicPage>} />
+      <Route path="/teams/:teamId/history" element={<PublicPage><HistoryPage audience="public" /></PublicPage>} />
+      <Route path="/players/:playerId/stats" element={<PublicPage><PlayerStatisticsPage audience="public" /></PublicPage>} />
+      <Route path="/matches/:matchId/result" element={<PublicPage><MatchResultPage audience="public" /></PublicPage>} />
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route index element={<DashboardRedirect />} />
@@ -38,6 +50,10 @@ function App() {
             <Route path="/admin/matches" element={<AdminMatchesPage />} />
             <Route path="/admin/matches/:matchId" element={<AdminMatchDetailsPage />} />
             <Route path="/admin/matches/:matchId/live" element={<AdminLiveOversightPage />} />
+            <Route path="/admin/matches/:matchId/result" element={<MatchResultPage audience="admin" />} />
+            <Route path="/admin/teams/:teamId/statistics" element={<StatisticsPage audience="admin" />} />
+            <Route path="/admin/teams/:teamId/history" element={<HistoryPage audience="admin" />} />
+            <Route path="/admin/players/:playerId/statistics" element={<PlayerStatisticsPage audience="admin" />} />
           </Route>
           <Route element={<RoleRoute roles={['teamAdmin']} />}>
             <Route path="/team" element={<TeamAdminDashboard />} />
@@ -47,6 +63,10 @@ function App() {
             <Route path="/team/matches/:matchId" element={<TeamMatchDetailsPage />} />
             <Route path="/team/matches/:matchId/edit" element={<MatchEditorPage />} />
             <Route path="/team/matches/:matchId/live" element={<TeamLiveControlPage />} />
+            <Route path="/team/matches/:matchId/result" element={<MatchResultPage audience="team" />} />
+            <Route path="/team/statistics" element={<StatisticsPage audience="team" />} />
+            <Route path="/team/history" element={<HistoryPage audience="team" />} />
+            <Route path="/team/players/:playerId/statistics" element={<PlayerStatisticsPage audience="team" />} />
           </Route>
         </Route>
       </Route>

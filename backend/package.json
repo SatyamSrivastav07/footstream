@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "lint": "eslint .",
-    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Match.js && node --check src/models/MatchEvent.js && node --check src/services/playerService.js && node --check src/services/matchService.js && node --check src/services/liveMatchService.js && node --check src/controllers/matchController.js && node --check src/controllers/liveMatchController.js && node --check src/validators/matchValidators.js && node --check src/validators/liveMatchValidators.js && node --check src/realtime/socketServer.js && node --check scripts/seedAdmin.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Match.js && node --check src/models/MatchEvent.js && node --check src/models/MatchPhoto.js && node --check src/services/playerService.js && node --check src/services/matchService.js && node --check src/services/liveMatchService.js && node --check src/services/resultService.js && node --check src/services/statisticsService.js && node --check src/services/photoService.js && node --check src/controllers/matchController.js && node --check src/controllers/liveMatchController.js && node --check src/controllers/phaseFiveController.js && node --check src/validators/matchValidators.js && node --check src/validators/liveMatchValidators.js && node --check src/validators/phaseFiveValidators.js && node --check src/realtime/socketServer.js && node --check scripts/seedAdmin.js",
     "test": "node --test"
   },
   "engines": {
@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -28,6 +29,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.3",
     "morgan": "^1.10.1",
+    "multer": "^2.2.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
