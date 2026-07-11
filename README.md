@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 3**: the MERN foundation, administrative authentication, team administration, permanent squads, match scheduling, and match-day lineup selection.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 4**: the MERN foundation, administration, permanent squads, match scheduling, live match control, event timelines, scoreboards, undo, and real-time viewing.
 
-Live scoring, match events, streaming, Socket.IO, results, statistics, media uploads, and payment features are intentionally not included.
+Career statistics, match photos, Man of the Match, YouTube streaming, deployment, and payment features are intentionally not included.
 
 ## Phase 1 Features
 
@@ -43,15 +43,27 @@ Live scoring, match events, streaming, Socket.IO, results, statistics, media upl
 - Read-only super-admin match lists and match details.
 - Responsive match filters, multi-section forms, player selectors, review summaries, and detail pages.
 
+## Phase 4 Features
+
+- Safe scheduled → first half → half-time → second half → completed transitions.
+- Anchored match timer using persisted base seconds rather than database writes every second.
+- Append-only goals, assisted goals, cards, substitutions, penalties, and own goals.
+- Score recalculation from active scoring events after every event and undo.
+- Current on-field, bench, sent-off, and substitution state rebuilt from the saved lineup and active events.
+- Atomic per-match event sequence allocation through `Match.lastEventSequence`.
+- Latest-active-event undo with history preservation and optional reason.
+- Socket.IO match rooms for state, event, undo, and transition updates.
+- Responsive team-admin live control, public `/live/:matchId`, and read-only super-admin oversight.
+
 ## Technology
 
 ### Backend
 
-Node.js, Express, MongoDB, Mongoose, JWT, bcryptjs, express-validator, cookie-parser, Helmet, CORS, Morgan, dotenv, and express-rate-limit.
+Node.js, Express, MongoDB, Mongoose, Socket.IO, JWT, bcryptjs, express-validator, cookie-parser, Helmet, CORS, Morgan, dotenv, and express-rate-limit.
 
 ### Frontend
 
-React, Vite, Tailwind CSS, React Router, Axios, Context API, and Lucide React.
+React, Vite, Tailwind CSS, React Router, Axios, Socket.IO Client, Context API, and Lucide React.
 
 ## Folder Structure
 
@@ -76,10 +88,12 @@ footstream/
 |   |   |   `-- validate.js
 |   |   |-- models/
 |   |   |   |-- Match.js
+|   |   |   |-- MatchEvent.js
 |   |   |   |-- Player.js
 |   |   |   |-- Team.js
 |   |   |   `-- User.js
 |   |   |-- services/
+|   |   |   |-- liveMatchService.js
 |   |   |   |-- matchService.js
 |   |   |   `-- playerService.js
 |   |   |-- routes/
@@ -96,6 +110,7 @@ footstream/
 |   |   |   |-- adminValidators.js
 |   |   |   |-- authValidators.js
 |   |   |   |-- matchValidators.js
+|   |   |   |-- liveMatchValidators.js
 |   |   |   `-- playerValidators.js
 |   |   |-- app.js
 |   |   `-- server.js
@@ -119,6 +134,7 @@ footstream/
 |   |   |-- context/
 |   |   |   `-- AuthContext.jsx
 |   |   |-- features/
+|   |   |   |-- live/
 |   |   |   |-- matches/
 |   |   |   `-- squad/
 |   |   |-- layouts/
@@ -177,6 +193,24 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `PATCH` | `/api/team/matches/:matchId` | teamAdmin | Edit an owned scheduled match |
 | `PATCH` | `/api/team/matches/:matchId/cancel` | teamAdmin | Cancel an owned scheduled match |
 | `DELETE` | `/api/team/matches/:matchId` | teamAdmin | Soft-delete an owned scheduled match |
+| `POST` | `/api/team/matches/:matchId/start` | teamAdmin | Start an owned scheduled match |
+| `POST` | `/api/team/matches/:matchId/end-first-half` | teamAdmin | Pause at half-time |
+| `POST` | `/api/team/matches/:matchId/start-second-half` | teamAdmin | Resume the second half |
+| `POST` | `/api/team/matches/:matchId/complete` | teamAdmin | Complete and lock a live match |
+| `GET` | `/api/team/matches/:matchId/live-state` | teamAdmin | Get owned live state and current lineup |
+| `GET` | `/api/team/matches/:matchId/events` | teamAdmin | Get the complete event timeline including undone events |
+| `POST` | `/api/team/matches/:matchId/events/goal` | teamAdmin | Add a goal with optional assist |
+| `PATCH` | `/api/team/matches/:matchId/events/:eventId/assist` | teamAdmin | Attach an assist to an eligible goal |
+| `POST` | `/api/team/matches/:matchId/events/yellow-card` | teamAdmin | Add a yellow card |
+| `POST` | `/api/team/matches/:matchId/events/red-card` | teamAdmin | Add a red card |
+| `POST` | `/api/team/matches/:matchId/events/substitution` | teamAdmin | Make a valid bench-to-field substitution |
+| `POST` | `/api/team/matches/:matchId/events/penalty` | teamAdmin | Add a scored, missed, or saved penalty |
+| `POST` | `/api/team/matches/:matchId/events/own-goal` | teamAdmin | Add an own goal and credit the opposite side |
+| `POST` | `/api/team/matches/:matchId/events/undo-last` | teamAdmin | Undo the latest active event |
+| `GET` | `/api/admin/matches/:matchId/live-state` | superAdmin | Read-only live oversight state |
+| `GET` | `/api/admin/matches/:matchId/events` | superAdmin | Read-only event history |
+| `GET` | `/api/public/matches/:matchId/live` | Public | Sanitized public live state |
+| `GET` | `/api/public/matches/:matchId/events` | Public | Active public event timeline |
 
 There is deliberately no registration API.
 
@@ -197,6 +231,48 @@ Team administrators open `/team/matches` to create and manage scheduled fixtures
 Only scheduled matches may be edited, cancelled, or deleted. Cancellation records `cancelledAt`. Deletion uses `isActive=false` and hides the record from active match lists. Team admins cannot mark matches completed during Phase 3.
 
 The match list supports `status`, `matchType`, `from`, `to`, and `search`. Super-admin lists additionally support `teamId`. Upcoming fixtures are ordered by kickoff ascending, followed by past fixtures ordered descending.
+
+## Live Architecture and Event Rules
+
+All mutations use authenticated REST routes. Socket.IO provides read-only real-time delivery and never grants mutation authority.
+
+The timer persists `timerBaseSeconds` and `timerAnchorAt` only on state changes. Clients calculate seconds between anchors locally, preventing continuous database writes.
+
+The scoreboard is derived only from active `goal`, `penalty_scored`, and `own_goal` events. Missed/saved penalties and undone events do not count. Home and away scores are mapped from the FootStream team's `teamSide`.
+
+Own-team event players are resolved exclusively from saved match-day snapshots. Later profile edits, availability changes, or deactivation do not alter historical eligibility or display values. Substitution and red-card state is rebuilt by replaying active events from the saved Starting XI.
+
+Events are never deleted. Undo marks only the latest active event with `isUndone`, `undoneAt`, `undoneBy`, and an optional reason before recalculating the score and current lineup.
+
+### Consistency Strategy
+
+- `Match.lastEventSequence` is incremented atomically with `findOneAndUpdate`, preventing sequence collisions.
+- The unique `{ match, sequence }` event index provides a second database guarantee.
+- Event data is written before deterministic score recalculation.
+- REST and socket live-state serializers independently derive scores from active events, so a later read remains correct even if a stored-score update is interrupted.
+- Frontend mutation buttons are disabled while requests are pending to reduce duplicate rapid submissions.
+- No transactions are required, keeping local standalone MongoDB development reliable.
+
+## Socket.IO Contract
+
+Clients join and leave `match:<matchId>` rooms with:
+
+- `join-match`
+- `leave-match`
+
+Server events:
+
+- `match:state` — complete sanitized current live state
+- `match:event-created` — created/updated event plus current state
+- `match:event-undone` — undone event plus corrected state
+- `match:transition` — state transition plus current state
+- `match:error` — safe room-join error only
+
+Clients automatically reconnect and refetch REST state after connection, preventing stale socket-only state.
+
+## Public Live View
+
+Open `/live/:matchId` without signing in. The page displays the scoreboard, timer, period, venue, tournament, current lineup, bench, sent-off players, substitutions, connection status, and active event timeline.
 
 ## Prerequisites
 
@@ -323,3 +399,18 @@ Deployment itself belongs to Phase 6 and is not included in this implementation.
 10. Soft-delete another scheduled fixture and confirm it disappears from active lists.
 11. Sign in as a different team admin and confirm the fixture cannot be read or changed.
 12. Sign in as super admin, open **Matches**, use team/status/type/date filters, and inspect details without edit controls.
+
+## Manual Phase 4 Test Checklist
+
+1. Start MongoDB, backend, and frontend, then open two browser windows.
+2. Sign in as the owning team admin in one window and open a scheduled match's **Live control**.
+3. Open `/live/:matchId` anonymously in the second window and verify the connection indicator becomes connected.
+4. Start the match and verify both windows show first half and a running timer.
+5. Add team and opponent goals; verify home/away mapping and instant public updates.
+6. Add an assisted goal, yellow/red cards, scored/missed/saved penalties, and both own-goal directions.
+7. Substitute a valid bench player and verify on-field/bench panels; confirm re-entry and invalid substitutions are rejected.
+8. Undo the latest event with a reason and verify the event remains visible internally, score is corrected, and public state refreshes.
+9. End the first half, start the second half, and complete the match; verify invalid transitions and further event creation are rejected.
+10. Sign in as another team admin and verify the match cannot be controlled.
+11. Sign in as super admin and open **Live oversight**; confirm there are no mutation controls.
+12. Disconnect/reconnect a viewer and verify REST synchronization restores current state.

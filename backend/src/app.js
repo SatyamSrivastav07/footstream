@@ -8,6 +8,7 @@ import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
+import publicRoutes from './routes/publicRoutes.js';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 const app = express();
@@ -25,9 +26,9 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/team', teamRoutes);
+app.use('/api/public', publicRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 export default app;
-

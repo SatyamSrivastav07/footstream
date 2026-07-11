@@ -3,7 +3,11 @@ import mongoose from 'mongoose';
 export const MATCH_TYPES = Object.freeze(['friendly', 'league', 'knockout', 'practice']);
 export const TEAM_SIDES = Object.freeze(['home', 'away']);
 export const MATCH_FORMATIONS = Object.freeze(['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom']);
-export const MATCH_STATUSES = Object.freeze(['scheduled', 'cancelled', 'completed']);
+export const MATCH_STATUSES = Object.freeze(['scheduled', 'live', 'half_time', 'completed', 'cancelled']);
+export const MATCH_PERIODS = Object.freeze([
+  'not_started', 'first_half', 'half_time', 'second_half', 'extra_time_first',
+  'extra_time_break', 'extra_time_second', 'penalties', 'full_time',
+]);
 
 const temporaryPlayerSchema = new mongoose.Schema(
   {
@@ -48,6 +52,17 @@ const matchSchema = new mongoose.Schema(
     formation: { type: String, enum: MATCH_FORMATIONS, default: null },
     customFormation: { type: String, trim: true, maxlength: 60, default: '' },
     status: { type: String, enum: MATCH_STATUSES, default: 'scheduled', required: true },
+    homeScore: { type: Number, min: 0, default: 0 },
+    awayScore: { type: Number, min: 0, default: 0 },
+    currentPeriod: { type: String, enum: MATCH_PERIODS, default: 'not_started', required: true },
+    startedAt: { type: Date, default: null },
+    firstHalfEndedAt: { type: Date, default: null },
+    secondHalfStartedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    liveMinute: { type: Number, min: 0, max: 150, default: 0 },
+    timerAnchorAt: { type: Date, default: null },
+    timerBaseSeconds: { type: Number, min: 0, default: 0 },
+    lastEventSequence: { type: Number, min: 0, default: 0 },
     startingXI: {
       type: [playerSnapshotSchema],
       required: true,

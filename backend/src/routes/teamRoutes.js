@@ -33,6 +33,32 @@ import {
   matchIdValidator,
   updateMatchValidator,
 } from '../validators/matchValidators.js';
+import {
+  addAssist,
+  addGoal,
+  addOwnGoal,
+  addPenalty,
+  addRedCard,
+  addSubstitution,
+  addYellowCard,
+  completeOwnedMatch,
+  endOwnedFirstHalf,
+  getOwnedEvents,
+  getOwnedLiveState,
+  startOwnedMatch,
+  startOwnedSecondHalf,
+  undoLastEvent,
+} from '../controllers/liveMatchController.js';
+import {
+  assistValidator,
+  cardValidator,
+  goalValidator,
+  liveMatchIdValidator,
+  ownGoalValidator,
+  penaltyValidator,
+  substitutionValidator,
+  undoValidator,
+} from '../validators/liveMatchValidators.js';
 
 const router = Router();
 
@@ -50,6 +76,20 @@ const validateMatch = validateWithStatus(400);
 router.route('/matches')
   .get(listMatchesValidator, validateMatch, listTeamMatches)
   .post(createMatchValidator, validateMatch, createTeamMatch);
+router.post('/matches/:matchId/start', liveMatchIdValidator, validateMatch, startOwnedMatch);
+router.post('/matches/:matchId/end-first-half', liveMatchIdValidator, validateMatch, endOwnedFirstHalf);
+router.post('/matches/:matchId/start-second-half', liveMatchIdValidator, validateMatch, startOwnedSecondHalf);
+router.post('/matches/:matchId/complete', liveMatchIdValidator, validateMatch, completeOwnedMatch);
+router.get('/matches/:matchId/live-state', liveMatchIdValidator, validateMatch, getOwnedLiveState);
+router.get('/matches/:matchId/events', liveMatchIdValidator, validateMatch, getOwnedEvents);
+router.post('/matches/:matchId/events/goal', goalValidator, validateMatch, addGoal);
+router.patch('/matches/:matchId/events/:eventId/assist', assistValidator, validateMatch, addAssist);
+router.post('/matches/:matchId/events/yellow-card', cardValidator, validateMatch, addYellowCard);
+router.post('/matches/:matchId/events/red-card', cardValidator, validateMatch, addRedCard);
+router.post('/matches/:matchId/events/substitution', substitutionValidator, validateMatch, addSubstitution);
+router.post('/matches/:matchId/events/penalty', penaltyValidator, validateMatch, addPenalty);
+router.post('/matches/:matchId/events/own-goal', ownGoalValidator, validateMatch, addOwnGoal);
+router.post('/matches/:matchId/events/undo-last', undoValidator, validateMatch, undoLastEvent);
 router.patch('/matches/:matchId/cancel', matchIdValidator, validateMatch, cancelTeamMatch);
 router.route('/matches/:matchId')
   .get(matchIdValidator, validateMatch, getTeamMatch)

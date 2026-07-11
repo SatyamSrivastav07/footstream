@@ -38,6 +38,7 @@ export default function TeamMatchesPage() {
   };
 
   const sections = [
+    ['Live matches', filtered.filter((match) => ['live', 'half_time'].includes(match.status))],
     ['Upcoming matches', filtered.filter((match) => match.status === 'scheduled')],
     ['Cancelled matches', filtered.filter((match) => match.status === 'cancelled')],
     ['Completed matches', filtered.filter((match) => match.status === 'completed')],

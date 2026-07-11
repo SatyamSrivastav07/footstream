@@ -1,9 +1,11 @@
-import { CalendarDays, Eye, MapPin, Pencil, Trash2, XCircle } from 'lucide-react';
+import { CalendarDays, Eye, MapPin, Pencil, Radio, Trash2, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatLocalDateTime, label } from './constants.js';
 
 const statusClass = {
   scheduled: 'status-active',
+  live: 'border-red-300/20 bg-red-300/10 text-red-100',
+  half_time: 'border-amber-300/20 bg-amber-300/10 text-amber-100',
   cancelled: 'status-off',
   completed: 'border-sky-300/15 bg-sky-300/[0.08] text-sky-200',
 };
@@ -29,6 +31,7 @@ export default function MatchCard({ match, basePath, readOnly = false, onCancel,
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link to={`${basePath}/${match._id}`} className="secondary-button flex-1 px-3"><Eye size={15} /> View</Link>
+        {!readOnly && ['scheduled', 'live', 'half_time'].includes(match.status) && <Link to={`${basePath}/${match._id}/live`} className="primary-button px-3"><Radio size={15} /> Live control</Link>}
         {!readOnly && match.status === 'scheduled' && <>
           <Link to={`${basePath}/${match._id}/edit`} className="secondary-button px-3"><Pencil size={15} /> Edit</Link>
           <button type="button" className="icon-button size-11 text-amber-200/70" onClick={() => onCancel(match)} title="Cancel match" aria-label={`Cancel match against ${match.opponent.name}`}><XCircle size={17} /></button>

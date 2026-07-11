@@ -19,6 +19,7 @@ import { teamIdValidator } from '../validators/playerValidators.js';
 import { getAdminMatch, listAdminMatches } from '../controllers/matchController.js';
 import { validateWithStatus } from '../middleware/validate.js';
 import { adminListMatchesValidator, matchIdValidator } from '../validators/matchValidators.js';
+import { getAdminEvents, getAdminLiveState } from '../controllers/liveMatchController.js';
 
 const router = Router();
 
@@ -30,5 +31,7 @@ router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAd
 const validateMatch = validateWithStatus(400);
 router.get('/matches', adminListMatchesValidator, validateMatch, listAdminMatches);
 router.get('/matches/:matchId', matchIdValidator, validateMatch, getAdminMatch);
+router.get('/matches/:matchId/live-state', matchIdValidator, validateMatch, getAdminLiveState);
+router.get('/matches/:matchId/events', matchIdValidator, validateMatch, getAdminEvents);
 
 export default router;

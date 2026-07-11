@@ -1,8 +1,12 @@
 import app from './app.js';
 import env from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
+import { createServer } from 'node:http';
+import { initializeSocketServer } from './realtime/socketServer.js';
 
-const server = app.listen(env.port, () => {
+const server = createServer(app);
+initializeSocketServer(server);
+server.listen(env.port, () => {
   console.log(`FootStream API listening on http://localhost:${env.port}`);
 });
 
@@ -26,4 +30,3 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled rejection:', error);
 });
-

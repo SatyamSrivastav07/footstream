@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "lint": "eslint .",
-    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Player.js && node --check src/models/Match.js && node --check src/services/playerService.js && node --check src/services/matchService.js && node --check src/controllers/playerController.js && node --check src/controllers/matchController.js && node --check src/validators/playerValidators.js && node --check src/validators/matchValidators.js && node --check scripts/seedAdmin.js",
+    "check": "node --check src/server.js && node --check src/app.js && node --check src/models/Match.js && node --check src/models/MatchEvent.js && node --check src/services/playerService.js && node --check src/services/matchService.js && node --check src/services/liveMatchService.js && node --check src/controllers/matchController.js && node --check src/controllers/liveMatchController.js && node --check src/validators/matchValidators.js && node --check src/validators/liveMatchValidators.js && node --check src/realtime/socketServer.js && node --check scripts/seedAdmin.js",
     "test": "node --test"
   },
   "engines": {
@@ -27,7 +27,8 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.3",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "eslint": "^9.39.1",

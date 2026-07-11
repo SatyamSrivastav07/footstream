@@ -1,4 +1,4 @@
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Radio } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api/client.js';
@@ -13,6 +13,6 @@ export default function TeamMatchDetailsPage() {
   useEffect(() => { load(); }, [load]);
   if (loading) return <LoadingScreen />;
   if (!match) return <div className="rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error}</div>;
-  return <><div className="mb-7 flex flex-wrap items-center justify-between gap-3"><Link to="/team/matches" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 hover:text-lime-200"><ArrowLeft size={16} /> Back to matches</Link>{match.status === 'scheduled' && <Link to={`/team/matches/${match._id}/edit`} className="secondary-button"><Pencil size={16} /> Edit match</Link>}</div><MatchDetails match={match} fallbackTeamName={user.team?.name} /></>;
+  return <><div className="mb-7 flex flex-wrap items-center justify-between gap-3"><Link to="/team/matches" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 hover:text-lime-200"><ArrowLeft size={16} /> Back to matches</Link><div className="flex gap-2">{match.status === 'scheduled' && <Link to={`/team/matches/${match._id}/edit`} className="secondary-button"><Pencil size={16} /> Edit match</Link>}{['scheduled', 'live', 'half_time', 'completed'].includes(match.status) && <Link to={`/team/matches/${match._id}/live`} className="primary-button"><Radio size={16} /> Live control</Link>}</div></div><MatchDetails match={match} fallbackTeamName={user.team?.name} /></>;
 }
 
