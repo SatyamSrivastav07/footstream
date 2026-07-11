@@ -15,7 +15,7 @@ const app = express();
 
 app.disable('x-powered-by');
 app.set('trust proxy', env.isProduction ? 1 : false);
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: { directives: { frameSrc: ["'self'", 'https://www.youtube.com'] } } }));
 app.use(cors({ origin: env.clientUrl, credentials: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] }));
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: false, limit: '100kb' }));

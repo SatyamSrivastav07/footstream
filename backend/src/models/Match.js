@@ -52,6 +52,19 @@ const manOfTheMatchSchema = new mongoose.Schema({
   photoUrl: { type: String, default: '' },
 }, { _id: false });
 
+const streamSchema = new mongoose.Schema({
+  provider: { type: String, enum: ['youtube'], default: 'youtube', required: true },
+  sourceUrl: { type: String, trim: true, required: true },
+  videoId: { type: String, trim: true, required: true },
+  embedUrl: { type: String, trim: true, required: true },
+  isEnabled: { type: Boolean, default: false },
+  title: { type: String, trim: true, maxlength: 160, default: '' },
+  scheduledLiveAt: { type: Date, default: null },
+  addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  addedAt: { type: Date, required: true },
+  updatedAt: { type: Date, required: true },
+}, { _id: false });
+
 const matchSchema = new mongoose.Schema(
   {
     team: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
@@ -95,6 +108,7 @@ const matchSchema = new mongoose.Schema(
     attendance: { type: Number, min: 0, default: null },
     resultConfirmedAt: { type: Date, default: null },
     resultConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    stream: { type: streamSchema, default: null },
   },
   { timestamps: true },
 );
@@ -110,6 +124,7 @@ matchSchema.index({ team: 1, scheduledAt: 1, isActive: 1 });
 matchSchema.index({ team: 1, status: 1, scheduledAt: 1 });
 matchSchema.index({ status: 1, scheduledAt: 1, isActive: 1 });
 matchSchema.index({ 'opponent.name': 1, scheduledAt: 1 });
+matchSchema.index({ 'stream.videoId': 1 }, { sparse: true });
 
 matchSchema.set('toJSON', {
   transform: (_document, returned) => {
@@ -117,6 +132,10 @@ matchSchema.set('toJSON', {
     delete returned.createdBy;
     delete returned.updatedBy;
     delete returned.resultConfirmedBy;
+    if (returned.stream) {
+      delete returned.stream.addedBy;
+      delete returned.stream.sourceUrl;
+    }
     return returned;
   },
 });

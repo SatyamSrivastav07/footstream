@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5**: the MERN foundation, administration, permanent squads, match scheduling, live match control, event timelines, results, photos, statistics, and real-time viewing.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phase 6A**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, real-time viewing, and secure YouTube stream configuration.
 
-YouTube streaming, deployment, and payment features are intentionally not included.
+The broader Phase 6 public portal, deployment, and payment features are intentionally not included.
 
 ## Phase 1 Features
 
@@ -63,6 +63,14 @@ YouTube streaming, deployment, and payment features are intentionally not includ
 - Player career statistics derived from completed matches, lineup snapshots, and active events instead of mutable counters.
 - Team record, goals for/against, goal difference, rounded win percentage, deterministic leaderboards, and filterable history.
 - Team-admin management, super-admin read-only oversight, and anonymous public result/statistics/history pages.
+
+## Phase 6A Features
+
+- Owning team administrators can add, update, enable, disable, preview, and remove a match YouTube stream configuration.
+- Approved YouTube watch, short, live, and embed URLs are normalized server-side to an 11-character video ID and `https://www.youtube.com/embed/VIDEO_ID`.
+- Raw iframe markup, scripts, HTTP URLs, lookalike hosts, malformed URLs, and client-supplied protected stream fields are rejected.
+- Public playback responses hide the source URL and ownership metadata; disabled, cancelled, and inactive matches are never playable.
+- Super administrators have a read-only stream endpoint. No Phase 6B public portal redesign is included.
 
 ## Technology
 
@@ -480,3 +488,42 @@ History accepts `from`, `to`, `opponent`, `tournament`, and `outcome`. Leaderboa
 10. Deactivate or edit a player and confirm historical identity/statistics remain available.
 11. Sign in as super admin and verify statistics, history, player statistics, results, and photos are read-only.
 12. Open `/teams/:teamId/stats`, `/teams/:teamId/history`, `/players/:playerId/stats`, and `/matches/:matchId/result` anonymously and verify no internal user or Cloudinary public-ID fields are exposed.
+
+## Phase 6A YouTube Stream API
+
+Supported source formats:
+
+```text
+https://www.youtube.com/watch?v=VIDEO_ID
+https://youtu.be/VIDEO_ID
+https://www.youtube.com/live/VIDEO_ID
+https://www.youtube.com/embed/VIDEO_ID
+```
+
+`VIDEO_ID` must contain exactly 11 YouTube-safe letters, numbers, underscores, or hyphens. The server stores the validated source URL, normalized ID, fixed YouTube embed URL, enabled state, optional title/time, and ownership timestamps. Clients cannot submit `provider`, `videoId`, `embedUrl`, `addedBy`, or internal ownership fields.
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/team/matches/:matchId/stream` | Owning team admin | Read managed configuration |
+| `PUT` | `/api/team/matches/:matchId/stream` | Owning team admin | Add or replace YouTube configuration |
+| `PATCH` | `/api/team/matches/:matchId/stream/status` | Owning team admin | Enable or disable playback |
+| `DELETE` | `/api/team/matches/:matchId/stream` | Owning team admin | Clear all stream fields |
+| `GET` | `/api/public/matches/:matchId/stream` | Public | Sanitized playback state |
+| `GET` | `/api/admin/matches/:matchId/stream` | Super admin | Read-only oversight |
+
+Disabling playback preserves the managed configuration but the public endpoint returns empty `videoId` and `embedUrl` values with `isPlayable: false`. Cancelled and soft-deleted matches are also not playable. Public responses never include the original source URL, `addedBy`, account data, or private user IDs.
+
+## Manual Phase 6A Test Checklist
+
+1. Sign in as a team administrator and open one of the team's match-detail pages.
+2. Add each supported YouTube URL format and verify the preview always uses the normalized `youtube.com/embed/VIDEO_ID` URL.
+3. Edit the optional title and scheduled live time, then refresh and verify persistence.
+4. Disable playback and confirm `/api/public/matches/:matchId/stream` returns `isPlayable: false` without video or embed values.
+5. Enable playback and confirm the sanitized public response becomes playable.
+6. Try iframe markup, an HTTP URL, a non-YouTube host, a lookalike host, and an invalid video ID; verify clear rejection.
+7. Try submitting `videoId`, `embedUrl`, `addedBy`, or `teamId` directly through the API and verify rejection.
+8. Sign in as another team's administrator and verify the match returns not found.
+9. Cancel a match and verify playback is not public and reconfiguration is blocked; removal remains safe for existing configuration.
+10. Remove the stream and verify all stream fields are cleared.
+11. Sign in as super admin and verify the stream endpoint is read-only.
+12. Re-test live controls, Socket.IO, results, statistics, and photos to confirm Phase 1–5 behavior is unchanged.

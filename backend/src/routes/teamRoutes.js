@@ -65,6 +65,8 @@ import {
 } from '../controllers/phaseFiveController.js';
 import { uploadMatchPhotos, validatePhotoSignatures } from '../middleware/photoUpload.js';
 import { photoMutationValidator, photoUploadValidator, playerStatsValidator, resultIdValidator, teamStatsValidator, updateResultValidator } from '../validators/phaseFiveValidators.js';
+import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStream } from '../controllers/streamController.js';
+import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
 
 const router = Router();
 
@@ -88,6 +90,11 @@ router.post('/matches/:matchId/start-second-half', liveMatchIdValidator, validat
 router.post('/matches/:matchId/complete', liveMatchIdValidator, validateMatch, completeOwnedMatch);
 router.get('/matches/:matchId/live-state', liveMatchIdValidator, validateMatch, getOwnedLiveState);
 router.get('/matches/:matchId/events', liveMatchIdValidator, validateMatch, getOwnedEvents);
+router.route('/matches/:matchId/stream')
+  .get(streamIdValidator, validateMatch, readOwnedStream)
+  .put(configureStreamValidator, validateMatch, putOwnedStream)
+  .delete(streamIdValidator, validateMatch, deleteOwnedStream);
+router.patch('/matches/:matchId/stream/status', streamStatusValidator, validateMatch, patchOwnedStreamStatus);
 router.route('/matches/:matchId/result')
   .get(resultIdValidator, validateMatch, getTeamResult)
   .patch(updateResultValidator, validateMatch, patchTeamResult);
