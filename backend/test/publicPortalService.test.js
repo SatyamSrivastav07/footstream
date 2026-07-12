@@ -11,6 +11,7 @@ import {
   serializePublicMatchCard,
   serializePublicMatchDetail,
 } from "../src/services/publicPortalService.js";
+import Match from "../src/models/Match.js";
 import publicRoutes from "../src/routes/publicRoutes.js";
 
 const team = {
@@ -287,6 +288,33 @@ test("fixtures pagination is bounded and returns metadata", async () => {
     total: 24,
     pages: 12,
   });
+});
+
+test("public live directory serializes Mongoose Date timers without throwing", async () => {
+  const liveMatch = new Match({
+    ...baseMatch({
+      _id: "64b7f5f4d4a31f7a1d1f1001",
+      team: "64b7f5f4d4a31f7a1d1f0001",
+      status: "live",
+      currentPeriod: "first_half",
+      timerAnchorAt: new Date("2026-08-10T10:00:00Z"),
+      timerBaseSeconds: 120,
+    }),
+  }).toObject();
+  liveMatch.team = team;
+  const matchModel = {
+    find: () => new FakeQuery([liveMatch]),
+    countDocuments: async () => 1,
+  };
+  const data = await listPublicMatches({
+    matchModel,
+    teamModel,
+    kind: "live",
+    now: new Date("2026-08-10T10:02:30Z"),
+  });
+  assert.equal(data.matches.length, 1);
+  assert.equal(data.matches[0].status, "live");
+  assert.equal(data.matches[0].elapsedSeconds, 270);
 });
 
 test("directory service defensively caps page size at fifty", async () => {

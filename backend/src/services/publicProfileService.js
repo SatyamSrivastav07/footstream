@@ -356,6 +356,6 @@ export const getPublicPlayerProfile = async ({
       yellowCards: statistics.yellowCards,
       redCards: statistics.redCards,
     },
-    recentMatches: recentMatches.map(serializePublicMatchCard),
+    recentMatches: recentMatches.map((match) => serializePublicMatchCard(match)),
   };
 };

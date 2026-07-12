@@ -5,6 +5,13 @@ import AppError from '../utils/AppError.js';
 const idString = (value) => value ? String(value._id || value) : '';
 const plain = (value) => (typeof value?.toJSON === 'function' ? value.toJSON() : { ...value });
 
+const toTimestamp = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  const timestamp = date.getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
 export const compactSnapshot = (snapshot) => ({
   player: snapshot.player,
   name: snapshot.name,
@@ -15,7 +22,10 @@ export const compactSnapshot = (snapshot) => ({
 export const calculateElapsedSeconds = (match, now = new Date()) => {
   const base = Number(match.timerBaseSeconds) || 0;
   if (match.status === 'live' && match.timerAnchorAt) {
-    return Math.max(0, base + Math.floor((now.getTime() - new Date(match.timerAnchorAt).getTime()) / 1000));
+    const nowTimestamp = toTimestamp(now) ?? Date.now();
+    const anchorTimestamp = toTimestamp(match.timerAnchorAt);
+    if (!anchorTimestamp) return base;
+    return Math.max(0, base + Math.floor((nowTimestamp - anchorTimestamp) / 1000));
   }
   return base;
 };

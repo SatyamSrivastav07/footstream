@@ -229,7 +229,9 @@ export const searchMatches = async ({
   }
   const total = counts.reduce((sum, value) => sum + value, 0);
   return {
-    items: matches.filter((match) => match.team).map(serializePublicMatchCard),
+    items: matches
+      .filter((match) => match.team)
+      .map((match) => serializePublicMatchCard(match, now)),
     total,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   };

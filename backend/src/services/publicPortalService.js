@@ -190,6 +190,7 @@ export const listPublicMatches = async ({
   teamModel = Team,
   kind,
   query = {},
+  now = new Date(),
 }) => {
   const page = Number(query.page) || 1;
   const limit = Math.min(50, Number(query.limit) || 12);
@@ -217,7 +218,7 @@ export const listPublicMatches = async ({
   return {
     matches: matches
       .filter((match) => match.team)
-      .map(serializePublicMatchCard),
+      .map((match) => serializePublicMatchCard(match, now)),
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   };
 };
