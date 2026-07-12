@@ -15,6 +15,9 @@ import PlayerAvatar from "../features/squad/PlayerAvatar.jsx";
 import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
 import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
 import { TeamLogo } from "../features/public/PublicTeamChrome.jsx";
+import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
+import ShareButton from "../components/ShareButton.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 const stats = [
   ["matchesPlayed", "Matches"],
@@ -31,6 +34,17 @@ export default function PublicPlayerProfilePage() {
   const { playerId } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const metadataPlayer = data?.player;
+  usePageMetadata({
+    title: metadataPlayer
+      ? `${metadataPlayer.name} | ${metadataPlayer.team.name} | FootStream`
+      : "Player | FootStream",
+    description: metadataPlayer
+      ? `${metadataPlayer.name}, ${metadataPlayer.position} for ${metadataPlayer.team.name}. View career football statistics and recent matches.`
+      : "Public football player profile and career statistics on FootStream.",
+    path: `/players/${playerId}`,
+    image: metadataPlayer?.photoUrl || metadataPlayer?.team?.logo || "",
+  });
   useEffect(() => {
     api
       .get(`/public/players/${playerId}/profile`)
@@ -42,6 +56,13 @@ export default function PublicPlayerProfilePage() {
   const { player, statistics, awards, recentMatches } = data;
   return (
     <>
+      <PublicBreadcrumbs
+        items={[
+          { label: "Teams", to: "/teams" },
+          { label: player.team.name, to: `/teams/${player.team.slug}` },
+          { label: player.name },
+        ]}
+      />
       <header className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,.13),transparent_52%),rgba(255,255,255,.025)] p-6 sm:p-10">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
           <PlayerAvatar
@@ -76,6 +97,13 @@ export default function PublicPlayerProfilePage() {
           </div>
         </div>
       </header>
+      <div className="mt-4 flex justify-end">
+        <ShareButton
+          title={player.name}
+          text={`View ${player.name}'s FootStream profile and career statistics.`}
+          path={`/players/${player.playerId}`}
+        />
+      </div>
       <section className="mt-6 grid gap-4 sm:grid-cols-3">
         <Fact icon={Shirt} label="Position" value={player.position} />
         <Fact

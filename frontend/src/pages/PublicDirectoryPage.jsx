@@ -6,6 +6,7 @@ import {
   PublicError,
   PublicGridLoader,
 } from "../features/public/PublicStates.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 const definitions = {
   live: {
@@ -38,6 +39,11 @@ const initial = {
 
 export default function PublicDirectoryPage({ kind }) {
   const definition = definitions[kind];
+  usePageMetadata({
+    title: `${definition.title} | FootStream`,
+    description: definition.copy,
+    path: `/${kind}`,
+  });
   const [filters, setFilters] = useState(initial);
   const [applied, setApplied] = useState(initial);
   const [page, setPage] = useState(1);

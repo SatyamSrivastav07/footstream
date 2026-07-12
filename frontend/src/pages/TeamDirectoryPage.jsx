@@ -11,10 +11,17 @@ import {
   PublicPagination,
   TeamLogo,
 } from "../features/public/PublicTeamChrome.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 const initial = { search: "", city: "" };
 
 export default function TeamDirectoryPage() {
+  usePageMetadata({
+    title: "Football Teams | FootStream",
+    description:
+      "Browse published FootStream teams, squads, fixtures, results, statistics, and match galleries.",
+    path: "/teams",
+  });
   const [filters, setFilters] = useState(initial);
   const [applied, setApplied] = useState(initial);
   const [page, setPage] = useState(1);

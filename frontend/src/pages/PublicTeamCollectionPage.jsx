@@ -12,6 +12,7 @@ import {
   PublicPagination,
   PublicTeamHeader,
 } from "../features/public/PublicTeamChrome.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 const titles = {
   squad: "Active squad",
@@ -33,6 +34,12 @@ export default function PublicTeamCollectionPage({ kind }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  usePageMetadata({
+    title: `${data?.team?.name || "Team"} ${titles[kind]} | FootStream`,
+    description: `${titles[kind]} for ${data?.team?.name || "this public football team"} on FootStream.`,
+    path: `/teams/${teamSlug}/${kind}`,
+    image: data?.team?.coverPhoto || data?.team?.logo || "",
+  });
   const load = useCallback(async () => {
     setLoading(true);
     setData(null);
@@ -67,7 +74,9 @@ export default function PublicTeamCollectionPage({ kind }) {
         : data?.matches;
   return (
     <>
-      {data?.team && <PublicTeamHeader team={data.team} />}
+      {data?.team && (
+        <PublicTeamHeader team={data.team} currentLabel={titles[kind]} />
+      )}
       <div className="mt-7 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">Team center</p>
@@ -191,6 +200,8 @@ function Gallery({ photos, team }) {
             className="w-full object-cover"
             src={photo.imageUrl}
             alt={photo.caption || `${team.name} match photo`}
+            loading="lazy"
+            decoding="async"
           />
           <figcaption className="p-4">
             <span className="status-badge status-neutral">

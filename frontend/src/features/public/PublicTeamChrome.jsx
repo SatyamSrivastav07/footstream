@@ -1,6 +1,7 @@
 import { CalendarDays, Images, ListChecks, Shield, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
+import PublicBreadcrumbs from "../../components/PublicBreadcrumbs.jsx";
 
 export function TeamLogo({ team, className = "size-20 rounded-2xl" }) {
   const [failed, setFailed] = useState(false);
@@ -20,16 +21,29 @@ export function TeamLogo({ team, className = "size-20 rounded-2xl" }) {
       src={team.logo}
       alt={`${team.name} logo`}
       className={`object-cover ${className}`}
+      loading="lazy"
+      decoding="async"
       onError={() => setFailed(true)}
     />
   );
 }
 
-export function PublicTeamHeader({ team }) {
+export function PublicTeamHeader({ team, currentLabel = "" }) {
   const [coverFailed, setCoverFailed] = useState(false);
   useEffect(() => setCoverFailed(false), [team.coverPhoto]);
   return (
     <>
+      <PublicBreadcrumbs
+        items={[
+          { label: "Teams", to: "/teams" },
+          ...(currentLabel
+            ? [
+                { label: team.name, to: `/teams/${team.slug}` },
+                { label: currentLabel },
+              ]
+            : [{ label: team.name }]),
+        ]}
+      />
       <header className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,.15),transparent_50%),rgba(255,255,255,.025)]">
         <div className="relative h-44 sm:h-56">
           {team.coverPhoto && !coverFailed && (

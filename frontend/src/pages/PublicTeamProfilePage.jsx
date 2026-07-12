@@ -15,11 +15,24 @@ import LoadingScreen from "../components/LoadingScreen.jsx";
 import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
 import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
 import { PublicTeamHeader } from "../features/public/PublicTeamChrome.jsx";
+import ShareButton from "../components/ShareButton.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 export default function PublicTeamProfilePage() {
   const { teamSlug } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const metadataTeam = data?.team;
+  usePageMetadata({
+    title: metadataTeam
+      ? `${metadataTeam.name} | FootStream`
+      : "Team | FootStream",
+    description:
+      metadataTeam?.description ||
+      "Public football team profile, squad, fixtures, results, statistics, and gallery on FootStream.",
+    path: `/teams/${teamSlug}`,
+    image: metadataTeam?.coverPhoto || metadataTeam?.logo || "",
+  });
   useEffect(() => {
     api
       .get(`/public/teams/${teamSlug}`)
@@ -37,6 +50,13 @@ export default function PublicTeamProfilePage() {
   return (
     <>
       <PublicTeamHeader team={team} />
+      <div className="mt-4 flex justify-end">
+        <ShareButton
+          title={team.name}
+          text={`Follow ${team.name} on FootStream.`}
+          path={`/teams/${team.slug}`}
+        />
+      </div>
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
         <article className="panel">
           <p className="eyebrow">Club profile</p>
@@ -138,6 +158,8 @@ export default function PublicTeamProfilePage() {
                   className="aspect-[4/3] size-full object-cover"
                   src={photo.imageUrl}
                   alt={photo.caption || `${team.name} match photo`}
+                  loading="lazy"
+                  decoding="async"
                 />
               </figure>
             ))}

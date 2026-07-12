@@ -5,11 +5,25 @@ import api from "../api/client.js";
 import LoadingScreen from "../components/LoadingScreen.jsx";
 import { PublicError } from "../features/public/PublicStates.jsx";
 import { formatLocalDateTime, label } from "../features/matches/constants.js";
+import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
+import ShareButton from "../components/ShareButton.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 export default function PublicMatchPage() {
   const { matchId } = useParams();
   const [match, setMatch] = useState(null);
   const [error, setError] = useState("");
+  const metadataName = match
+    ? `${match.team.name} vs ${match.opponent.name}`
+    : "Match";
+  usePageMetadata({
+    title: `${metadataName} | FootStream`,
+    description: match
+      ? `${metadataName} at ${match.venue}. Follow fixture information, lineups, live coverage, or the final result.`
+      : "Public football match details on FootStream.",
+    path: `/matches/${matchId}`,
+    image: match?.team?.logo || "",
+  });
   useEffect(() => {
     api
       .get(`/public/matches/${matchId}`)
@@ -31,6 +45,12 @@ export default function PublicMatchPage() {
     match.teamSide === "home" ? match.opponent.name : match.team.name;
   return (
     <>
+      <PublicBreadcrumbs
+        items={[
+          { label: "Matches", to: "/fixtures" },
+          { label: `${home} vs ${away}` },
+        ]}
+      />
       <header className="rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(190,242,100,.09),transparent_55%),rgba(255,255,255,.02)] p-6 sm:p-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span
@@ -87,6 +107,13 @@ export default function PublicMatchPage() {
               <Radio size={16} /> Live page
             </Link>
           ) : null}
+        </div>
+        <div className="mt-4 flex justify-center">
+          <ShareButton
+            title={`${home} vs ${away}`}
+            text={`View ${home} vs ${away} on FootStream.`}
+            path={`/matches/${matchId}`}
+          />
         </div>
       </header>
       {match.status === "cancelled" && (

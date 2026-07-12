@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A, 6B, and 6C**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, secure YouTube stream configuration, the public match portal, and public team/player profiles.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A through 6D**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, and public UI polish.
 
-Global discovery, advanced SEO, deployment configuration, and social interaction features are intentionally not included.
+Deployment configuration and community interaction features are intentionally not included.
 
 ## Phase 1 Features
 
@@ -91,6 +91,16 @@ Global discovery, advanced SEO, deployment configuration, and social interaction
 - Public player profiles with identity, team, football/academic details, leadership, career statistics, awards, and recent completed match squads.
 - A protected super-admin team-profile editor controls optional public fields and publication status for existing teams.
 - Public serializers omit administrative ownership, account data, availability, Cloudinary identifiers, and unrelated database identifiers.
+
+## Phase 6D Features
+
+- Global anonymous search across published teams, active public players, and active public matches with grouped or type-specific results.
+- Exact-name, prefix, and remaining-name ranking for teams and players; live, upcoming, and completed ordering for matches.
+- Debounced URL-synchronized `/search` page, result counts, type controls, pagination, and accessible header suggestions.
+- Dynamic SPA titles, descriptions, canonical URLs, Open Graph fields, and Twitter fields using public-safe content only.
+- Reusable native-share control with clipboard and manual-copy fallbacks on teams, players, fixtures, live matches, and results.
+- Skip navigation, route focus management, keyboard-operable menus/suggestions, breadcrumbs, live announcements, visible focus treatment, and reduced-motion support.
+- Lazy-loaded larger public routes, lazy below-the-fold images, and a more useful branded public 404 experience.
 
 ## Technology
 
@@ -335,7 +345,7 @@ Edit `backend/.env` and replace at least:
 - `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` from a free Cloudinary account to enable match-photo uploads.
 - `CLOUDINARY_FOLDER` if the default `footstream/matches` root should be changed.
 
-The default frontend API URL is `http://localhost:5000/api`. The backend permits `http://localhost:5173` by default.
+The default frontend API URL is `http://localhost:5000/api`. Set `VITE_PUBLIC_APP_URL=http://localhost:5173` in `frontend/.env` so canonical metadata and share links use the intended public origin. Local development falls back to `window.location.origin` when this value is absent or invalid. Do not place a fake production domain here. The backend permits `http://localhost:5173` by default.
 
 Cloudinary credentials belong only in `backend/.env`. Photos are uploaded under `<CLOUDINARY_FOLDER>/<matchId>/`; MongoDB stores searchable metadata, not image bytes.
 
@@ -642,4 +652,56 @@ Super administrators can open `/admin/teams/:teamId/profile` from the team regis
 10. Inspect every Phase 6C response and verify no `createdBy`, `updatedBy`, availability, emails, account documents, Cloudinary public IDs, upload ownership, or private stream fields are present.
 11. Re-test login, both dashboards, squad management, match creation, live control and Socket.IO, results, photos, statistics, YouTube playback, and all Phase 6B public pages.
 
-Search beyond the team-directory filter, SEO work, deployment configuration, chat, reactions, polls, notifications, and tournament management are not part of this implementation.
+## Phase 6D Global Search
+
+Open `/search?q=kiet&type=all`. The public header also provides a compact desktop search with up to five combined suggestions and a mobile Search action. Suggestions begin after two characters, wait approximately 350 milliseconds, support Up/Down/Enter/Escape keys, close outside the control, and navigate to the canonical team, player, match, live, or result page.
+
+`GET /api/public/search` accepts:
+
+| Parameter | Rules |
+| --- | --- |
+| `q` | Required trimmed string, 2–100 characters |
+| `type` | `all` (default), `teams`, `players`, or `matches` |
+| `page` | Positive integer; used by a specific result type |
+| `limit` | 1–30, default 10 per group/type |
+
+`type=all` returns `teams`, `players`, and `matches` groups with bounded items and totals. A specific type returns `items` plus `page`, `limit`, `total`, and `pages` metadata. Search input is regex-escaped and object/array queries, unsupported types, invalid pages, and excessive limits are rejected.
+
+Teams match name, short name, city, or home ground. Players match name, position, numeric jersey number, or public team name. Matches match team name, opponent, tournament, or venue. Search excludes unpublished/archived teams, inactive players, inactive matches, cancelled matches, and matches outside the public-team set. Responses use the existing public-safe serializers and never include account ownership, availability, private stream URLs, or protected storage fields.
+
+## Phase 6D Metadata and Sharing
+
+Public pages update the document title, description, canonical URL, Open Graph title/description/URL/image, and practical Twitter card fields. Dynamic team, player, and match metadata uses only data already approved for public serialization. External Cloudinary/team/player images remain absolute HTTPS URLs; when no public image exists, image metadata is omitted.
+
+FootStream remains a client-rendered React SPA. Metadata becomes accurate after JavaScript loads, so crawlers that do not execute JavaScript may see only the static `index.html` values. Phase 6D does not add SSR, prerendering, sitemap generation, or deployment-specific SEO infrastructure.
+
+The reusable Share action appears on public team, player, match, live, and result pages. It uses the Web Share API first, copies the canonical link when native sharing is unavailable, and presents a manual-copy prompt if clipboard access is denied. Accessible live feedback reports successful copy/share actions without exposing private fields.
+
+## Phase 6D Accessibility and Performance
+
+- A skip link targets the focusable public main landmark.
+- Public route changes scroll to the top and move focus to the main content without affecting authenticated dashboard routing.
+- The mobile menu focuses its first item, closes with Escape, and returns focus to its trigger.
+- Header suggestions expose expanded/active state, keyboard navigation, and outside-click dismissal.
+- Public forms have labels; errors, loading placeholders, search counts, empty states, and sharing feedback use appropriate live/status semantics.
+- Breadcrumb navigation is provided for team, player, match, live, and result contexts.
+- Visible focus styles and reduced-motion behavior are applied without a new UI or accessibility framework.
+- Larger public routes use `React.lazy` and `Suspense`; directories continue to avoid event timelines and every backend search remains bounded.
+- Reusable player/team images and gallery images use lazy loading and asynchronous decoding where appropriate. The YouTube iframe remains lazy loaded.
+
+## Manual Phase 6D Test Checklist
+
+1. Search with missing, blank, one-character, object-style, and regex-special input; verify validation and that private resources never appear.
+2. Search published teams by name, short name, city, and home ground. Confirm exact names precede prefixes and alphabetical ties are deterministic.
+3. Search active players by name, position, public team name, and numeric jersey number. Confirm inactive/private-team players and availability fields are absent.
+4. Search matches by team, opponent, tournament, and venue. Confirm live entries precede upcoming fixtures and completed results, with inactive/private/cancelled matches absent.
+5. Exercise All/Teams/Players/Matches controls, URL back/forward behavior, debounce, counts, empty/error/loading states, and specific-type pagination.
+6. Use the desktop header suggestions with mouse, Up/Down/Enter/Escape, and outside click. Verify the mobile menu Search action at smaller widths.
+7. Navigate through every public route and inspect title, description, canonical, Open Graph, and Twitter fields. Confirm `VITE_PUBLIC_APP_URL` controls canonical/share origins and no private data appears.
+8. Test Share on a team, player, scheduled match, live match, and result with native sharing, clipboard fallback, denied clipboard access, and user-cancelled sharing.
+9. Navigate using only the keyboard: use the skip link, menu, search, type controls, pagination, breadcrumbs, cards, and 404 actions. Verify visible focus and sensible route-change focus.
+10. Enable reduced motion, test image fallbacks and loading announcements, and confirm the YouTube iframe retains an accessible title and fullscreen support.
+11. Directly load each lazy public route and verify its loading state and final page. Confirm authenticated dashboards and live-control workflows are unchanged.
+12. Re-run authentication, squad/match management, Socket.IO, results, statistics, photos, YouTube streams, and all earlier public APIs as regression coverage.
+
+Deployment automation, hosting configuration, community accounts, chat, reactions, polls, notifications, payments, tournament management, and custom video hosting are not included.

@@ -8,8 +8,15 @@ import {
   PublicError,
   PublicGridLoader,
 } from "../features/public/PublicStates.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 export default function PublicHomePage() {
+  usePageMetadata({
+    title: "FootStream | Football Live, Fixtures & Results",
+    description:
+      "Follow live football scoreboards, upcoming fixtures, final results, teams, players, and YouTube broadcasts.",
+    path: "/",
+  });
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {

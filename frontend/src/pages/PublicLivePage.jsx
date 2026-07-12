@@ -1,52 +1,60 @@
-import { Clipboard, Radio, Share2 } from "lucide-react";
+import { Radio } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LiveMatchView from "../features/live/LiveMatchView.jsx";
+import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
+import ShareButton from "../components/ShareButton.jsx";
+import usePageMetadata from "../hooks/usePageMetadata.js";
 
 export default function PublicLivePage() {
   const { matchId } = useParams();
   const [stream, setStream] = useState(undefined);
+  const [match, setMatch] = useState(null);
+  const matchName = match
+    ? `${match.team.name} vs ${match.opponent.name}`
+    : "Live match";
+  usePageMetadata({
+    title: `${matchName} | Live | FootStream`,
+    description: match
+      ? `Watch or follow ${matchName} live with the scoreboard, timer, lineups, and event timeline.`
+      : "Follow a football match live on FootStream.",
+    path: `/matches/${matchId}/live`,
+    image: match?.team?.logo || "",
+  });
   useEffect(() => {
     api
       .get(`/public/matches/${matchId}/stream`)
       .then((response) => setStream(response.data.data.stream))
       .catch(() => setStream({ isPlayable: false }));
   }, [matchId]);
-  const share = async () => {
-    const url = `${window.location.origin}/matches/${matchId}/live`;
-    const data = {
-      title: "FootStream live match",
-      text: "Follow this match live on FootStream.",
-      url,
-    };
-    try {
-      if (navigator.share) await navigator.share(data);
-      else {
-        await navigator.clipboard.writeText(url);
-        window.alert("Live match link copied.");
-      }
-    } catch (error) {
-      if (error.name !== "AbortError")
-        window.prompt("Copy this live match link:", url);
-    }
-  };
-  const canShare = typeof navigator !== "undefined" && Boolean(navigator.share);
+  useEffect(() => {
+    api
+      .get(`/public/matches/${matchId}`)
+      .then((response) => setMatch(response.data.data.match))
+      .catch(() => setMatch(null));
+  }, [matchId]);
   return (
     <>
+      <PublicBreadcrumbs
+        items={[{ label: "Matches", to: "/live" }, { label: matchName }]}
+      />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow">Live match center</p>
           <h1 className="page-title text-3xl sm:text-4xl">Match broadcast</h1>
         </div>
-        <button type="button" className="secondary-button" onClick={share}>
-          {canShare ? <Share2 size={16} /> : <Clipboard size={16} />} Share
-          match
-        </button>
+        <ShareButton
+          title={matchName}
+          text={`Follow ${matchName} live on FootStream.`}
+          path={`/matches/${matchId}/live`}
+        />
       </div>
       {stream === undefined ? (
         <div
           className="skeleton mb-6 aspect-video rounded-3xl"
+          role="status"
+          aria-live="polite"
           aria-label="Loading match stream"
         />
       ) : stream.isPlayable ? (

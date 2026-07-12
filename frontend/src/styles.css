@@ -12,6 +12,7 @@
   button, input, textarea, select { font: inherit; }
   button:not(:disabled) { cursor: pointer; }
   button:disabled { cursor: not-allowed; opacity: .55; }
+  :where(a, button, input, select, textarea):focus-visible { outline: 2px solid #bef264; outline-offset: 3px; }
   ::selection { background: rgba(190, 242, 100, .28); color: white; }
 }
 
@@ -44,6 +45,7 @@
   .skeleton { @apply animate-pulse rounded-2xl bg-white/[0.045]; }
   .error-page { @apply grid min-h-screen place-items-center bg-[#07110d] px-5 text-white; }
   .error-card { @apply w-full max-w-xl rounded-3xl border border-white/[0.08] bg-white/[0.025] p-10 text-center shadow-2xl; }
+  .skip-link { @apply fixed left-4 top-4 z-[100] -translate-y-24 rounded-xl bg-lime-300 px-4 py-3 font-bold text-emerald-950 transition focus:translate-y-0; }
 }
 
 .pitch-grid {
@@ -58,4 +60,3 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
-

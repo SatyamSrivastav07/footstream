@@ -10,6 +10,8 @@ import { publicFixtures, publicHome, publicLiveDirectory, publicMatch, publicRes
 import { publicFixturesValidator, publicLiveDirectoryValidator, publicMatchValidator, publicResultsValidator } from '../validators/publicPortalValidators.js';
 import { publicPlayerProfile, publicTeamFixtures, publicTeamGallery, publicTeamProfile, publicTeamResults, publicTeamSquad, publicTeams } from '../controllers/publicProfileController.js';
 import { publicPlayerProfileValidator, publicTeamGalleryValidator, publicTeamMatchesValidator, publicTeamsValidator, publicTeamSlugValidator } from '../validators/publicProfileValidators.js';
+import { publicSearch } from '../controllers/publicSearchController.js';
+import { publicSearchValidator } from '../validators/publicSearchValidators.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
@@ -17,6 +19,7 @@ router.get('/home', publicHome);
 router.get('/live', publicLiveDirectoryValidator, validate, publicLiveDirectory);
 router.get('/fixtures', publicFixturesValidator, validate, publicFixtures);
 router.get('/results', publicResultsValidator, validate, publicResults);
+router.get('/search', publicSearchValidator, validate, publicSearch);
 router.get('/teams', publicTeamsValidator, validate, publicTeams);
 router.get('/teams/:teamSlug/squad', publicTeamSlugValidator, validate, publicTeamSquad);
 router.get('/teams/:teamSlug/fixtures', publicTeamMatchesValidator, validate, publicTeamFixtures);
