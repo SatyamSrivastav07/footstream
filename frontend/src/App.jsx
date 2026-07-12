@@ -195,6 +195,14 @@ function App() {
           <Route element={<RoleRoute roles={["superAdmin"]} />}>
             <Route path="/admin" element={<SuperAdminDashboard />} />
             <Route
+              path="/admin/teams"
+              element={<SuperAdminDashboard section="teams" />}
+            />
+            <Route
+              path="/admin/team-admins"
+              element={<SuperAdminDashboard section="team-admins" />}
+            />
+            <Route
               path="/admin/teams/:teamId/squad"
               element={<AdminSquadViewPage />}
             />
@@ -230,6 +238,7 @@ function App() {
           </Route>
           <Route element={<RoleRoute roles={["teamAdmin"]} />}>
             <Route path="/team" element={<TeamAdminDashboard />} />
+            <Route path="/team/current" element={<TeamAdminDashboard />} />
             <Route path="/team/squad" element={<SquadManagementPage />} />
             <Route path="/team/matches" element={<TeamMatchesPage />} />
             <Route path="/team/matches/new" element={<MatchEditorPage />} />

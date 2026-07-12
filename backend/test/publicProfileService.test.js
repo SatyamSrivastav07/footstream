@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { validationResult } from "express-validator";
+import { updateTeamValidator } from "../src/validators/adminValidators.js";
 import {
   getPublicPlayerProfile,
   getPublicSquad,
@@ -24,7 +26,10 @@ const team = {
   homeGround: "Main Ground",
   founded: 2020,
   description: "Public club",
-  socialLinks: { website: "https://example.com" },
+  socialLinks: {
+    website: "https://example.com",
+    instagram: "https://www.instagram.com/footstreamfc/",
+  },
   isPublished: true,
   isArchived: false,
   createdBy: "private",
@@ -109,11 +114,52 @@ test("team and player serializers expose profile fields without private state", 
   const publicTeam = serializePublicTeam(team);
   const publicPlayer = serializePublicPlayer(player);
   assert.equal(publicTeam.name, team.name);
+  assert.equal(publicTeam.socialLinks.instagram, team.socialLinks.instagram);
+  assert.equal(
+    serializePublicTeam({
+      ...team,
+      socialLinks: { instagram: "https://example.com/footstreamfc" },
+    }).socialLinks.instagram,
+    undefined,
+  );
   assert.equal(publicTeam.createdBy, undefined);
   assert.equal(publicTeam.isPublished, undefined);
+  assert.equal(publicTeam.createdAt, undefined);
+  assert.equal(publicTeam.updatedAt, undefined);
   assert.equal(publicPlayer.availabilityStatus, undefined);
   assert.equal(publicPlayer.createdBy, undefined);
   assert.equal(publicPlayer.isActive, undefined);
+});
+
+const teamUpdateErrors = async (body) => {
+  const req = { params: { teamId: "64b7f5f4d4a31f7a1d1f0001" }, body };
+  await Promise.all(updateTeamValidator.map((validator) => validator.run(req)));
+  return validationResult(req).array();
+};
+
+test("team profile validation accepts Instagram URLs and rejects invalid or non-Instagram URLs", async () => {
+  assert.equal(
+    (
+      await teamUpdateErrors({
+        socialLinks: { instagram: "https://www.instagram.com/footstreamfc/" },
+      })
+    ).length,
+    0,
+  );
+  assert.ok(
+    (
+      await teamUpdateErrors({
+        socialLinks: { instagram: "https://example.com/footstreamfc" },
+      })
+    ).some((error) => error.path === "socialLinks.instagram"),
+  );
+  assert.ok(
+    (
+      await teamUpdateErrors({
+        socialLinks: { instagram: "not-a-url" },
+      })
+    ).some((error) => error.path === "socialLinks.instagram"),
+  );
 });
 
 test("team slug resolution requires published and non-archived team", async () => {

@@ -1,6 +1,6 @@
 import { BarChart3, Building2, Eye, History, Pencil, Plus, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import api from '../api/client.js';
 import EmptyState from '../components/EmptyState.jsx';
 import Modal from '../components/Modal.jsx';
@@ -8,7 +8,10 @@ import Modal from '../components/Modal.jsx';
 const initialTeam = { name: '', location: '', description: '' };
 const initialAdmin = { name: '', email: '', password: '', teamId: '' };
 
-export default function SuperAdminDashboard() {
+export default function SuperAdminDashboard({ section = '' }) {
+  const location = useLocation();
+  const teamsSectionRef = useRef(null);
+  const adminsSectionRef = useRef(null);
   const [teams, setTeams] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +39,14 @@ export default function SuperAdminDashboard() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const activeSection = section || (location.pathname.endsWith('/team-admins') ? 'team-admins' : location.pathname.endsWith('/teams') ? 'teams' : '');
+    const target = activeSection === 'team-admins' ? adminsSectionRef.current : activeSection === 'teams' ? teamsSectionRef.current : null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.focus({ preventScroll: true });
+  }, [location.pathname, section]);
 
   const createTeam = async (event) => {
     event.preventDefault();
@@ -93,7 +104,7 @@ export default function SuperAdminDashboard() {
       </section>
 
       <div className="mt-9 grid gap-6 xl:grid-cols-[1fr_1.08fr]">
-        <section className="panel">
+        <section className="panel scroll-mt-8 outline-none" id="teams" ref={teamsSectionRef} tabIndex="-1">
           <div className="panel-heading"><div><p className="eyebrow">Clubs</p><h2 className="panel-title">Team registry</h2></div><span className="count-pill">{teams.length}</span></div>
           {loading ? <TableLoader /> : teams.length === 0 ? <EmptyState title="No teams yet" message="Create your first team to begin issuing team-admin access." /> : (
             <div className="space-y-3">
@@ -112,7 +123,7 @@ export default function SuperAdminDashboard() {
           )}
         </section>
 
-        <section className="panel">
+        <section className="panel scroll-mt-8 outline-none" id="team-admins" ref={adminsSectionRef} tabIndex="-1">
           <div className="panel-heading"><div><p className="eyebrow">Access</p><h2 className="panel-title">Team administrators</h2></div><span className="count-pill">{activeAdmins} active</span></div>
           {loading ? <TableLoader /> : admins.length === 0 ? <EmptyState title="No team admins yet" message="Once a team exists, issue secure access to its administrator." /> : (
             <div className="space-y-3">

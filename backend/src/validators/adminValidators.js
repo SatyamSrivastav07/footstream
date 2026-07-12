@@ -1,4 +1,15 @@
+import { URL } from 'node:url';
 import { body, param } from 'express-validator';
+
+const isInstagramUrl = (value) => {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && ['instagram.com', 'www.instagram.com'].includes(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+};
 
 const optionalProfileFields = [
   body('shortName').optional().trim().isLength({ max: 20 }).withMessage('Short name cannot exceed 20 characters.'),
@@ -10,6 +21,7 @@ const optionalProfileFields = [
   body('founded').optional({ nullable: true }).isInt({ min: 1800, max: new Date().getFullYear() }).withMessage('Founded year cannot be in the future.').toInt(),
   body('socialLinks').optional().isObject().withMessage('Social links must be an object.'),
   body('socialLinks.*').optional({ values: 'falsy' }).trim().isURL({ protocols: ['http', 'https'], require_protocol: true }).withMessage('Social links must use HTTP or HTTPS.'),
+  body('socialLinks.instagram').optional({ values: 'falsy' }).custom(isInstagramUrl).withMessage('Instagram link must be a valid instagram.com URL.'),
   body('isPublished').optional().isBoolean().withMessage('Publication status must be true or false.').toBoolean(),
 ];
 

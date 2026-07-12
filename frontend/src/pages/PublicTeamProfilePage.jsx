@@ -11,11 +11,12 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/client.js";
+import InstagramFollowButton from "../components/InstagramFollowButton.jsx";
 import LoadingScreen from "../components/LoadingScreen.jsx";
+import ShareButton from "../components/ShareButton.jsx";
 import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
 import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
 import { PublicTeamHeader } from "../features/public/PublicTeamChrome.jsx";
-import ShareButton from "../components/ShareButton.jsx";
 import usePageMetadata from "../hooks/usePageMetadata.js";
 
 export default function PublicTeamProfilePage() {
@@ -50,7 +51,8 @@ export default function PublicTeamProfilePage() {
   return (
     <>
       <PublicTeamHeader team={team} />
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <InstagramFollowButton team={team} />
         <ShareButton
           title={team.name}
           text={`Follow ${team.name} on FootStream.`}

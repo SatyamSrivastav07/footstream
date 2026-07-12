@@ -1,3 +1,4 @@
+import { URL } from "node:url";
 import Match from "../models/Match.js";
 import MatchPhoto from "../models/MatchPhoto.js";
 import Player from "../models/Player.js";
@@ -20,6 +21,23 @@ const fallbackShortName = (name = "") =>
     .slice(0, 4)
     .toUpperCase();
 
+const isInstagramUrl = (value) => {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) &&
+      ["instagram.com", "www.instagram.com"].includes(url.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+};
+
+const safeSocialLinks = (links = {}) =>
+  Object.fromEntries(
+    Object.entries(links).filter(
+      ([network, value]) => Boolean(value) && (network !== "instagram" || isInstagramUrl(value)),
+    ),
+  );
+
 export const serializePublicTeam = (team) => ({
   name: team.name,
   slug: team.slug,
@@ -31,11 +49,7 @@ export const serializePublicTeam = (team) => ({
   homeGround: team.homeGround || "",
   founded: team.founded ?? null,
   description: team.description || "",
-  socialLinks: Object.fromEntries(
-    Object.entries(team.socialLinks || {}).filter(([, value]) =>
-      Boolean(value),
-    ),
-  ),
+  socialLinks: safeSocialLinks(team.socialLinks),
 });
 
 export const serializePublicPlayer = (player) => ({

@@ -86,6 +86,7 @@ Deployment configuration and community interaction features are intentionally no
 
 - Published-team directory with team-name and city filtering, derived match/win totals, top scorer, and bounded pagination.
 - Slug-based team profiles with cover image, logo, public identity, social links, verified statistics, leaders, next fixture, latest result, and gallery preview.
+- Published team profiles show a prominent Instagram follow action when the super-admin profile editor has saved a valid `instagram.com` link.
 - Active-only public squad cards with leadership badges and no availability or administrative state.
 - Team-specific upcoming fixtures, completed results, and categorized match-photo gallery pages.
 - Public player profiles with identity, team, football/academic details, leadership, career statistics, awards, and recent completed match squads.
@@ -636,7 +637,7 @@ Directory and profile routes resolve only `isPublished: true`, non-archived team
 
 Team directory pagination defaults to 12 and team gallery pagination defaults to 18; both are capped at 30. Team-name and city filters are trimmed, length-limited, and regex-escaped. Team-specific match lists reuse the Phase 6B safe match cards and pagination.
 
-Super administrators can open `/admin/teams/:teamId/profile` from the team registry to manage short name, city, coach, home ground, founded year, logo, cover photo, description, public social links, and publication status. The supporting protected API is `PATCH /api/admin/teams/:teamId`.
+Super administrators can open `/admin/teams/:teamId/profile` from the team registry to manage short name, city, coach, home ground, founded year, logo, cover photo, description, public social links, and publication status. Instagram links must point to `instagram.com` or `www.instagram.com`; invalid or non-Instagram URLs are rejected. The supporting protected API is `PATCH /api/admin/teams/:teamId`.
 
 ## Manual Phase 6C Test Checklist
 
