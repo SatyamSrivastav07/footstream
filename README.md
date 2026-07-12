@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A and 6B**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, secure YouTube stream configuration, and the core anonymous public match portal.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A, 6B, and 6C**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, secure YouTube stream configuration, the public match portal, and public team/player profiles.
 
-Detailed public team/player profiles, global search, advanced SEO, deployment configuration, social interactions, notifications, and Phase 7 features are intentionally not included.
+Global discovery, advanced SEO, deployment configuration, and social interaction features are intentionally not included.
 
 ## Phase 1 Features
 
@@ -81,6 +81,16 @@ Detailed public team/player profiles, global search, advanced SEO, deployment co
 - The individual live page combines the existing Socket.IO scoreboard/timeline with safe YouTube playback, reconnect synchronization, lineups, and native-share/clipboard fallback.
 - Existing `/live/:matchId` and Phase 5 result/statistics URLs remain available inside the public layout.
 - Public portal discovery includes only active matches belonging to published, non-archived teams and returns explicit public-safe objects rather than raw Mongoose documents.
+
+## Phase 6C Features
+
+- Published-team directory with team-name and city filtering, derived match/win totals, top scorer, and bounded pagination.
+- Slug-based team profiles with cover image, logo, public identity, social links, verified statistics, leaders, next fixture, latest result, and gallery preview.
+- Active-only public squad cards with leadership badges and no availability or administrative state.
+- Team-specific upcoming fixtures, completed results, and categorized match-photo gallery pages.
+- Public player profiles with identity, team, football/academic details, leadership, career statistics, awards, and recent completed match squads.
+- A protected super-admin team-profile editor controls optional public fields and publication status for existing teams.
+- Public serializers omit administrative ownership, account data, availability, Cloudinary identifiers, and unrelated database identifiers.
 
 ## Technology
 
@@ -401,7 +411,7 @@ npm run build
 - Run the frontend production build and serve `frontend/dist` from a static host.
 - Run the backend with `npm start` behind a reverse proxy or managed Node.js host.
 
-Deployment configuration is reserved for a later Phase 6 milestone and is not included in Phase 6B.
+Deployment configuration is reserved for a later milestone and is not included in Phase 6C.
 
 ## Manual Phase 2 Test Checklist
 
@@ -586,12 +596,50 @@ Public serializers expose only display-safe team identity, opponent details, mat
 11. Sign in as each administrator role and verify the public header links to the correct dashboard without exposing dashboard navigation on public pages.
 12. Inspect public API responses and confirm the private fields listed above are absent; try invalid dates, IDs, enum values, oversized limits, and regex metacharacters and confirm safe validation.
 
-## Remaining Phase 6 Roadmap
+## Phase 6C Public Pages
 
-The following work is not implemented in this branch:
+| Route | Purpose |
+| --- | --- |
+| `/teams` | Published-team directory with team-name and city filters |
+| `/teams/:teamSlug` | Public team identity and overview |
+| `/teams/:teamSlug/squad` | Active public squad |
+| `/teams/:teamSlug/fixtures` | Upcoming team fixtures |
+| `/teams/:teamSlug/results` | Completed team results |
+| `/teams/:teamSlug/gallery` | Categorized team match-photo gallery |
+| `/players/:playerId` | Public active-player profile, statistics, awards, and recent matches |
 
-- **Phase 6C:** detailed public team and player profiles/directories.
-- **Phase 6D:** broader public discovery such as global search and deliberate SEO/accessibility refinement.
-- **Phase 6E:** deployment configuration, production hosting, monitoring, and launch hardening.
+The public team header provides consistent Overview, Squad, Fixtures, Results, and Gallery navigation. Team slugs are stable public identifiers. Existing match, live, result, statistics, and history URLs remain backward compatible.
 
-Chat, reactions, polls, notifications, custom video hosting, payments, and all Phase 7 functionality remain outside Phase 6B.
+## Phase 6C Public APIs
+
+| Route | Query parameters | Purpose |
+| --- | --- | --- |
+| `GET /api/public/teams` | `search`, `city`, `page`, `limit` | Published teams with derived summary statistics |
+| `GET /api/public/teams/:teamSlug` | None | Team identity, statistics, leaders, next/latest matches, and gallery preview |
+| `GET /api/public/teams/:teamSlug/squad` | None | Active squad with public player-card fields |
+| `GET /api/public/teams/:teamSlug/fixtures` | `page`, `limit` | Future scheduled fixtures, soonest first |
+| `GET /api/public/teams/:teamSlug/results` | `page`, `limit` | Completed results, newest first |
+| `GET /api/public/teams/:teamSlug/gallery` | `category`, `page`, `limit` | Photos attached to active completed matches |
+| `GET /api/public/players/:playerId/profile` | None | Active player identity, statistics, awards, and recent match squads |
+
+Directory and profile routes resolve only `isPublished: true`, non-archived teams. Squad and player routes additionally require active players. Public player responses never include availability, activation state, ownership metadata, or account data. Gallery responses include only image URL, public caption/category, and creation time; they omit Cloudinary public IDs, upload ownership, internal filenames, byte counts, and storage metadata.
+
+Team directory pagination defaults to 12 and team gallery pagination defaults to 18; both are capped at 30. Team-name and city filters are trimmed, length-limited, and regex-escaped. Team-specific match lists reuse the Phase 6B safe match cards and pagination.
+
+Super administrators can open `/admin/teams/:teamId/profile` from the team registry to manage short name, city, coach, home ground, founded year, logo, cover photo, description, public social links, and publication status. The supporting protected API is `PATCH /api/admin/teams/:teamId`.
+
+## Manual Phase 6C Test Checklist
+
+1. Sign in as super admin, open a team’s public-profile editor, fill every optional field, publish it, and confirm the public link values persist after refresh.
+2. Keep a second team private and archive another; verify neither appears at `/teams` and neither slug resolves through the public APIs.
+3. Test team-name and city filters with ordinary text and regex metacharacters, then verify pagination and alphabetical ordering.
+4. Open the published team overview and verify its cover/logo fallbacks, identity fields, public links, derived statistics, active-player leaders, next fixture, latest result, and six-photo preview.
+5. Open the squad and confirm only active players appear. Verify availability and internal activation values are absent from the network response.
+6. Open each squad player profile and verify age, academic year, preferred foot, leadership, career statistics, awards, and recent completed match squads.
+7. Deactivate a player and confirm the squad/profile hide that player and public leader links do not expose the inactive profile.
+8. Open team fixtures and verify only future scheduled active matches appear, soonest first. Open team results and verify completed active matches appear newest first.
+9. Upload categorized photos to completed matches, then verify the team gallery categories, responsive layout, pagination, and gallery preview.
+10. Inspect every Phase 6C response and verify no `createdBy`, `updatedBy`, availability, emails, account documents, Cloudinary public IDs, upload ownership, or private stream fields are present.
+11. Re-test login, both dashboards, squad management, match creation, live control and Socket.IO, results, photos, statistics, YouTube playback, and all Phase 6B public pages.
+
+Search beyond the team-directory filter, SEO work, deployment configuration, chat, reactions, polls, notifications, and tournament management are not part of this implementation.

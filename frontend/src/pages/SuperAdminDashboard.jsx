@@ -1,4 +1,4 @@
-import { BarChart3, Building2, Eye, History, Plus, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
+import { BarChart3, Building2, Eye, History, Pencil, Plus, ShieldCheck, UserCheck, UserX, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client.js';
@@ -100,8 +100,9 @@ export default function SuperAdminDashboard() {
               {teams.map((team) => (
                 <article key={team._id} className="list-card">
                   <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-lime-300/10 font-display text-lg font-bold text-lime-200">{team.name.slice(0, 2).toUpperCase()}</div>
-                  <div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white">{team.name}</h3><p className="mt-1 truncate text-xs text-emerald-100/45">{team.location || 'Location not set'} · {team.adminCount} admin{team.adminCount === 1 ? '' : 's'}</p></div>
-                  <span className="status-badge status-neutral">Private</span>
+                  <div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white">{team.name}</h3><p className="mt-1 truncate text-xs text-emerald-100/45">{team.city || team.location || 'Location not set'} · {team.adminCount} admin{team.adminCount === 1 ? '' : 's'}</p></div>
+                  <span className={`status-badge ${team.isPublished ? 'status-active' : 'status-neutral'}`}>{team.isPublished ? 'Public' : 'Private'}</span>
+                  <Link to={`/admin/teams/${team._id}/profile`} className="icon-button" aria-label={`Edit ${team.name} public profile`} title="Public profile"><Pencil size={17} /></Link>
                   <Link to={`/admin/teams/${team._id}/statistics`} className="icon-button" aria-label={`View ${team.name} statistics`} title="Statistics"><BarChart3 size={17} /></Link>
                   <Link to={`/admin/teams/${team._id}/history`} className="icon-button" aria-label={`View ${team.name} history`} title="History"><History size={17} /></Link>
                   <Link to={`/admin/teams/${team._id}/squad`} className="icon-button" aria-label={`View ${team.name} squad`} title="View squad"><Eye size={17} /></Link>

@@ -26,6 +26,11 @@ import PublicLayout from './layouts/PublicLayout.jsx';
 import PublicHomePage from './pages/PublicHomePage.jsx';
 import PublicDirectoryPage from './pages/PublicDirectoryPage.jsx';
 import PublicMatchPage from './pages/PublicMatchPage.jsx';
+import TeamDirectoryPage from './pages/TeamDirectoryPage.jsx';
+import PublicTeamProfilePage from './pages/PublicTeamProfilePage.jsx';
+import PublicTeamCollectionPage from './pages/PublicTeamCollectionPage.jsx';
+import PublicPlayerProfilePage from './pages/PublicPlayerProfilePage.jsx';
+import AdminTeamProfileEditorPage from './pages/AdminTeamProfileEditorPage.jsx';
 
 function DashboardRedirect() {
   const { user } = useAuth();
@@ -41,6 +46,13 @@ function App() {
         <Route path="/live" element={<PublicDirectoryPage kind="live" />} />
         <Route path="/fixtures" element={<PublicDirectoryPage kind="fixtures" />} />
         <Route path="/results" element={<PublicDirectoryPage kind="results" />} />
+        <Route path="/teams" element={<TeamDirectoryPage />} />
+        <Route path="/teams/:teamSlug" element={<PublicTeamProfilePage />} />
+        <Route path="/teams/:teamSlug/squad" element={<PublicTeamCollectionPage kind="squad" />} />
+        <Route path="/teams/:teamSlug/fixtures" element={<PublicTeamCollectionPage kind="fixtures" />} />
+        <Route path="/teams/:teamSlug/results" element={<PublicTeamCollectionPage kind="results" />} />
+        <Route path="/teams/:teamSlug/gallery" element={<PublicTeamCollectionPage kind="gallery" />} />
+        <Route path="/players/:playerId" element={<PublicPlayerProfilePage />} />
         <Route path="/matches/:matchId" element={<PublicMatchPage />} />
         <Route path="/matches/:matchId/live" element={<PublicLivePage />} />
         <Route path="/live/:matchId" element={<PublicLivePage />} />
@@ -55,6 +67,7 @@ function App() {
           <Route element={<RoleRoute roles={['superAdmin']} />}>
             <Route path="/admin" element={<SuperAdminDashboard />} />
             <Route path="/admin/teams/:teamId/squad" element={<AdminSquadViewPage />} />
+            <Route path="/admin/teams/:teamId/profile" element={<AdminTeamProfileEditorPage />} />
             <Route path="/admin/matches" element={<AdminMatchesPage />} />
             <Route path="/admin/matches/:matchId" element={<AdminMatchDetailsPage />} />
             <Route path="/admin/matches/:matchId/live" element={<AdminLiveOversightPage />} />

@@ -6,6 +6,7 @@ import {
   Menu,
   Radio,
   Trophy,
+  Users,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -18,6 +19,7 @@ const links = [
   ["/live", Radio, "Live"],
   ["/fixtures", CalendarDays, "Fixtures"],
   ["/results", Trophy, "Results"],
+  ["/teams", Users, "Teams"],
 ];
 
 export default function PublicLayout() {
@@ -36,7 +38,7 @@ export default function PublicLayout() {
             <Brand />
           </Link>
           <nav
-            className="hidden items-center gap-1 md:flex"
+            className="hidden items-center gap-1 lg:flex"
             aria-label="Public navigation"
           >
             {links.map(([to, Icon, text]) => (
@@ -62,7 +64,7 @@ export default function PublicLayout() {
             </Link>
             <button
               type="button"
-              className="icon-button md:hidden"
+              className="icon-button lg:hidden"
               onClick={() => setOpen((value) => !value)}
               aria-expanded={open}
               aria-label="Toggle navigation"
@@ -73,7 +75,7 @@ export default function PublicLayout() {
         </div>
         {open && (
           <nav
-            className="border-t border-white/[0.07] px-5 py-3 md:hidden"
+            className="border-t border-white/[0.07] px-5 py-3 lg:hidden"
             aria-label="Mobile public navigation"
           >
             {links.map(([to, Icon, text]) => (

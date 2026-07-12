@@ -1,0 +1,168 @@
+import {
+  Award,
+  Footprints,
+  Goal,
+  GraduationCap,
+  ShieldAlert,
+  Shirt,
+  Trophy,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import api from "../api/client.js";
+import LoadingScreen from "../components/LoadingScreen.jsx";
+import PlayerAvatar from "../features/squad/PlayerAvatar.jsx";
+import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
+import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
+import { TeamLogo } from "../features/public/PublicTeamChrome.jsx";
+
+const stats = [
+  ["matchesPlayed", "Matches"],
+  ["starts", "Starts"],
+  ["goals", "Goals"],
+  ["assists", "Assists"],
+  ["yellowCards", "Yellow cards"],
+  ["redCards", "Red cards"],
+  ["penaltiesScored", "Penalties scored"],
+  ["manOfTheMatchAwards", "MOTM"],
+];
+
+export default function PublicPlayerProfilePage() {
+  const { playerId } = useParams();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    api
+      .get(`/public/players/${playerId}/profile`)
+      .then((response) => setData(response.data.data))
+      .catch((requestError) => setError(requestError.userMessage));
+  }, [playerId]);
+  if (!data && !error) return <LoadingScreen />;
+  if (!data) return <PublicError message={error} />;
+  const { player, statistics, awards, recentMatches } = data;
+  return (
+    <>
+      <header className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_left,rgba(190,242,100,.13),transparent_52%),rgba(255,255,255,.025)] p-6 sm:p-10">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+          <PlayerAvatar
+            src={player.photoUrl}
+            name={player.name}
+            className="size-36 shrink-0 rounded-3xl"
+          />
+          <div>
+            <div className="flex flex-wrap gap-2">
+              {player.isCaptain && (
+                <span className="status-badge status-active">Captain</span>
+              )}
+              {player.isViceCaptain && (
+                <span className="status-badge status-neutral">
+                  Vice captain
+                </span>
+              )}
+            </div>
+            <p className="eyebrow mt-4">
+              {player.position} · #{player.jerseyNumber || "—"}
+            </p>
+            <h1 className="font-display text-4xl font-black sm:text-6xl">
+              {player.name}
+            </h1>
+            <Link
+              className="mt-4 inline-flex items-center gap-3 text-sm text-lime-200"
+              to={`/teams/${player.team.slug}`}
+            >
+              <TeamLogo team={player.team} className="size-8 rounded-lg" />{" "}
+              {player.team.name}
+            </Link>
+          </div>
+        </div>
+      </header>
+      <section className="mt-6 grid gap-4 sm:grid-cols-3">
+        <Fact icon={Shirt} label="Position" value={player.position} />
+        <Fact
+          icon={GraduationCap}
+          label="Academic year"
+          value={player.academicYear || "Not listed"}
+        />
+        <Fact
+          icon={Footprints}
+          label="Preferred foot"
+          value={player.preferredFoot || "Not listed"}
+        />
+        <Fact icon={Award} label="Age" value={player.age || "Not listed"} />
+      </section>
+      <section className="mt-8">
+        <p className="eyebrow">Career record</p>
+        <h2 className="panel-title">Verified statistics</h2>
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {stats.map(([key, label]) => (
+            <article className="panel" key={key}>
+              <p className="font-display text-3xl font-bold text-lime-200">
+                {statistics[key]}
+              </p>
+              <p className="mt-2 text-sm text-white/40">{label}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <AwardCard
+          icon={Trophy}
+          label="Man of the Match"
+          value={awards.manOfTheMatch}
+        />
+        <AwardCard icon={Goal} label="Goals" value={awards.goals} />
+        <AwardCard icon={Award} label="Assists" value={awards.assists} />
+        <AwardCard
+          icon={ShieldAlert}
+          label="Yellow cards"
+          value={awards.yellowCards}
+        />
+        <AwardCard
+          icon={ShieldAlert}
+          label="Red cards"
+          value={awards.redCards}
+        />
+      </section>
+      <section className="mt-10">
+        <p className="eyebrow">Recent match squads</p>
+        <h2 className="panel-title">Completed matches</h2>
+        <div className="mt-5">
+          {recentMatches.length ? (
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {recentMatches.map((match) => (
+                <PublicMatchCard
+                  key={match.matchId}
+                  match={match}
+                  context="results"
+                />
+              ))}
+            </div>
+          ) : (
+            <PublicEmpty
+              title="No recent matches"
+              message="Completed squad appearances will appear here."
+            />
+          )}
+        </div>
+      </section>
+    </>
+  );
+}
+function Fact({ icon: Icon, label, value }) {
+  return (
+    <article className="panel">
+      <Icon size={18} className="text-lime-300" />
+      <p className="mt-4 text-xs text-white/35">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </article>
+  );
+}
+function AwardCard({ icon: Icon, label, value }) {
+  return (
+    <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+      <Icon size={17} className="text-lime-300" />
+      <p className="mt-3 font-display text-2xl font-bold">{value}</p>
+      <p className="text-xs text-white/35">{label}</p>
+    </article>
+  );
+}

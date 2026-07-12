@@ -5,6 +5,7 @@ import {
   getTeamAdmins,
   getTeams,
   setTeamAdminStatus,
+  updateTeam,
 } from '../controllers/adminController.js';
 import { listPlayersForAdmin } from '../controllers/playerController.js';
 import { protect, requireRole } from '../middleware/auth.js';
@@ -14,6 +15,7 @@ import {
   createTeamAdminValidator,
   createTeamValidator,
   statusValidator,
+  updateTeamValidator,
 } from '../validators/adminValidators.js';
 import { teamIdValidator } from '../validators/playerValidators.js';
 import { getAdminMatch, listAdminMatches } from '../controllers/matchController.js';
@@ -29,6 +31,7 @@ const router = Router();
 
 router.use(protect, requireRole(USER_ROLES.SUPER_ADMIN));
 router.route('/teams').get(getTeams).post(createTeamValidator, validate, createTeam);
+router.patch('/teams/:teamId', updateTeamValidator, validate, updateTeam);
 router.get('/teams/:teamId/players', teamIdValidator, validate, listPlayersForAdmin);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);

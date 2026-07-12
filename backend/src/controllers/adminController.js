@@ -16,16 +16,34 @@ const uniqueSlug = async (name) => {
 };
 
 export const createTeam = asyncHandler(async (req, res) => {
-  const { name, description = '', location = '' } = req.body;
+  const { name, description = '', location = '', shortName = '', logo = '', coverPhoto = '', city = '', coach = '', homeGround = '', founded = null, socialLinks = {}, isPublished = false } = req.body;
   const team = await Team.create({
     name,
     slug: await uniqueSlug(name),
     description,
     location,
+    shortName,
+    logo,
+    coverPhoto,
+    city,
+    coach,
+    homeGround,
+    founded,
+    socialLinks,
+    isPublished,
     createdBy: req.user._id,
   });
 
   res.status(201).json({ success: true, data: { team } });
+});
+
+export const updateTeam = asyncHandler(async (req, res) => {
+  const team = await Team.findOne({ _id: req.params.teamId, isArchived: false });
+  if (!team) throw new AppError('Team not found.', 404, 'TEAM_NOT_FOUND');
+  const allowed = ['name', 'shortName', 'logo', 'coverPhoto', 'description', 'location', 'city', 'coach', 'homeGround', 'founded', 'socialLinks', 'isPublished'];
+  for (const key of allowed) if (Object.hasOwn(req.body, key)) team[key] = req.body[key];
+  await team.save();
+  res.json({ success: true, data: { team } });
 });
 
 export const getTeams = asyncHandler(async (_req, res) => {
@@ -86,4 +104,3 @@ export const setTeamAdminStatus = asyncHandler(async (req, res) => {
 
   res.json({ success: true, data: { user } });
 });
-
