@@ -3,6 +3,7 @@ import User, { USER_ROLES } from '../models/User.js';
 import AppError from '../utils/AppError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { slugify } from '../utils/slugify.js';
+import { removeTeamBranding, uploadTeamBranding } from '../services/teamBrandingService.js';
 
 const uniqueSlug = async (name) => {
   const base = slugify(name) || 'team';
@@ -16,15 +17,13 @@ const uniqueSlug = async (name) => {
 };
 
 export const createTeam = asyncHandler(async (req, res) => {
-  const { name, description = '', location = '', shortName = '', logo = '', coverPhoto = '', city = '', coach = '', homeGround = '', founded = null, socialLinks = {}, isPublished = false } = req.body;
+  const { name, description = '', location = '', shortName = '', city = '', coach = '', homeGround = '', founded = null, socialLinks = {}, isPublished = false } = req.body;
   const team = await Team.create({
     name,
     slug: await uniqueSlug(name),
     description,
     location,
     shortName,
-    logo,
-    coverPhoto,
     city,
     coach,
     homeGround,
@@ -40,11 +39,26 @@ export const createTeam = asyncHandler(async (req, res) => {
 export const updateTeam = asyncHandler(async (req, res) => {
   const team = await Team.findOne({ _id: req.params.teamId, isArchived: false });
   if (!team) throw new AppError('Team not found.', 404, 'TEAM_NOT_FOUND');
-  const allowed = ['name', 'shortName', 'logo', 'coverPhoto', 'description', 'location', 'city', 'coach', 'homeGround', 'founded', 'socialLinks', 'isPublished'];
+  const allowed = ['name', 'shortName', 'description', 'location', 'city', 'coach', 'homeGround', 'founded', 'socialLinks', 'isPublished'];
   for (const key of allowed) if (Object.hasOwn(req.body, key)) team[key] = req.body[key];
   await team.save();
   res.json({ success: true, data: { team } });
 });
+
+const uploadAdminBranding = (kind) => asyncHandler(async (req, res) => {
+  const data = await uploadTeamBranding({ teamId: req.params.teamId, kind, file: req.file });
+  res.json({ success: true, data });
+});
+
+const removeAdminBranding = (kind) => asyncHandler(async (req, res) => {
+  const data = await removeTeamBranding({ teamId: req.params.teamId, kind });
+  res.json({ success: true, data });
+});
+
+export const uploadTeamLogo = uploadAdminBranding('logo');
+export const uploadTeamCover = uploadAdminBranding('coverPhoto');
+export const removeTeamLogo = removeAdminBranding('logo');
+export const removeTeamCover = removeAdminBranding('coverPhoto');
 
 export const getTeams = asyncHandler(async (_req, res) => {
   const teams = await Team.find({ isArchived: false })

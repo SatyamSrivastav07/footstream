@@ -99,7 +99,7 @@ export default function SquadManagementPage() {
       <section className="mt-7">
         {loading ? <SquadLoader /> : filtered.length === 0 ? <EmptyState title={players.length === 0 ? 'Your squad is ready to be built' : 'No players match these filters'} message={players.length === 0 ? 'Add the first permanent player card for your team.' : 'Adjust or clear the filters to see more squad members.'} /> : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filtered.map((player) => <PlayerCard key={player._id} player={player} onEdit={(selected) => setEditor({ open: true, player: selected })} onStatusChange={updateAvailability} onDeactivate={deactivate} onReactivate={reactivate} />)}
+            {filtered.map((player) => <PlayerCard key={player._id} player={player} onEdit={(selected) => setEditor({ open: true, player: selected })} onStatusChange={updateAvailability} onDeactivate={deactivate} onReactivate={reactivate} onPhotoChange={loadPlayers} />)}
           </div>
         )}
       </section>
@@ -121,4 +121,3 @@ function Filter({ value, onChange, children }) {
 function SquadLoader() {
   return <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-label="Loading squad"><div className="skeleton h-[28rem]" /><div className="skeleton h-[28rem]" /><div className="skeleton h-[28rem]" /></div>;
 }
-

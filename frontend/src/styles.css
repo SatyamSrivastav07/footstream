@@ -57,6 +57,23 @@
 .loading-bar { width: 45%; animation: load 1.15s ease-in-out infinite alternate; }
 @keyframes load { from { transform: translateX(-20%); } to { transform: translateX(155%); } }
 
+.live-event-overlay {
+  --live-event-duration: 3000ms;
+  animation: live-event-enter 220ms ease-out both, live-event-exit 220ms ease-in both;
+  animation-delay: 0ms, calc(var(--live-event-duration) - 220ms);
+}
+.live-event-goal,
+.live-event-penalty_scored,
+.live-event-own_goal { --live-event-duration: 4500ms; }
+@keyframes live-event-enter {
+  from { opacity: 0; transform: translateY(-16px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes live-event-exit {
+  to { opacity: 0; transform: translateY(-10px) scale(.98); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .live-event-overlay { animation: none !important; }
 }

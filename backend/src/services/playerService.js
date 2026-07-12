@@ -1,9 +1,9 @@
 import Player from '../models/Player.js';
 import AppError from '../utils/AppError.js';
+import { playerPhotoUrl } from './playerPhotoService.js';
 
 export const PLAYER_EDITABLE_FIELDS = Object.freeze([
   'name',
-  'photoUrl',
   'position',
   'jerseyNumber',
   'age',
@@ -20,6 +20,8 @@ const pick = (source, fields) => Object.fromEntries(
 
 const withoutInternalFields = (player) => {
   const value = typeof player.toJSON === 'function' ? player.toJSON() : { ...player };
+  value.photoUrl = playerPhotoUrl(value);
+  delete value.photo;
   delete value.__v;
   delete value.createdBy;
   delete value.updatedBy;
@@ -144,4 +146,3 @@ export const softDeletePlayerForTeam = async ({ model = Player, teamId, playerId
 };
 
 export const serializePlayers = (players) => players.map(withoutInternalFields);
-

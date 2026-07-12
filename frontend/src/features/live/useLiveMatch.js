@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import api from '../../api/client.js';
+import useEventNotificationQueue from './useEventNotificationQueue.js';
 
 const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 
@@ -10,6 +11,8 @@ export default function useLiveMatch(matchId, mode = 'public') {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connection, setConnection] = useState('connecting');
+  const notifications = useEventNotificationQueue();
+  const { enqueue } = notifications;
 
   const endpoints = useMemo(() => {
     if (mode === 'team') return { state: `/team/matches/${matchId}/live-state`, events: `/team/matches/${matchId}/events` };
@@ -41,13 +44,21 @@ export default function useLiveMatch(matchId, mode = 'public') {
     socket.on('disconnect', () => setConnection('reconnecting'));
     socket.io.on('reconnect_attempt', () => setConnection('reconnecting'));
     socket.on('match:state', setState);
-    socket.on('match:event-created', refresh);
-    socket.on('match:event-undone', refresh);
-    socket.on('match:transition', refresh);
+    socket.on('match:event-created', (payload) => {
+      if (mode === 'public') enqueue({ kind: 'event', event: payload?.event, state: payload?.state });
+      refresh();
+    });
+    socket.on('match:event-undone', (payload) => {
+      if (mode === 'public') enqueue({ kind: 'undo', event: payload?.event, state: payload?.state });
+      refresh();
+    });
+    socket.on('match:transition', (payload) => {
+      if (mode === 'public') enqueue({ kind: 'transition', state: payload?.state });
+      refresh();
+    });
     socket.on('match:error', (value) => setError(value.message));
     return () => { socket.emit('leave-match', matchId); socket.disconnect(); };
-  }, [matchId, refresh]);
+  }, [enqueue, matchId, mode, refresh]);
 
-  return { state, events, loading, error, connection, refresh, setError };
+  return { state, events, loading, error, connection, refresh, setError, notifications };
 }
-

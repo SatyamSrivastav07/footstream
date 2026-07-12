@@ -3,6 +3,7 @@ import Team from "../models/Team.js";
 import AppError from "../utils/AppError.js";
 import { calculateElapsedSeconds } from "./liveMatchService.js";
 import { serializePublicStream } from "./streamService.js";
+import { publicImage } from "./teamBrandingService.js";
 
 export const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -10,7 +11,7 @@ const idString = (value) => String(value?._id || value || "");
 
 const safeTeam = (team) =>
   team
-    ? { _id: team._id, name: team.name, slug: team.slug, logo: team.logo || "" }
+    ? { _id: team._id, name: team.name, slug: team.slug, logo: publicImage(team.logo).imageUrl }
     : null;
 const safeSnapshot = (entry) => ({
   player: entry.player,

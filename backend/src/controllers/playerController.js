@@ -10,6 +10,7 @@ import {
   updatePlayerForTeam,
   updatePlayerStatusForTeam,
 } from '../services/playerService.js';
+import { removePlayerPhoto, uploadPlayerPhoto } from '../services/playerPhotoService.js';
 
 const assignedTeamId = (req) => req.user.team?._id || req.user.team;
 
@@ -63,6 +64,23 @@ export const updateTeamPlayerStatus = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { player } });
 });
 
+export const uploadTeamPlayerPhoto = asyncHandler(async (req, res) => {
+  const data = await uploadPlayerPhoto({
+    teamId: assignedTeamId(req),
+    playerId: req.params.playerId,
+    file: req.file,
+  });
+  res.json({ success: true, data: { photo: data.photo, photoUrl: data.photoUrl } });
+});
+
+export const deleteTeamPlayerPhoto = asyncHandler(async (req, res) => {
+  const data = await removePlayerPhoto({
+    teamId: assignedTeamId(req),
+    playerId: req.params.playerId,
+  });
+  res.json({ success: true, data: { photo: data.photo, photoUrl: data.photoUrl } });
+});
+
 export const deleteTeamPlayer = asyncHandler(async (req, res) => {
   const player = await softDeletePlayerForTeam({
     teamId: assignedTeamId(req),
@@ -81,4 +99,3 @@ export const listPlayersForAdmin = asyncHandler(async (req, res) => {
     .sort({ isActive: -1, position: 1, jerseyNumber: 1, name: 1 });
   res.json({ success: true, data: { team, players: serializePlayers(players) } });
 });
-

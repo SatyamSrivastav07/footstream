@@ -705,4 +705,106 @@ The reusable Share action appears on public team, player, match, live, and resul
 11. Directly load each lazy public route and verify its loading state and final page. Confirm authenticated dashboards and live-control workflows are unchanged.
 12. Re-run authentication, squad/match management, Socket.IO, results, statistics, photos, YouTube streams, and all earlier public APIs as regression coverage.
 
-Deployment automation, hosting configuration, community accounts, chat, reactions, polls, notifications, payments, tournament management, and custom video hosting are not included.
+## Phase 6D.5 Live Notifications and Branding Uploads
+
+Public live match pages now show animated, queued event overlays for newly received Socket.IO updates only. Initial REST loads and reconnect resyncs refresh the scoreboard/timeline without replaying old overlays. Goal, assisted-goal, penalty-scored, and own-goal notifications remain visible for about 4.5 seconds; cards, substitutions, missed/saved penalties, match transitions, and event corrections remain visible for about 3 seconds. The overlay uses `aria-live`, supports manual dismissal, and respects reduced-motion preferences.
+
+Team logo and cover photo management now uses direct Cloudinary uploads instead of raw URL entry. Super admins can upload/remove branding from `/admin/teams/:teamId/profile`; team admins can upload/remove branding from their My Team dashboard. Public responses expose only safe image URLs and dimensions where useful; Cloudinary `publicId` values remain private.
+
+Branding upload APIs:
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `PUT` | `/api/team/profile/logo` | Team admin | Upload or replace the assigned team's logo |
+| `DELETE` | `/api/team/profile/logo` | Team admin | Remove the assigned team's logo |
+| `PUT` | `/api/team/profile/cover` | Team admin | Upload or replace the assigned team's cover photo |
+| `DELETE` | `/api/team/profile/cover` | Team admin | Remove the assigned team's cover photo |
+| `PUT` | `/api/admin/teams/:teamId/logo` | Super admin | Upload or replace a team's logo |
+| `DELETE` | `/api/admin/teams/:teamId/logo` | Super admin | Remove a team's logo |
+| `PUT` | `/api/admin/teams/:teamId/cover` | Super admin | Upload or replace a team's cover photo |
+| `DELETE` | `/api/admin/teams/:teamId/cover` | Super admin | Remove a team's cover photo |
+
+Uploads use multipart form data with the field name `image`. Logos accept JPEG, PNG, or WebP files up to 2 MB and are stored under `footstream/teams/<teamId>/logo`. Covers accept JPEG, PNG, or WebP files up to 5 MB and are stored under `footstream/teams/<teamId>/cover`. The server validates MIME type and file signatures, never trusts original filenames, never stores image bytes in MongoDB, uploads the replacement before saving new metadata, cleans newly uploaded assets if database persistence fails, and deletes old Cloudinary assets after successful replacement.
+
+## Manual Phase 6D.5 Test Checklist
+
+1. Open a public live match in one browser and team live control in another. Create a goal with assist, card, substitution, penalty outcome, own goal, transition, and undo; verify one overlay appears at a time and the scoreboard/timeline still update.
+2. Reconnect the public live page and confirm existing REST events are not replayed as new overlays.
+3. Enable reduced motion and confirm overlays do not use entrance/exit motion.
+4. Sign in as super admin, open a team's public profile editor, upload logo and cover images, refresh, replace both, then remove both.
+5. Sign in as team admin, open My Team, upload logo and cover images, refresh, replace both, then remove both. Confirm another team's branding endpoints are not available through team-admin routes.
+6. Try oversized, unsupported, and MIME-spoofed files. Confirm clear validation errors and no public `publicId` values appear in public team, match, search, or live responses.
+
+## Player Photo Direct Upload
+
+Player cards now use direct Cloudinary uploads instead of raw Photo URL entry. The player create/edit modal contains only player identity, squad, academic, and leadership fields; team admins manage photos from each squad card.
+
+Player photo APIs:
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `PUT` | `/api/team/players/:playerId/photo` | Assigned team admin only | Upload or replace a player photo |
+| `DELETE` | `/api/team/players/:playerId/photo` | Assigned team admin only | Remove the uploaded player photo |
+
+Uploads use multipart form data with field name `image`. JPEG, PNG, and WebP files up to 3 MB are accepted and stored under `footstream/teams/<teamId>/players/<playerId>`. The backend validates MIME type and file signature, stores only Cloudinary metadata, deletes the previous Cloudinary asset after a successful replacement, and removes newly uploaded assets if database persistence fails. Legacy `photoUrl` strings remain readable until a player receives an uploaded photo; public and authenticated responses expose only the safe `photoUrl` display value and never expose Cloudinary `publicId`.
+
+## Phase 6E Production Readiness
+
+Production readiness adds fail-fast environment validation, request IDs, production-safe error responses, Helmet security headers, compression, stricter CORS, rate limiting, cache headers, top-level health/readiness endpoints, and graceful shutdown.
+
+Health endpoints:
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Platform-friendly health response with `status`, `uptime`, `database`, `cloudinary`, `version`, and `environment` |
+| `GET /ready` | Readiness response for deployment probes |
+| `GET /api/health` | Backward-compatible API health route |
+| `GET /api/health/ready` | Backward-compatible API readiness route |
+
+Required production environment:
+
+| Variable | Purpose |
+| --- | --- |
+| `NODE_ENV=production` | Enables production validation and production-safe behavior |
+| `PORT` | Backend listen port |
+| `MONGODB_URI` | MongoDB Atlas or managed MongoDB connection string |
+| `JWT_SECRET` | At least 32 characters |
+| `JWT_EXPIRES_IN` | Session token lifetime |
+| `COOKIE_NAME` | Auth cookie name |
+| `COOKIE_MAX_AGE_MS` | Auth cookie lifetime |
+| `CLIENT_URL` | Primary frontend origin |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
+| `CLOUDINARY_FOLDER` | Match-photo folder prefix |
+| `SUPER_ADMIN_NAME` | Seed script display name |
+| `SUPER_ADMIN_EMAIL` | Seed script email |
+| `SUPER_ADMIN_PASSWORD` | Seed script initial password |
+| `VITE_API_URL` | Frontend API base URL |
+| `VITE_PUBLIC_APP_URL` | Frontend public canonical/share origin |
+
+Deployment checklist:
+
+1. Create MongoDB Atlas and Cloudinary accounts.
+2. Configure backend environment variables on Render, Railway, or DigitalOcean App Platform.
+3. Configure frontend environment variables on Vercel or Netlify.
+4. Set `CLIENT_URL` and `CORS_ORIGINS` to the deployed frontend origin.
+5. Seed exactly one super-admin account with `npm run seed:admin`.
+6. Verify `/health` and `/ready` after deployment.
+7. Confirm cookies are marked secure in production and browser requests include credentials.
+8. Exercise login, squad photos, team branding, match photos, public search, live pages, and public profiles.
+9. Keep deployment secrets only in provider dashboards; do not commit `.env` files.
+10. Do not enable Phase 7 features until Phase 6E has been accepted.
+
+Manual production-readiness checks:
+
+1. Start backend without a required production variable and confirm startup fails fast.
+2. Start backend with valid variables and confirm `/health`, `/ready`, `/api/health`, and `/api/health/ready` respond.
+3. Send disallowed-origin requests and confirm CORS blocks them.
+4. Trigger a 404 and validation error and confirm the central error format includes `requestId` without leaking stack traces in production.
+5. Confirm public GET responses include cache headers and image responses receive long-lived immutable caching when served by the API.
+6. Confirm auth, upload, and public search routes are rate-limited.
+7. Stop the process and confirm graceful shutdown disconnects MongoDB.
+
+Deployment automation, hosting configuration, community accounts, chat, reactions, polls, account notifications, payments, tournament management, and custom video hosting are not included.

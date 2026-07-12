@@ -1,6 +1,7 @@
 import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
 import AppError from '../utils/AppError.js';
+import { publicImage } from './teamBrandingService.js';
 
 const idString = (value) => value ? String(value._id || value) : '';
 const plain = (value) => (typeof value?.toJSON === 'function' ? value.toJSON() : { ...value });
@@ -295,7 +296,7 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
   const elapsedSeconds = calculateElapsedSeconds(match, now);
   const scores = calculateScore(events, match.teamSide);
   const lineup = buildCurrentLineup(match, events);
-  const team = match.team?.name ? { _id: match.team._id, name: match.team.name, slug: match.team.slug, logo: match.team.logo || '' } : { _id: match.team };
+  const team = match.team?.name ? { _id: match.team._id, name: match.team.name, slug: match.team.slug, logo: publicImage(match.team.logo).imageUrl } : { _id: match.team };
   return {
     matchId: match._id,
     team,

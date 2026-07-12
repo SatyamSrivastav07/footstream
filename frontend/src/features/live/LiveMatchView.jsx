@@ -5,6 +5,7 @@ import PlayerAvatar from '../squad/PlayerAvatar.jsx';
 import { formatLocalDateTime, label } from '../matches/constants.js';
 import EventActionModal from './EventActionModal.jsx';
 import EventTimeline from './EventTimeline.jsx';
+import LiveEventOverlay from './LiveEventOverlay.jsx';
 import LiveTimer from './LiveTimer.jsx';
 import useLiveMatch from './useLiveMatch.js';
 
@@ -15,7 +16,7 @@ const actions = [
 ];
 
 export default function LiveMatchView({ matchId, mode = 'public' }) {
-  const { state, events, loading, error, connection, refresh, setError } = useLiveMatch(matchId, mode);
+  const { state, events, loading, error, connection, refresh, setError, notifications } = useLiveMatch(matchId, mode);
   const [action, setAction] = useState(null);
   const [saving, setSaving] = useState(false);
   const editable = mode === 'team';
@@ -57,6 +58,7 @@ export default function LiveMatchView({ matchId, mode = 'public' }) {
   const nextTransition = state.status === 'scheduled' ? ['start', 'Start match'] : state.status === 'live' && state.currentPeriod === 'first_half' ? ['end-first-half', 'End first half'] : state.status === 'half_time' ? ['start-second-half', 'Start second half'] : state.status === 'live' && state.currentPeriod === 'second_half' ? ['complete', 'Complete match'] : null;
 
   return <>
+    {mode === 'public' && <LiveEventOverlay notification={notifications.active} onDismiss={notifications.dismiss} />}
     {error && <div className="mb-5 rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100" role="alert">{error}</div>}
     <section className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(239,68,68,.11),rgba(190,242,100,.055)_38%,rgba(255,255,255,.02)_70%)] p-5 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><span className={`size-2 rounded-full ${state.status === 'live' ? 'animate-pulse bg-red-400' : 'bg-white/30'}`} /><span className="text-xs font-black uppercase tracking-[0.18em] text-white/70">{label(state.status)} · {label(state.currentPeriod)}</span></div><span className={`status-badge ${connection === 'connected' ? 'status-active' : 'status-neutral'}`}>{connection}</span></div>

@@ -1,6 +1,7 @@
 import Match from '../models/Match.js';
 import Player from '../models/Player.js';
 import AppError from '../utils/AppError.js';
+import { playerPhotoUrl } from './playerPhotoService.js';
 
 export const MATCH_EDITABLE_FIELDS = Object.freeze([
   'opponent', 'tournament', 'venue', 'matchType', 'teamSide', 'scheduledAt', 'formation',
@@ -51,7 +52,7 @@ export const playerSnapshot = (player) => ({
   name: player.name,
   jerseyNumber: player.jerseyNumber ?? null,
   position: player.position,
-  photoUrl: player.photoUrl || '',
+  photoUrl: playerPhotoUrl(player),
   isCaptain: Boolean(player.isCaptain),
   isViceCaptain: Boolean(player.isViceCaptain),
 });

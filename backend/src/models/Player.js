@@ -39,6 +39,10 @@ const playerSchema = new mongoose.Schema(
       default: '',
       validate: { validator: validHttpUrl, message: 'Photo URL must use HTTP or HTTPS.' },
     },
+    photo: {
+      type: mongoose.Schema.Types.Mixed,
+      default: '',
+    },
     position: { type: String, enum: PLAYER_POSITIONS, required: true },
     jerseyNumber: {
       type: Number,

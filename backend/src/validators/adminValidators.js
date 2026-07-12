@@ -13,8 +13,6 @@ const isInstagramUrl = (value) => {
 
 const optionalProfileFields = [
   body('shortName').optional().trim().isLength({ max: 20 }).withMessage('Short name cannot exceed 20 characters.'),
-  body('logo').optional({ values: 'falsy' }).trim().isURL({ protocols: ['http', 'https'], require_protocol: true }).withMessage('Logo must be an HTTP or HTTPS URL.'),
-  body('coverPhoto').optional({ values: 'falsy' }).trim().isURL({ protocols: ['http', 'https'], require_protocol: true }).withMessage('Cover photo must be an HTTP or HTTPS URL.'),
   body('city').optional().trim().isLength({ max: 100 }).withMessage('City cannot exceed 100 characters.'),
   body('coach').optional().trim().isLength({ max: 100 }).withMessage('Coach cannot exceed 100 characters.'),
   body('homeGround').optional().trim().isLength({ max: 160 }).withMessage('Home ground cannot exceed 160 characters.'),

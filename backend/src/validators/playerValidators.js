@@ -28,7 +28,7 @@ const rejectUnknownFields = (allowed) => body().custom((value) => {
 });
 
 const editableFields = [
-  'name', 'photoUrl', 'position', 'jerseyNumber', 'age', 'academicYear', 'preferredFoot',
+  'name', 'position', 'jerseyNumber', 'age', 'academicYear', 'preferredFoot',
   'availabilityStatus', 'isCaptain', 'isViceCaptain',
 ];
 
@@ -36,12 +36,6 @@ const playerFields = (required) => [
   required
     ? body('name').trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2 to 100 characters.')
     : body('name').optional().trim().isLength({ min: 2, max: 100 }).withMessage('Name must be 2 to 100 characters.'),
-  body('photoUrl')
-    .optional({ checkFalsy: true })
-    .trim()
-    .isLength({ max: 2048 }).withMessage('Photo URL is too long.')
-    .isURL({ protocols: ['http', 'https'], require_protocol: true })
-    .withMessage('Photo URL must be a valid HTTP or HTTPS URL.'),
   required
     ? body('position').isIn(PLAYER_POSITIONS).withMessage('Select a valid position.')
     : body('position').optional().isIn(PLAYER_POSITIONS).withMessage('Select a valid position.'),

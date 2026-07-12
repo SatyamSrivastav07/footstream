@@ -9,6 +9,10 @@ const assertConfigured = () => {
   cloudinary.config({ cloud_name: env.cloudinary.cloudName, api_key: env.cloudinary.apiKey, api_secret: env.cloudinary.apiSecret, secure: true });
 };
 
+export const cloudinaryStatus = () => (
+  env.cloudinary.cloudName && env.cloudinary.apiKey && env.cloudinary.apiSecret ? 'configured' : 'not_configured'
+);
+
 export const cloudinaryClient = {
   upload: ({ buffer, folder, publicId }) => {
     assertConfigured();

@@ -4,7 +4,7 @@ export const notFound = (req, _res, next) => {
   next(new AppError(`Route ${req.method} ${req.originalUrl} was not found.`, 404, 'NOT_FOUND'));
 };
 
-export const errorHandler = (error, _req, res, _next) => {
+export const errorHandler = (error, req, res, _next) => {
   let normalized = error;
 
   if (error.name === 'CastError') {
@@ -39,6 +39,7 @@ export const errorHandler = (error, _req, res, _next) => {
       message: statusCode >= 500 ? 'Something went wrong on the server.' : normalized.message,
       ...(normalized.details ? { details: normalized.details } : {}),
     },
+    requestId: req.id,
   };
 
   if (process.env.NODE_ENV !== 'production' && statusCode >= 500) {

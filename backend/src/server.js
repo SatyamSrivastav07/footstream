@@ -6,13 +6,18 @@ import { initializeSocketServer } from './realtime/socketServer.js';
 
 const server = createServer(app);
 initializeSocketServer(server);
-server.listen(env.port, () => {
-  console.log(`FootStream API listening on http://localhost:${env.port}`);
-});
 
 connectDatabase()
-  .then(() => console.log('MongoDB connected'))
-  .catch((error) => console.error(`MongoDB connection failed: ${error.message}`));
+  .then(() => {
+    console.log('MongoDB connected');
+    server.listen(env.port, () => {
+      console.log(`FootStream API listening on http://localhost:${env.port}`);
+    });
+  })
+  .catch((error) => {
+    console.error(`MongoDB connection failed: ${error.message}`);
+    process.exit(1);
+  });
 
 const shutdown = async (signal) => {
   console.log(`${signal} received. Shutting down gracefully.`);

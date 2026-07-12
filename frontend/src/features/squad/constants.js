@@ -7,7 +7,6 @@ export const availabilityLabel = (value) => value.charAt(0).toUpperCase() + valu
 
 export const emptyPlayer = Object.freeze({
   name: '',
-  photoUrl: '',
   position: '',
   jerseyNumber: '',
   age: '',
@@ -17,4 +16,3 @@ export const emptyPlayer = Object.freeze({
   isCaptain: false,
   isViceCaptain: false,
 });
-

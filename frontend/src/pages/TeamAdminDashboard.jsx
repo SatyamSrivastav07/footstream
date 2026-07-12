@@ -1,9 +1,18 @@
 import { Building2, CalendarDays, MapPin, ShieldCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import api from '../api/client.js';
+import TeamBrandingUploader from '../components/TeamBrandingUploader.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TeamAdminDashboard() {
   const { user } = useAuth();
-  const team = user.team;
+  const [team, setTeam] = useState(user.team);
+
+  useEffect(() => {
+    api.get('/team/current')
+      .then((response) => setTeam(response.data.data.team))
+      .catch(() => setTeam(user.team));
+  }, [user.team]);
 
   return (
     <>
@@ -27,7 +36,14 @@ export default function TeamAdminDashboard() {
         <article className="panel min-h-56"><div className="metric-icon metric-emerald"><Building2 size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">Team administration</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Your account is securely linked to one team. Cross-team access is rejected by the FootStream API.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/30">Phase 1 active</p></article>
         <article className="panel min-h-56"><div className="metric-icon metric-lime"><CalendarDays size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">What comes next</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Permanent squads begin in Phase 2. Match creation, live controls, and public experiences remain intentionally unavailable.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-lime-300/50">Scope protected</p></article>
       </section>
+
+      <section className="panel mt-7">
+        <div className="panel-heading"><div><p className="eyebrow">Team branding</p><h2 className="panel-title">Logo and cover photo</h2></div></div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TeamBrandingUploader kind="logo" initialImage={team?.logo} uploadUrl="/team/profile/logo" deleteUrl="/team/profile/logo" />
+          <TeamBrandingUploader kind="cover" initialImage={team?.coverPhoto} uploadUrl="/team/profile/cover" deleteUrl="/team/profile/cover" />
+        </div>
+      </section>
     </>
   );
 }
-

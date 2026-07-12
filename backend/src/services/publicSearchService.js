@@ -2,6 +2,8 @@ import Match from "../models/Match.js";
 import Player from "../models/Player.js";
 import Team from "../models/Team.js";
 import { serializePublicMatchCard } from "./publicPortalService.js";
+import { publicImage } from "./teamBrandingService.js";
+import { playerPhotoUrl } from "./playerPhotoService.js";
 
 const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -72,7 +74,7 @@ const safeTeam = (team) => ({
       .join("")
       .slice(0, 4)
       .toUpperCase(),
-  logo: team.logo || "",
+  logo: publicImage(team.logo).imageUrl,
   city: team.city || team.location || "",
   homeGround: team.homeGround || "",
 });
@@ -80,7 +82,7 @@ const safeTeam = (team) => ({
 const safePlayer = (player) => ({
   playerId: String(player._id),
   name: player.name,
-  photoUrl: player.photoUrl || "",
+  photoUrl: playerPhotoUrl(player),
   position: player.position,
   jerseyNumber: player.jerseyNumber ?? null,
   isCaptain: Boolean(player.isCaptain),
@@ -140,7 +142,7 @@ export const searchPlayers = async ({
   const decorate = (value) =>
     value
       .select(
-        "team name photoUrl position jerseyNumber isCaptain isViceCaptain",
+        "team name photo photoUrl position jerseyNumber isCaptain isViceCaptain",
       )
       .populate("team", "name shortName slug logo city location homeGround");
   const result = await readRankedPage({

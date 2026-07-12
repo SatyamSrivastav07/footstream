@@ -1,6 +1,7 @@
 import { BarChart3, Crown, Pencil, RotateCcw, Shield, UserX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PlayerAvatar from './PlayerAvatar.jsx';
+import PlayerPhotoUploader from './PlayerPhotoUploader.jsx';
 import { AVAILABILITY, availabilityLabel } from './constants.js';
 
 const badgeClass = {
@@ -10,7 +11,7 @@ const badgeClass = {
   unavailable: 'border-white/10 bg-white/[0.05] text-white/50',
 };
 
-export default function PlayerCard({ player, readOnly = false, statsPath, onEdit, onStatusChange, onDeactivate, onReactivate }) {
+export default function PlayerCard({ player, readOnly = false, statsPath, onEdit, onStatusChange, onDeactivate, onReactivate, onPhotoChange }) {
   return (
     <article className={`group overflow-hidden rounded-3xl border bg-white/[0.025] transition ${player.isActive ? 'border-white/[0.08] hover:-translate-y-0.5 hover:border-lime-300/20' : 'border-white/[0.05] opacity-65'}`}>
       <div className="relative aspect-[4/3] overflow-hidden">
@@ -41,6 +42,7 @@ export default function PlayerCard({ player, readOnly = false, statsPath, onEdit
 
         {!readOnly && (
           <div className="mt-4 space-y-3">
+            <PlayerPhotoUploader player={player} onChanged={onPhotoChange} />
             <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Availability
               <select className="field-input mt-2 py-2.5" value={player.availabilityStatus} disabled={!player.isActive} onChange={(event) => onStatusChange(player, event.target.value)}>
                 {AVAILABILITY.map((status) => <option key={status} value={status}>{availabilityLabel(status)}</option>)}

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LoadingScreen from "../components/LoadingScreen.jsx";
+import TeamBrandingUploader from "../components/TeamBrandingUploader.jsx";
 
 const empty = {
   name: "",
@@ -75,8 +76,6 @@ export default function AdminTeamProfileEditorPage() {
         coach: form.coach,
         homeGround: form.homeGround,
         founded: form.founded ? Number(form.founded) : null,
-        logo: form.logo,
-        coverPhoto: form.coverPhoto,
         description: form.description,
         socialLinks,
         isPublished: form.isPublished,
@@ -145,19 +144,14 @@ export default function AdminTeamProfileEditorPage() {
             min="1800"
             max={new Date().getFullYear()}
           />
-          <Field
-            label="Logo URL"
-            value={form.logo}
-            onChange={(value) => set("logo", value)}
-            type="url"
-          />
-          <Field
-            label="Cover photo URL"
-            value={form.coverPhoto}
-            onChange={(value) => set("coverPhoto", value)}
-            type="url"
-          />
         </div>
+        <section>
+          <p className="eyebrow">Team branding</p>
+          <div className="mt-3 grid gap-4 lg:grid-cols-2">
+            <TeamBrandingUploader kind="logo" initialImage={form.logo} uploadUrl={`/admin/teams/${teamId}/logo`} deleteUrl={`/admin/teams/${teamId}/logo`} />
+            <TeamBrandingUploader kind="cover" initialImage={form.coverPhoto} uploadUrl={`/admin/teams/${teamId}/cover`} deleteUrl={`/admin/teams/${teamId}/cover`} />
+          </div>
+        </section>
         <label className="field-label">
           Description
           <textarea

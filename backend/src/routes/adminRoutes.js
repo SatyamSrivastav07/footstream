@@ -4,8 +4,12 @@ import {
   createTeamAdmin,
   getTeamAdmins,
   getTeams,
+  removeTeamCover,
+  removeTeamLogo,
   setTeamAdminStatus,
   updateTeam,
+  uploadTeamCover as uploadTeamCoverController,
+  uploadTeamLogo as uploadTeamLogoController,
 } from '../controllers/adminController.js';
 import { listPlayersForAdmin } from '../controllers/playerController.js';
 import { protect, requireRole } from '../middleware/auth.js';
@@ -26,12 +30,17 @@ import { getAdminPlayerStats, getAnyPhotos, getAnyResult, getTeamHistory, getTea
 import { playerStatsValidator, resultIdValidator, teamStatsValidator } from '../validators/phaseFiveValidators.js';
 import { readAdminStream } from '../controllers/streamController.js';
 import { streamIdValidator } from '../validators/streamValidators.js';
+import { uploadTeamCover, uploadTeamLogo, validateTeamImageSignature } from '../middleware/photoUpload.js';
 
 const router = Router();
 
 router.use(protect, requireRole(USER_ROLES.SUPER_ADMIN));
 router.route('/teams').get(getTeams).post(createTeamValidator, validate, createTeam);
 router.patch('/teams/:teamId', updateTeamValidator, validate, updateTeam);
+router.put('/teams/:teamId/logo', teamIdValidator, validate, uploadTeamLogo, validateTeamImageSignature, uploadTeamLogoController);
+router.delete('/teams/:teamId/logo', teamIdValidator, validate, removeTeamLogo);
+router.put('/teams/:teamId/cover', teamIdValidator, validate, uploadTeamCover, validateTeamImageSignature, uploadTeamCoverController);
+router.delete('/teams/:teamId/cover', teamIdValidator, validate, removeTeamCover);
 router.get('/teams/:teamId/players', teamIdValidator, validate, listPlayersForAdmin);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);

@@ -5,6 +5,8 @@ import Player from "../models/Player.js";
 import Team from "../models/Team.js";
 import AppError from "../utils/AppError.js";
 import { getPlayerStatistics, loadTeamData } from "./statisticsService.js";
+import { publicImage } from "./teamBrandingService.js";
+import { playerPhotoUrl } from "./playerPhotoService.js";
 import {
   escapeRegex,
   listPublicMatches,
@@ -42,8 +44,9 @@ export const serializePublicTeam = (team) => ({
   name: team.name,
   slug: team.slug,
   shortName: team.shortName || fallbackShortName(team.name),
-  logo: team.logo || "",
-  coverPhoto: team.coverPhoto || "",
+  logo: publicImage(team.logo).imageUrl,
+  coverPhoto: publicImage(team.coverPhoto).imageUrl,
+  coverPhotoMeta: publicImage(team.coverPhoto),
   city: team.city || team.location || "",
   coach: team.coach || "",
   homeGround: team.homeGround || "",
@@ -55,7 +58,7 @@ export const serializePublicTeam = (team) => ({
 export const serializePublicPlayer = (player) => ({
   playerId: idString(player),
   name: player.name,
-  photoUrl: player.photoUrl || "",
+  photoUrl: playerPhotoUrl(player),
   position: player.position,
   jerseyNumber: player.jerseyNumber ?? null,
   age: player.age ?? null,
@@ -258,7 +261,7 @@ export const getPublicSquad = async ({
   const players = await playerModel
     .find({ team: team._id, isActive: true })
     .select(
-      "name photoUrl position jerseyNumber age academicYear preferredFoot isCaptain isViceCaptain",
+      "name photo photoUrl position jerseyNumber age academicYear preferredFoot isCaptain isViceCaptain",
     )
     .sort({ position: 1, jerseyNumber: 1, name: 1 })
     .lean();
@@ -319,7 +322,7 @@ export const getPublicPlayerProfile = async ({
   const player = await playerModel
     .findOne({ _id: playerId, isActive: true })
     .select(
-      "team name photoUrl position jerseyNumber age academicYear preferredFoot isCaptain isViceCaptain",
+      "team name photo photoUrl position jerseyNumber age academicYear preferredFoot isCaptain isViceCaptain",
     )
     .populate({ path: "team", match: { isPublished: true, isArchived: false } })
     .lean();

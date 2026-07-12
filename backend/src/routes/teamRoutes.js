@@ -1,12 +1,14 @@
 import { Router } from 'express';
-import { getAssignedTeam } from '../controllers/teamController.js';
+import { getAssignedTeam, removeOwnCover, removeOwnLogo, uploadOwnCover, uploadOwnLogo } from '../controllers/teamController.js';
 import {
   createTeamPlayer,
+  deleteTeamPlayerPhoto,
   deleteTeamPlayer,
   getTeamPlayer,
   listTeamPlayers,
   updateTeamPlayer,
   updateTeamPlayerStatus,
+  uploadTeamPlayerPhoto,
 } from '../controllers/playerController.js';
 import { protect, requireRole } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
@@ -63,7 +65,7 @@ import {
   deleteTeamPhoto, getPlayerStats, getTeamHistory, getTeamLeaderboards, getTeamPhotos,
   getTeamResult, getTeamStatistics, patchTeamPhoto, patchTeamResult, postTeamPhotos,
 } from '../controllers/phaseFiveController.js';
-import { uploadMatchPhotos, validatePhotoSignatures } from '../middleware/photoUpload.js';
+import { uploadMatchPhotos, uploadPlayerPhoto, uploadTeamCover, uploadTeamLogo, validatePhotoSignatures, validatePlayerImageSignature, validateTeamImageSignature } from '../middleware/photoUpload.js';
 import { photoMutationValidator, photoUploadValidator, playerStatsValidator, resultIdValidator, teamStatsValidator, updateResultValidator } from '../validators/phaseFiveValidators.js';
 import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStream } from '../controllers/streamController.js';
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
@@ -72,10 +74,16 @@ const router = Router();
 
 router.use(protect, requireRole(USER_ROLES.TEAM_ADMIN));
 router.get('/current', getAssignedTeam);
+router.put('/profile/logo', uploadTeamLogo, validateTeamImageSignature, uploadOwnLogo);
+router.delete('/profile/logo', removeOwnLogo);
+router.put('/profile/cover', uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
+router.delete('/profile/cover', removeOwnCover);
 router.route('/players')
   .get(listPlayersValidator, validate, listTeamPlayers)
   .post(createPlayerValidator, validate, createTeamPlayer);
 router.patch('/players/:playerId/status', updatePlayerStatusValidator, validate, updateTeamPlayerStatus);
+router.put('/players/:playerId/photo', playerIdValidator, validate, uploadPlayerPhoto, validatePlayerImageSignature, uploadTeamPlayerPhoto);
+router.delete('/players/:playerId/photo', playerIdValidator, validate, deleteTeamPlayerPhoto);
 router.route('/players/:playerId')
   .get(playerIdValidator, validate, getTeamPlayer)
   .patch(updatePlayerValidator, validate, updateTeamPlayer)

@@ -2,6 +2,7 @@ import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
 import Player from '../models/Player.js';
 import AppError from '../utils/AppError.js';
+import { playerPhotoUrl } from './playerPhotoService.js';
 import { deriveResult, idString } from './resultService.js';
 
 export const emptyPlayerStats = () => ({ matchesPlayed: 0, starts: 0, substituteAppearances: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, penaltiesScored: 0, penaltiesMissed: 0, penaltiesSaved: 0, ownGoals: 0, manOfTheMatchAwards: 0 });
@@ -62,7 +63,7 @@ export const getPlayerStatistics = async ({ playerModel = Player, teamId, player
   if (!player) throw new AppError('Player not found.', 404, 'PLAYER_NOT_FOUND');
   const data = await loadTeamData({ ...deps, teamId: player.team });
   const historical = data.players.find((item) => item.playerId === idString(playerId));
-  return { player: { _id: player._id, team: player.team, name: player.name, photoUrl: player.photoUrl, position: player.position, jerseyNumber: player.jerseyNumber, isActive: player.isActive }, statistics: historical ? Object.fromEntries(Object.entries(historical).filter(([key]) => !['playerId', 'name', 'photoUrl', 'position', 'jerseyNumber'].includes(key))) : emptyPlayerStats() };
+  return { player: { _id: player._id, team: player.team, name: player.name, photoUrl: playerPhotoUrl(player), position: player.position, jerseyNumber: player.jerseyNumber, isActive: player.isActive }, statistics: historical ? Object.fromEntries(Object.entries(historical).filter(([key]) => !['playerId', 'name', 'photoUrl', 'position', 'jerseyNumber'].includes(key))) : emptyPlayerStats() };
 };
 
 export const getLeaderboards = async ({ teamId, type = 'goals', limit = 10, ...deps }) => {
