@@ -28,7 +28,7 @@ export function TeamLogo({ team, className = "size-20 rounded-2xl" }) {
   );
 }
 
-export function PublicTeamHeader({ team, currentLabel = "" }) {
+export function PublicTeamHeader({ team, currentLabel = "", actions = null }) {
   const [coverFailed, setCoverFailed] = useState(false);
   useEffect(() => setCoverFailed(false), [team.coverPhoto]);
   return (
@@ -70,6 +70,7 @@ export function PublicTeamHeader({ team, currentLabel = "" }) {
               {team.name}
             </h1>
           </div>
+          {actions && <div className="w-full sm:ml-auto sm:w-auto">{actions}</div>}
         </div>
       </header>
       <TeamNav slug={team.slug} />{" "}

@@ -20,6 +20,38 @@ import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
 import { PublicTeamHeader } from "../features/public/PublicTeamChrome.jsx";
 import usePageMetadata from "../hooks/usePageMetadata.js";
 
+export const publicTeamJoinAction = (team = {}, fallbackSlug = "") => {
+  const slug = team.slug || fallbackSlug;
+  const isPublished = team.isPublished !== false && team.published !== false;
+  const isActive = team.isActive !== false && team.active !== false;
+  const isArchived = team.isArchived === true || team.archived === true;
+  if (team.acceptingJoinRequests !== true || !slug || !isPublished || !isActive || isArchived) return null;
+  return {
+    to: `/teams/${slug}/join`,
+    label: `Join ${team.name}`,
+    ariaLabel: `Join ${team.name}`,
+  };
+};
+
+export function PublicTeamActions({ team, fallbackSlug = "" }) {
+  const joinAction = publicTeamJoinAction(team, fallbackSlug);
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+      {joinAction && (
+        <Link className="primary-button justify-center" to={joinAction.to} aria-label={joinAction.ariaLabel}>
+          <UserPlus size={17} /> {joinAction.label}
+        </Link>
+      )}
+      <InstagramFollowButton team={team} />
+      <ShareButton
+        title={team.name}
+        text={`Follow ${team.name} on FootStream.`}
+        path={`/teams/${team.slug || fallbackSlug}`}
+      />
+    </div>
+  );
+}
+
 export default function PublicTeamProfilePage() {
   const { teamSlug } = useParams();
   const [data, setData] = useState(null);
@@ -51,22 +83,7 @@ export default function PublicTeamProfilePage() {
   ];
   return (
     <>
-      <PublicTeamHeader team={team} />
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-3">
-          {team.acceptingJoinRequests && (
-            <Link className="primary-button" to={`/teams/${team.slug}/join`} aria-label={`Join ${team.name}`}>
-              <UserPlus size={17} /> Join {team.shortName || team.name}
-            </Link>
-          )}
-          <InstagramFollowButton team={team} />
-        </div>
-        <ShareButton
-          title={team.name}
-          text={`Follow ${team.name} on FootStream.`}
-          path={`/teams/${team.slug}`}
-        />
-      </div>
+      <PublicTeamHeader team={team} actions={<PublicTeamActions team={team} fallbackSlug={teamSlug} />} />
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
         <article className="panel">
           <p className="eyebrow">Club profile</p>
