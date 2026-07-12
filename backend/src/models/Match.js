@@ -124,6 +124,7 @@ matchSchema.index({ team: 1, scheduledAt: 1, isActive: 1 });
 matchSchema.index({ team: 1, status: 1, scheduledAt: 1 });
 matchSchema.index({ status: 1, scheduledAt: 1, isActive: 1 });
 matchSchema.index({ 'opponent.name': 1, scheduledAt: 1 });
+matchSchema.index({ tournament: 1, status: 1, isActive: 1, scheduledAt: -1 });
 matchSchema.index({ 'stream.videoId': 1 }, { sparse: true });
 
 matchSchema.set('toJSON', {

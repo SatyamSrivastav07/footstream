@@ -6,9 +6,16 @@ import { getAnyPhotos, getAnyResult, getPlayerStats, getTeamHistory, getTeamLead
 import { playerStatsValidator, resultIdValidator, teamStatsValidator } from '../validators/phaseFiveValidators.js';
 import { readPublicStream } from '../controllers/streamController.js';
 import { streamIdValidator } from '../validators/streamValidators.js';
+import { publicFixtures, publicHome, publicLiveDirectory, publicMatch, publicResults } from '../controllers/publicPortalController.js';
+import { publicFixturesValidator, publicLiveDirectoryValidator, publicMatchValidator, publicResultsValidator } from '../validators/publicPortalValidators.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
+router.get('/home', publicHome);
+router.get('/live', publicLiveDirectoryValidator, validate, publicLiveDirectory);
+router.get('/fixtures', publicFixturesValidator, validate, publicFixtures);
+router.get('/results', publicResultsValidator, validate, publicResults);
+router.get('/matches/:matchId', publicMatchValidator, validate, publicMatch);
 router.get('/matches/:matchId/live', liveMatchIdValidator, validate, getPublicLiveState);
 router.get('/matches/:matchId/events', liveMatchIdValidator, validate, getPublicEvents);
 router.get('/matches/:matchId/stream', streamIdValidator, validate, readPublicStream);

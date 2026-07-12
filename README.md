@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phase 6A**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, real-time viewing, and secure YouTube stream configuration.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A and 6B**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, secure YouTube stream configuration, and the core anonymous public match portal.
 
-The broader Phase 6 public portal, deployment, and payment features are intentionally not included.
+Detailed public team/player profiles, global search, advanced SEO, deployment configuration, social interactions, notifications, and Phase 7 features are intentionally not included.
 
 ## Phase 1 Features
 
@@ -70,7 +70,17 @@ The broader Phase 6 public portal, deployment, and payment features are intentio
 - Approved YouTube watch, short, live, and embed URLs are normalized server-side to an 11-character video ID and `https://www.youtube.com/embed/VIDEO_ID`.
 - Raw iframe markup, scripts, HTTP URLs, lookalike hosts, malformed URLs, and client-supplied protected stream fields are rejected.
 - Public playback responses hide the source URL and ownership metadata; disabled, cancelled, and inactive matches are never playable.
-- Super administrators have a read-only stream endpoint. No Phase 6B public portal redesign is included.
+- Super administrators have a read-only stream endpoint.
+
+## Phase 6B Features
+
+- A dedicated responsive public layout with Home, Live, Fixtures, Results, Login/Dashboard navigation, mobile controls, and a footer.
+- API-driven home sections for live matches, nearest fixtures, and latest completed results, each limited to six entries.
+- Anonymous live, fixture, and result directories with bounded queries, deterministic ordering, filters, empty/error/loading states, and pagination.
+- A status-aware public match page for scheduled, live, half-time, completed, and cancelled matches.
+- The individual live page combines the existing Socket.IO scoreboard/timeline with safe YouTube playback, reconnect synchronization, lineups, and native-share/clipboard fallback.
+- Existing `/live/:matchId` and Phase 5 result/statistics URLs remain available inside the public layout.
+- Public portal discovery includes only active matches belonging to published, non-archived teams and returns explicit public-safe objects rather than raw Mongoose documents.
 
 ## Technology
 
@@ -391,7 +401,7 @@ npm run build
 - Run the frontend production build and serve `frontend/dist` from a static host.
 - Run the backend with `npm start` behind a reverse proxy or managed Node.js host.
 
-Deployment itself belongs to Phase 6 and is not included in this implementation.
+Deployment configuration is reserved for a later Phase 6 milestone and is not included in Phase 6B.
 
 ## Manual Phase 2 Test Checklist
 
@@ -527,3 +537,61 @@ Disabling playback preserves the managed configuration but the public endpoint r
 10. Remove the stream and verify all stream fields are cleared.
 11. Sign in as super admin and verify the stream endpoint is read-only.
 12. Re-test live controls, Socket.IO, results, statistics, and photos to confirm Phase 1–5 behavior is unchanged.
+
+## Phase 6B Public Route Map
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Public home with live, upcoming, and latest-result sections |
+| `/live` | Live and half-time match discovery |
+| `/fixtures` | Scheduled-match directory and filters |
+| `/results` | Completed-match directory and filters |
+| `/matches/:matchId` | Status-aware match overview and saved lineups |
+| `/matches/:matchId/live` | YouTube playback plus the real-time scoreboard, timer, lineups, and event timeline |
+| `/matches/:matchId/result` | Existing Phase 5 full result experience |
+| `/live/:matchId` | Backward-compatible live-match URL |
+
+Authenticated administrators see a Dashboard action in the public header; anonymous viewers see Team login. The public pages never render the authenticated dashboard sidebar.
+
+## Phase 6B Public APIs
+
+All routes below are anonymous, read-only `GET` routes.
+
+| Route | Response behavior |
+| --- | --- |
+| `/api/public/home` | Up to six live/half-time matches, six nearest future fixtures, and six newest results |
+| `/api/public/live?page=&limit=` | Active live and half-time matches, ordered deterministically |
+| `/api/public/fixtures` | Active scheduled matches, soonest first |
+| `/api/public/results` | Active completed matches, newest first |
+| `/api/public/matches/:matchId` | Sanitized status-aware match details and lineup snapshots |
+
+Fixtures accept `from`, `to`, `matchType`, `tournament`, `teamId`, `search`, `page`, and `limit`. Results accept `from`, `to`, `tournament`, `outcome`, `teamId`, `search`, `page`, and `limit`. `outcome` is `win`, `draw`, or `loss`; `matchType` is `friendly`, `league`, `knockout`, or `practice`. Dates must be ISO 8601 values, and `to` cannot precede `from`.
+
+Pagination defaults to page 1 with 12 matches and is capped at 50 matches per request. Responses include `page`, `limit`, `total`, and `pages`. Search input is trimmed, length-limited, and regex-escaped; team filters are intersected with the published-team set so a supplied ID cannot reveal an unpublished or archived team.
+
+Public serializers expose only display-safe team identity, opponent details, match metadata, lineup snapshots, scores/result state, timer state, Man of the Match, and sanitized playback information. They never expose account documents or emails, JWT data, `createdBy`, `updatedBy`, `addedBy`, `uploadedBy`, `resultConfirmedBy`, Cloudinary public IDs, or the private YouTube source URL. Disabled or unavailable streams do not expose a video ID or embed URL.
+
+## Manual Phase 6B Test Checklist
+
+1. Publish one team and prepare scheduled, live, half-time, completed, cancelled, and soft-deleted matches; also prepare an unpublished or archived team with matches.
+2. Open `/` anonymously and verify only the published team's active live/upcoming/result data appears, with no hard-coded demo records.
+3. Open `/live` and verify scheduled, completed, cancelled, soft-deleted, unpublished-team, and archived-team matches are absent.
+4. Open `/fixtures`; test both date boundaries, match type, tournament, team/opponent/venue search, an empty result, and multiple pages. Confirm soonest-first ordering.
+5. Open `/results`; test dates, tournament, win/draw/loss, search, empty results, and pagination. Confirm newest-first ordering and Man of the Match display.
+6. Open `/matches/:matchId` for every status and verify fixture details, lineups, live/result navigation, final score/outcome, and the cancelled state.
+7. Enable a valid YouTube stream and open `/matches/:matchId/live`; verify the responsive 16:9 iframe, scoreboard, timer, period, events, lineups, connection indicator, and share action.
+8. Disable or remove the stream and verify the stream-unavailable state while the live scoreboard remains usable.
+9. Keep a live page open while controlling the match in another browser; verify Socket.IO updates, then disconnect/reconnect and confirm REST re-synchronization.
+10. Verify `/live/:matchId` and `/matches/:matchId/result` bookmarks still work and that home/directory/general-match links reach the result page.
+11. Sign in as each administrator role and verify the public header links to the correct dashboard without exposing dashboard navigation on public pages.
+12. Inspect public API responses and confirm the private fields listed above are absent; try invalid dates, IDs, enum values, oversized limits, and regex metacharacters and confirm safe validation.
+
+## Remaining Phase 6 Roadmap
+
+The following work is not implemented in this branch:
+
+- **Phase 6C:** detailed public team and player profiles/directories.
+- **Phase 6D:** broader public discovery such as global search and deliberate SEO/accessibility refinement.
+- **Phase 6E:** deployment configuration, production hosting, monitoring, and launch hardening.
+
+Chat, reactions, polls, notifications, custom video hosting, payments, and all Phase 7 functionality remain outside Phase 6B.

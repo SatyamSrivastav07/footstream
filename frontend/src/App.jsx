@@ -22,25 +22,33 @@ import StatisticsPage from './pages/StatisticsPage.jsx';
 import HistoryPage from './pages/HistoryPage.jsx';
 import PlayerStatisticsPage from './pages/PlayerStatisticsPage.jsx';
 import MatchResultPage from './pages/MatchResultPage.jsx';
+import PublicLayout from './layouts/PublicLayout.jsx';
+import PublicHomePage from './pages/PublicHomePage.jsx';
+import PublicDirectoryPage from './pages/PublicDirectoryPage.jsx';
+import PublicMatchPage from './pages/PublicMatchPage.jsx';
 
 function DashboardRedirect() {
   const { user } = useAuth();
   return <Navigate to={user.role === 'superAdmin' ? '/admin' : '/team'} replace />;
 }
 
-function PublicPage({ children }) {
-  return <main className="min-h-screen bg-[#07110d] px-5 py-10 text-white sm:px-8"><div className="mx-auto max-w-[1440px]">{children}</div></main>;
-}
-
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/live/:matchId" element={<PublicLivePage />} />
-      <Route path="/teams/:teamId/stats" element={<PublicPage><StatisticsPage audience="public" /></PublicPage>} />
-      <Route path="/teams/:teamId/history" element={<PublicPage><HistoryPage audience="public" /></PublicPage>} />
-      <Route path="/players/:playerId/stats" element={<PublicPage><PlayerStatisticsPage audience="public" /></PublicPage>} />
-      <Route path="/matches/:matchId/result" element={<PublicPage><MatchResultPage audience="public" /></PublicPage>} />
+      <Route element={<PublicLayout />}>
+        <Route path="/" element={<PublicHomePage />} />
+        <Route path="/live" element={<PublicDirectoryPage kind="live" />} />
+        <Route path="/fixtures" element={<PublicDirectoryPage kind="fixtures" />} />
+        <Route path="/results" element={<PublicDirectoryPage kind="results" />} />
+        <Route path="/matches/:matchId" element={<PublicMatchPage />} />
+        <Route path="/matches/:matchId/live" element={<PublicLivePage />} />
+        <Route path="/live/:matchId" element={<PublicLivePage />} />
+        <Route path="/matches/:matchId/result" element={<MatchResultPage audience="public" />} />
+        <Route path="/teams/:teamId/stats" element={<StatisticsPage audience="public" />} />
+        <Route path="/teams/:teamId/history" element={<HistoryPage audience="public" />} />
+        <Route path="/players/:playerId/stats" element={<PlayerStatisticsPage audience="public" />} />
+      </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route index element={<DashboardRedirect />} />
