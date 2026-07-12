@@ -7,6 +7,7 @@ import {
   Shield,
   Trophy,
   UserRound,
+  UserPlus,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -52,7 +53,14 @@ export default function PublicTeamProfilePage() {
     <>
       <PublicTeamHeader team={team} />
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <InstagramFollowButton team={team} />
+        <div className="flex flex-wrap gap-3">
+          {team.acceptingJoinRequests && (
+            <Link className="primary-button" to={`/teams/${team.slug}/join`} aria-label={`Join ${team.name}`}>
+              <UserPlus size={17} /> Join {team.shortName || team.name}
+            </Link>
+          )}
+          <InstagramFollowButton team={team} />
+        </div>
         <ShareButton
           title={team.name}
           text={`Follow ${team.name} on FootStream.`}

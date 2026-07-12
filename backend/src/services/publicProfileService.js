@@ -53,6 +53,7 @@ export const serializePublicTeam = (team) => ({
   founded: team.founded ?? null,
   description: team.description || "",
   socialLinks: safeSocialLinks(team.socialLinks),
+  acceptingJoinRequests: Boolean(team.acceptingJoinRequests),
 });
 
 export const serializePublicPlayer = (player) => ({

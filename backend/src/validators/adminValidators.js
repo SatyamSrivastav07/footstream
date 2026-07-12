@@ -21,6 +21,7 @@ const optionalProfileFields = [
   body('socialLinks.*').optional({ values: 'falsy' }).trim().isURL({ protocols: ['http', 'https'], require_protocol: true }).withMessage('Social links must use HTTP or HTTPS.'),
   body('socialLinks.instagram').optional({ values: 'falsy' }).custom(isInstagramUrl).withMessage('Instagram link must be a valid instagram.com URL.'),
   body('isPublished').optional().isBoolean().withMessage('Publication status must be true or false.').toBoolean(),
+  body('acceptingJoinRequests').optional().isBoolean().withMessage('Join-request status must be true or false.').toBoolean(),
 ];
 
 export const createTeamValidator = [

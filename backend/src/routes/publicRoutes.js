@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { getPublicEvents, getPublicLiveState } from '../controllers/liveMatchController.js';
 import { validateWithStatus } from '../middleware/validate.js';
 import { liveMatchIdValidator } from '../validators/liveMatchValidators.js';
@@ -12,15 +13,24 @@ import { publicPlayerProfile, publicTeamFixtures, publicTeamGallery, publicTeamP
 import { publicPlayerProfileValidator, publicTeamGalleryValidator, publicTeamMatchesValidator, publicTeamsValidator, publicTeamSlugValidator } from '../validators/publicProfileValidators.js';
 import { publicSearch } from '../controllers/publicSearchController.js';
 import { publicSearchValidator } from '../validators/publicSearchValidators.js';
+import { publicJoinRequestStatus, submitPublicJoinRequest } from '../controllers/joinRequestController.js';
+import { requestCodeValidator, submitJoinRequestValidator } from '../validators/joinRequestValidators.js';
+import { uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature } from '../middleware/photoUpload.js';
+import AppError from '../utils/AppError.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
+const limitHandler = (_req, _res, next) => next(new AppError('Too many requests. Try again later.', 429, 'RATE_LIMITED'));
+const submitLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false, handler: limitHandler });
+const statusLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false, handler: limitHandler });
 router.get('/home', publicHome);
 router.get('/live', publicLiveDirectoryValidator, validate, publicLiveDirectory);
 router.get('/fixtures', publicFixturesValidator, validate, publicFixtures);
 router.get('/results', publicResultsValidator, validate, publicResults);
 router.get('/search', publicSearchValidator, validate, publicSearch);
 router.get('/teams', publicTeamsValidator, validate, publicTeams);
+router.post('/teams/:teamSlug/join-requests', submitLimiter, uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature, submitJoinRequestValidator, validate, submitPublicJoinRequest);
+router.get('/join-requests/:requestCode/status', statusLimiter, requestCodeValidator, validate, publicJoinRequestStatus);
 router.get('/teams/:teamSlug/squad', publicTeamSlugValidator, validate, publicTeamSquad);
 router.get('/teams/:teamSlug/fixtures', publicTeamMatchesValidator, validate, publicTeamFixtures);
 router.get('/teams/:teamSlug/results', publicTeamMatchesValidator, validate, publicTeamResults);

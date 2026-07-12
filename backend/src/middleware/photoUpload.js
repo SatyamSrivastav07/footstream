@@ -24,6 +24,7 @@ const singleImageUpload = (maxBytes, code) => multer({
 export const uploadTeamLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TEAM_LOGO_TYPE');
 export const uploadTeamCover = singleImageUpload(5 * 1024 * 1024, 'INVALID_TEAM_COVER_TYPE');
 export const uploadPlayerPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_PLAYER_PHOTO_TYPE');
+export const uploadJoinRequestPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_JOIN_REQUEST_PHOTO_TYPE');
 
 const validSignature = (file) => {
   const bytes = file.buffer;
@@ -47,5 +48,11 @@ export const validateTeamImageSignature = (req, _res, next) => {
 export const validatePlayerImageSignature = (req, _res, next) => {
   if (!req.file) return next(new AppError('Select a player photo to upload.', 400, 'PLAYER_PHOTO_REQUIRED'));
   if (!validSignature(req.file)) return next(new AppError('The selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_PLAYER_PHOTO_CONTENT'));
+  return next();
+};
+
+export const validateOptionalJoinRequestImageSignature = (req, _res, next) => {
+  if (!req.file) return next();
+  if (!validSignature(req.file)) return next(new AppError('The selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_JOIN_REQUEST_PHOTO_CONTENT'));
   return next();
 };

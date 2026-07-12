@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAssignedTeam, removeOwnCover, removeOwnLogo, uploadOwnCover, uploadOwnLogo } from '../controllers/teamController.js';
+import { getAssignedTeam, removeOwnCover, removeOwnLogo, updateOwnJoinRequestStatus, uploadOwnCover, uploadOwnLogo } from '../controllers/teamController.js';
 import {
   createTeamPlayer,
   deleteTeamPlayerPhoto,
@@ -69,6 +69,9 @@ import { uploadMatchPhotos, uploadPlayerPhoto, uploadTeamCover, uploadTeamLogo, 
 import { photoMutationValidator, photoUploadValidator, playerStatsValidator, resultIdValidator, teamStatsValidator, updateResultValidator } from '../validators/phaseFiveValidators.js';
 import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStream } from '../controllers/streamController.js';
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
+import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejectTeamJoinRequest } from '../controllers/joinRequestController.js';
+import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
+import { body } from 'express-validator';
 
 const router = Router();
 
@@ -78,6 +81,11 @@ router.put('/profile/logo', uploadTeamLogo, validateTeamImageSignature, uploadOw
 router.delete('/profile/logo', removeOwnLogo);
 router.put('/profile/cover', uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
 router.delete('/profile/cover', removeOwnCover);
+router.patch('/profile/join-requests-status', body('acceptingJoinRequests').isBoolean().withMessage('Join-request status must be true or false.').toBoolean(), validate, updateOwnJoinRequestStatus);
+router.get('/join-requests', listJoinRequestsValidator, validate, listTeamJoinRequests);
+router.get('/join-requests/:requestId', joinRequestIdValidator, validate, getTeamJoinRequest);
+router.patch('/join-requests/:requestId/approve', approveJoinRequestValidator, validate, approveTeamJoinRequest);
+router.patch('/join-requests/:requestId/reject', rejectJoinRequestValidator, validate, rejectTeamJoinRequest);
 router.route('/players')
   .get(listPlayersValidator, validate, listTeamPlayers)
   .post(createPlayerValidator, validate, createTeamPlayer);

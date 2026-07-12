@@ -11,6 +11,14 @@ export const getAssignedTeam = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { team } });
 });
 
+export const updateOwnJoinRequestStatus = asyncHandler(async (req, res) => {
+  const team = await Team.findOne({ _id: assignedTeamId(req), isArchived: false });
+  if (!team) throw new AppError('Team not found.', 404, 'TEAM_NOT_FOUND');
+  team.acceptingJoinRequests = req.body.acceptingJoinRequests;
+  await team.save();
+  res.json({ success: true, data: { team } });
+});
+
 const uploadOwnBranding = (kind) => asyncHandler(async (req, res) => {
   const data = await uploadTeamBranding({ teamId: assignedTeamId(req), kind, file: req.file });
   res.json({ success: true, data });

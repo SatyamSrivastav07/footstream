@@ -26,6 +26,8 @@ import PublicLayout from "./layouts/PublicLayout.jsx";
 import PublicHomePage from "./pages/PublicHomePage.jsx";
 import PublicDirectoryPage from "./pages/PublicDirectoryPage.jsx";
 import AdminTeamProfileEditorPage from "./pages/AdminTeamProfileEditorPage.jsx";
+import TeamJoinRequestsPage from "./pages/TeamJoinRequestsPage.jsx";
+import TeamJoinRequestDetailsPage from "./pages/TeamJoinRequestDetailsPage.jsx";
 
 const PublicLivePage = lazy(() => import("./pages/PublicLivePage.jsx"));
 const PublicMatchPage = lazy(() => import("./pages/PublicMatchPage.jsx"));
@@ -40,6 +42,10 @@ const PublicPlayerProfilePage = lazy(
   () => import("./pages/PublicPlayerProfilePage.jsx"),
 );
 const PublicSearchPage = lazy(() => import("./pages/PublicSearchPage.jsx"));
+const PublicJoinTeamPage = lazy(() => import("./pages/PublicJoinTeamPage.jsx"));
+const PublicJoinRequestStatusPage = lazy(
+  () => import("./pages/PublicJoinRequestStatusPage.jsx"),
+);
 
 const LazyPublic = ({ children }) => (
   <Suspense
@@ -105,6 +111,30 @@ function App() {
           element={
             <LazyPublic>
               <PublicTeamProfilePage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/teams/:teamSlug/join"
+          element={
+            <LazyPublic>
+              <PublicJoinTeamPage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/join-requests/:requestCode/status"
+          element={
+            <LazyPublic>
+              <PublicJoinRequestStatusPage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/join-requests/status"
+          element={
+            <LazyPublic>
+              <PublicJoinRequestStatusPage />
             </LazyPublic>
           }
         />
@@ -240,6 +270,8 @@ function App() {
             <Route path="/team" element={<TeamAdminDashboard />} />
             <Route path="/team/current" element={<TeamAdminDashboard />} />
             <Route path="/team/squad" element={<SquadManagementPage />} />
+            <Route path="/team/join-requests" element={<TeamJoinRequestsPage />} />
+            <Route path="/team/join-requests/:requestId" element={<TeamJoinRequestDetailsPage />} />
             <Route path="/team/matches" element={<TeamMatchesPage />} />
             <Route path="/team/matches/new" element={<MatchEditorPage />} />
             <Route

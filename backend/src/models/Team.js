@@ -47,6 +47,7 @@ const teamSchema = new mongoose.Schema(
       youtube: publicUrl(),
     },
     isPublished: { type: Boolean, default: false },
+    acceptingJoinRequests: { type: Boolean, default: true },
     isArchived: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   },

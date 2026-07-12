@@ -21,6 +21,7 @@ const empty = {
   x: "",
   youtube: "",
   isPublished: false,
+  acceptingJoinRequests: true,
 };
 const networks = ["website", "instagram", "facebook", "x", "youtube"];
 
@@ -50,6 +51,7 @@ export default function AdminTeamProfileEditorPage() {
           coverPhoto: team.coverPhoto || "",
           description: team.description || "",
           isPublished: Boolean(team.isPublished),
+          acceptingJoinRequests: team.acceptingJoinRequests !== false,
           ...team.socialLinks,
         });
       })
@@ -79,6 +81,7 @@ export default function AdminTeamProfileEditorPage() {
         description: form.description,
         socialLinks,
         isPublished: form.isPublished,
+        acceptingJoinRequests: form.acceptingJoinRequests,
       });
       setNotice("Public team profile saved.");
     } catch (requestError) {
@@ -179,6 +182,14 @@ export default function AdminTeamProfileEditorPage() {
             onChange={(event) => set("isPublished", event.target.checked)}
           />
           <span>Publish this team in the public portal</span>
+        </label>
+        <label className="flex items-center gap-3 rounded-xl border border-white/[0.08] p-4">
+          <input
+            type="checkbox"
+            checked={form.acceptingJoinRequests}
+            onChange={(event) => set("acceptingJoinRequests", event.target.checked)}
+          />
+          <span>Accept public join requests</span>
         </label>
         <div className="flex flex-wrap justify-end gap-3">
           <Link className="secondary-button" to="/admin">

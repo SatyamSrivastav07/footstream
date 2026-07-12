@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 export default function TeamAdminDashboard() {
   const { user } = useAuth();
   const [team, setTeam] = useState(user.team);
+  const [message, setMessage] = useState('');
+  const [isSavingJoinStatus, setIsSavingJoinStatus] = useState(false);
 
   useEffect(() => {
     api.get('/team/current')
@@ -19,7 +21,7 @@ export default function TeamAdminDashboard() {
       <header>
         <p className="eyebrow">Team workspace</p>
         <h1 className="page-title">Welcome, {user.name.split(' ')[0]}</h1>
-        <p className="page-copy">Your club foundation is ready. Squad and match tools arrive in their approved phases.</p>
+        <p className="page-copy">Manage your public team identity, squad, matches, and incoming join requests.</p>
       </header>
 
       <section className="mt-9 overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(190,242,100,.09),rgba(255,255,255,.025))] p-7 sm:p-9">
@@ -34,7 +36,35 @@ export default function TeamAdminDashboard() {
 
       <section className="mt-7 grid gap-5 md:grid-cols-2">
         <article className="panel min-h-56"><div className="metric-icon metric-emerald"><Building2 size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">Team administration</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Your account is securely linked to one team. Cross-team access is rejected by the FootStream API.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/30">Phase 1 active</p></article>
-        <article className="panel min-h-56"><div className="metric-icon metric-lime"><CalendarDays size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">What comes next</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Permanent squads begin in Phase 2. Match creation, live controls, and public experiences remain intentionally unavailable.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-lime-300/50">Scope protected</p></article>
+        <article className="panel min-h-56"><div className="metric-icon metric-lime"><CalendarDays size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">Public applications</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Allow public visitors to request to join your team, then approve applicants into the official squad.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-lime-300/50">Phase 6F active</p></article>
+      </section>
+
+      <section className="panel mt-7">
+        <div className="panel-heading"><div><p className="eyebrow">Join requests</p><h2 className="panel-title">Public application status</h2></div></div>
+        {message && <p className="mb-4 rounded-xl border border-lime-300/20 bg-lime-300/10 px-4 py-3 text-sm text-lime-100">{message}</p>}
+        <label className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] p-4">
+          <span><span className="block font-semibold">Accept public join requests</span><span className="mt-1 block text-sm text-white/40">When enabled, the public team profile shows a Join Team button.</span></span>
+          <input
+            type="checkbox"
+            className="size-5 accent-lime-300 disabled:cursor-not-allowed disabled:opacity-60"
+            checked={Boolean(team?.acceptingJoinRequests)}
+            disabled={isSavingJoinStatus}
+            onChange={async (event) => {
+              const acceptingJoinRequests = event.target.checked;
+              setIsSavingJoinStatus(true);
+              setMessage('');
+              try {
+                const response = await api.patch('/team/profile/join-requests-status', { acceptingJoinRequests });
+                setTeam(response.data.data.team);
+                setMessage(acceptingJoinRequests ? 'Join requests enabled.' : 'Join requests disabled.');
+              } catch (error) {
+                setMessage(error.response?.data?.message || 'Could not update join request status. Please try again.');
+              } finally {
+                setIsSavingJoinStatus(false);
+              }
+            }}
+          />
+        </label>
       </section>
 
       <section className="panel mt-7">

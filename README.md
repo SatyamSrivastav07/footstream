@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A through 6D**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, and public UI polish.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A through 6F**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, and public team join requests.
 
-Deployment configuration and community interaction features are intentionally not included.
+Deployment execution, community interaction features, payments, AI features, tournaments, mobile apps, and Phase 7/8 functionality are intentionally not included.
 
 ## Phase 1 Features
 
@@ -102,6 +102,19 @@ Deployment configuration and community interaction features are intentionally no
 - Reusable native-share control with clipboard and manual-copy fallbacks on teams, players, fixtures, live matches, and results.
 - Skip navigation, route focus management, keyboard-operable menus/suggestions, breadcrumbs, live announcements, visible focus treatment, and reduced-motion support.
 - Lazy-loaded larger public routes, lazy below-the-fold images, and a more useful branded public 404 experience.
+
+## Phase 6F Features
+
+- Published teams can accept public join requests without requiring public accounts.
+- Public applicants submit contact details, football/academic details, motivation, highlights, and an optional photo.
+- Public applicants never provide a jersey number; official jersey numbers are assigned only by the team admin during approval.
+- Applicants receive a private request code and can check a safe status page without exposing email, phone, reviewer, or internal approval data.
+- Duplicate pending requests by the same email or phone are blocked per team.
+- Team admins can list, review, approve, and reject only their own team's requests.
+- Approval creates one official squad player with the team-admin-assigned jersey number and prevents duplicate review of an already processed request.
+- Rejection removes the applicant's temporary Cloudinary photo asset before marking the request rejected.
+- Super admins can inspect join requests read-only for oversight.
+- Public search does not index or expose join requests.
 
 ## Technology
 
@@ -223,12 +236,15 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/admin/teams` | superAdmin | List active teams |
 | `POST` | `/api/admin/teams` | superAdmin | Create a team |
 | `GET` | `/api/admin/teams/:teamId/players` | superAdmin | View a team's squad read-only |
+| `GET` | `/api/admin/teams/:teamId/join-requests` | superAdmin | Read-only join requests for one team |
+| `GET` | `/api/admin/join-requests/:requestId` | superAdmin | Read-only join request detail |
 | `GET` | `/api/admin/matches` | superAdmin | List all active matches with filters |
 | `GET` | `/api/admin/matches/:matchId` | superAdmin | View one match and lineup snapshots |
 | `GET` | `/api/admin/team-admins` | superAdmin | List team administrators |
 | `POST` | `/api/admin/team-admins` | superAdmin | Create and assign a team administrator |
 | `PATCH` | `/api/admin/team-admins/:userId/status` | superAdmin | Enable or disable a team administrator |
 | `GET` | `/api/team/current` | teamAdmin | Return the authenticated admin's assigned team |
+| `PATCH` | `/api/team/profile/join-requests-status` | teamAdmin | Enable or disable public join requests for the assigned team |
 | `GET` | `/api/team/players` | teamAdmin | List owned players with optional filters |
 | `POST` | `/api/team/players` | teamAdmin | Add a player to the assigned team |
 | `GET` | `/api/team/players/:playerId` | teamAdmin | Get one owned player |
@@ -241,6 +257,10 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `PATCH` | `/api/team/matches/:matchId` | teamAdmin | Edit an owned scheduled match |
 | `PATCH` | `/api/team/matches/:matchId/cancel` | teamAdmin | Cancel an owned scheduled match |
 | `DELETE` | `/api/team/matches/:matchId` | teamAdmin | Soft-delete an owned scheduled match |
+| `GET` | `/api/team/join-requests` | teamAdmin | List owned public join requests |
+| `GET` | `/api/team/join-requests/:requestId` | teamAdmin | Review one owned public join request |
+| `PATCH` | `/api/team/join-requests/:requestId/approve` | teamAdmin | Approve a pending request into the official squad |
+| `PATCH` | `/api/team/join-requests/:requestId/reject` | teamAdmin | Reject a pending request and clean applicant photo storage |
 | `POST` | `/api/team/matches/:matchId/start` | teamAdmin | Start an owned scheduled match |
 | `POST` | `/api/team/matches/:matchId/end-first-half` | teamAdmin | Pause at half-time |
 | `POST` | `/api/team/matches/:matchId/start-second-half` | teamAdmin | Resume the second half |
@@ -259,6 +279,8 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/admin/matches/:matchId/events` | superAdmin | Read-only event history |
 | `GET` | `/api/public/matches/:matchId/live` | Public | Sanitized public live state |
 | `GET` | `/api/public/matches/:matchId/events` | Public | Active public event timeline |
+| `POST` | `/api/public/teams/:teamSlug/join-requests` | Public | Submit a public request to join a published team |
+| `GET` | `/api/public/join-requests/:requestCode/status` | Public | Check a join request by private request code |
 
 There is deliberately no registration API.
 
@@ -806,5 +828,87 @@ Manual production-readiness checks:
 5. Confirm public GET responses include cache headers and image responses receive long-lived immutable caching when served by the API.
 6. Confirm auth, upload, and public search routes are rate-limited.
 7. Stop the process and confirm graceful shutdown disconnects MongoDB.
+
+## Phase 6F Public Team Join Requests
+
+Phase 6F lets anonymous visitors apply to join a published team while keeping the final squad record under team-admin control. A published team profile shows a Join Team action only when `acceptingJoinRequests` is enabled for that team. Team admins can toggle this from My Team; super admins can also set the same public-profile field from the team profile editor.
+
+Public join routes:
+
+| Route | Purpose |
+| --- | --- |
+| `/teams/:teamSlug/join` | Public team application form |
+| `/join-requests/:requestCode/status` | Public status page for a submitted request |
+| `/join-requests/status` | Manual request-code lookup page |
+
+Join request APIs:
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `POST` | `/api/public/teams/:teamSlug/join-requests` | Public | Submit a request for a published team that is accepting requests |
+| `GET` | `/api/public/join-requests/:requestCode/status` | Public | Return public-safe request status |
+| `PATCH` | `/api/team/profile/join-requests-status` | teamAdmin | Toggle whether the assigned team accepts public requests |
+| `GET` | `/api/team/join-requests` | teamAdmin | List requests for the assigned team |
+| `GET` | `/api/team/join-requests/:requestId` | teamAdmin | Review a single owned request |
+| `PATCH` | `/api/team/join-requests/:requestId/approve` | teamAdmin | Convert a pending request into an official player |
+| `PATCH` | `/api/team/join-requests/:requestId/reject` | teamAdmin | Reject a pending request and clean applicant photo storage |
+| `GET` | `/api/admin/teams/:teamId/join-requests` | superAdmin | Read-only requests for one team |
+| `GET` | `/api/admin/join-requests/:requestId` | superAdmin | Read-only request detail |
+
+The public submission endpoint uses multipart form data with optional field name `image`. JPEG, PNG, and WebP files up to 3 MB are accepted. Applicant photos are stored under `footstream/join-requests/<teamId>/<requestCode>` and are temporary until approval or rejection.
+
+Request status flow:
+
+1. A public visitor opens `/teams/:teamSlug/join`.
+2. The visitor submits applicant details and an optional photo. The form does not contain a jersey-number input.
+3. The backend validates that the team is published, non-archived, and accepting requests.
+4. The backend rejects protected public fields, including `jerseyNumber`, reviewer fields, request status fields, team IDs, player IDs, Cloudinary IDs, and ownership metadata.
+5. The backend blocks another pending request for the same team from the same email or phone.
+6. The applicant receives a private request code and can check `/join-requests/:requestCode/status`.
+7. A team admin reviews the request from `/team/join-requests/:requestId`.
+8. Approval requires the team admin to assign the official jersey number and creates exactly one official player record for the assigned team.
+9. Rejection records an optional safe reason and deletes the applicant's temporary Cloudinary photo asset.
+
+Privacy and ownership rules:
+
+- Applicant email and phone are visible only to authenticated team admins for their own team and super-admin oversight.
+- Public submission and status responses never expose applicant contact data, reviewer account data, approval internals, Cloudinary `publicId`, upload metadata, JWT data, or administrative ownership fields.
+- Team admins never submit or choose a team ID for join-request management; the API derives the team from the authenticated account.
+- Cross-team request IDs return not found for team admins.
+- Public search excludes join requests entirely.
+- Disabled users remain blocked by the existing authentication middleware before any team-admin join-request action runs.
+
+Approval consistency strategy:
+
+- Requests can only move from `pending` to `approved` or `rejected`.
+- Approval is rejected when a request has already been reviewed or already has a linked `createdPlayer`.
+- Player creation runs through the existing squad validation rules, so duplicate active jersey numbers, captain conflicts, vice-captain conflicts, cross-team ownership, and invalid player fields are rejected before the request is finalized.
+- If player creation fails validation, the request remains pending and can be corrected.
+- The created player stores the approved official jersey number, not applicant-supplied data.
+
+Photo cleanup behavior:
+
+- If applicant photo upload succeeds but request persistence fails, the newly uploaded Cloudinary asset is deleted.
+- Rejection deletes the applicant's Cloudinary asset before the request is marked rejected.
+- Approval transfers the safe applicant photo metadata to the official player record; public serializers expose only the safe image URL.
+
+Manual Phase 6F test checklist:
+
+1. Publish a team, enable join requests, open `/teams/:teamSlug`, and verify the Join Team action appears.
+2. Disable join requests and confirm the public Join Team action disappears and `/teams/:teamSlug/join` shows the closed state.
+3. Submit a valid public application with no photo and confirm the success screen displays a request code.
+4. Submit a valid public application with JPEG, PNG, and WebP photos; confirm previews work and oversized/invalid signatures are rejected.
+5. Inspect the public form and network payload and confirm there is no applicant jersey number field.
+6. Try adding `jerseyNumber`, team IDs, reviewer fields, status fields, or Cloudinary fields to the public request body and confirm validation rejects them.
+7. Submit another pending request for the same team using the same email or phone and confirm it is blocked.
+8. Open `/join-requests/:requestCode/status` and confirm it shows status without email, phone, reviewer, approval data, or Cloudinary IDs.
+9. Sign in as the assigned team admin, open `/team/join-requests`, view the request detail, approve it with an official jersey number, and confirm a player is created.
+10. Attempt to approve the same request again and confirm it is rejected.
+11. Attempt to approve with a duplicate active jersey number and confirm the request remains pending.
+12. Submit another request with a photo, reject it, and confirm the request is rejected and the temporary Cloudinary photo asset is removed.
+13. Sign in as a different team admin and confirm cross-team join-request IDs are not accessible.
+14. Sign in as super admin and confirm the read-only oversight endpoints/pages expose no mutation controls.
+15. Search publicly for applicant names, emails, and phones and confirm join requests are not returned.
+16. Re-test login, dashboards, squad management, player photos, match scheduling, live control, results, public portal, public profiles, search, team branding, and production health endpoints.
 
 Deployment automation, hosting configuration, community accounts, chat, reactions, polls, account notifications, payments, tournament management, and custom video hosting are not included.

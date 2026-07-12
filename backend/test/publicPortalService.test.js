@@ -357,5 +357,5 @@ test("general match hides inactive records and returns status-aware payload", as
   );
 });
 
-test("all public portal routes remain anonymous read-only GET routes", () =>
-  assert.equal(isPublicReadOnlyRouteSet(publicRoutes), true));
+test("public portal routes remain read-only except join request submission", () =>
+  assert.equal(isPublicReadOnlyRouteSet(publicRoutes, ["POST /teams/:teamSlug/join-requests"]), true));

@@ -281,10 +281,10 @@ export const getPublicMatch = async ({
   return serializePublicMatchDetail(match, now);
 };
 
-export const isPublicReadOnlyRouteSet = (router) =>
+export const isPublicReadOnlyRouteSet = (router, allowedMutations = []) =>
   router.stack
     .filter((layer) => layer.route)
     .every((layer) =>
-      Object.keys(layer.route.methods).every((method) => method === "get"),
+      Object.keys(layer.route.methods).every((method) => method === "get" || allowedMutations.includes(`${method.toUpperCase()} ${layer.route.path}`)),
     );
 export const publicId = idString;
