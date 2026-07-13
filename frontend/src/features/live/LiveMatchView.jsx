@@ -1,6 +1,7 @@
 import { ArrowRightLeft, CircleDot, Goal, RotateCcw, ShieldAlert, Trophy, Undo2 } from 'lucide-react';
 import { useState } from 'react';
 import api from '../../api/client.js';
+import TeamIdentity from '../../components/TeamIdentity.jsx';
 import PlayerAvatar from '../squad/PlayerAvatar.jsx';
 import { formatLocalDateTime, label } from '../matches/constants.js';
 import EventActionModal from './EventActionModal.jsx';
@@ -53,8 +54,10 @@ export default function LiveMatchView({ matchId, mode = 'public' }) {
   if (!state) return <div className="rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error || 'Live match unavailable.'}</div>;
 
   const teamName = state.team?.name || 'FootStream team';
-  const homeName = state.teamSide === 'home' ? teamName : state.opponent.name;
-  const awayName = state.teamSide === 'home' ? state.opponent.name : teamName;
+  const homeIsTeam = state.teamSide === 'home';
+  const awayIsTeam = state.teamSide !== 'home';
+  const homeName = homeIsTeam ? teamName : state.opponent.name;
+  const awayName = awayIsTeam ? teamName : state.opponent.name;
   const nextTransition = state.status === 'scheduled' ? ['start', 'Start match'] : state.status === 'live' && state.currentPeriod === 'first_half' ? ['end-first-half', 'End first half'] : state.status === 'half_time' ? ['start-second-half', 'Start second half'] : state.status === 'live' && state.currentPeriod === 'second_half' ? ['complete', 'Complete match'] : null;
 
   return <>
@@ -62,7 +65,7 @@ export default function LiveMatchView({ matchId, mode = 'public' }) {
     {error && <div className="mb-5 rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100" role="alert">{error}</div>}
     <section className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(239,68,68,.11),rgba(190,242,100,.055)_38%,rgba(255,255,255,.02)_70%)] p-5 sm:p-8">
       <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><span className={`size-2 rounded-full ${state.status === 'live' ? 'animate-pulse bg-red-400' : 'bg-white/30'}`} /><span className="text-xs font-black uppercase tracking-[0.18em] text-white/70">{label(state.status)} · {label(state.currentPeriod)}</span></div><span className={`status-badge ${connection === 'connected' ? 'status-active' : 'status-neutral'}`}>{connection}</span></div>
-      <div className="my-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Home</p><h1 className="mt-2 font-display text-xl font-black text-white sm:text-4xl">{homeName}</h1></div><div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 sm:px-7"><p className="font-display text-4xl font-black tracking-wider text-lime-300 sm:text-6xl">{state.homeScore}–{state.awayScore}</p><p className="mt-1 text-sm font-bold text-white/60"><LiveTimer elapsedSeconds={state.elapsedSeconds} running={state.status === 'live'} /></p></div><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Away</p><h1 className="mt-2 font-display text-xl font-black text-white sm:text-4xl">{awayName}</h1></div></div>
+      <div className="my-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Home</p><h1 className="mt-2 flex justify-center font-display text-xl font-black text-white sm:text-4xl">{homeIsTeam ? <TeamIdentity team={state.team} name={homeName} className="justify-center" logoClassName="size-9 rounded-xl sm:size-11" /> : homeName}</h1></div><div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 sm:px-7"><p className="font-display text-4xl font-black tracking-wider text-lime-300 sm:text-6xl">{state.homeScore}–{state.awayScore}</p><p className="mt-1 text-sm font-bold text-white/60"><LiveTimer elapsedSeconds={state.elapsedSeconds} running={state.status === 'live'} /></p></div><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Away</p><h1 className="mt-2 flex justify-center font-display text-xl font-black text-white sm:text-4xl">{awayIsTeam ? <TeamIdentity team={state.team} name={awayName} className="justify-center" logoClassName="size-9 rounded-xl sm:size-11" /> : awayName}</h1></div></div>
       <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-white/[0.08] pt-5 text-xs text-emerald-100/45"><span>{state.venue}</span><span>{state.tournament || 'No tournament'}</span><span>{formatLocalDateTime(state.scheduledAt)}</span></div>
       {editable && nextTransition && <div className="mt-6 flex justify-center"><button type="button" className="primary-button" disabled={saving} onClick={() => transition(nextTransition[0], nextTransition[0] === 'complete' ? 'Complete this match and lock new events?' : undefined)}>{nextTransition[1]}</button></div>}
     </section>

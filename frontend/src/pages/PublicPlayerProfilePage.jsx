@@ -11,10 +11,10 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LoadingScreen from "../components/LoadingScreen.jsx";
+import TeamIdentity from "../components/TeamIdentity.jsx";
 import PlayerAvatar from "../features/squad/PlayerAvatar.jsx";
 import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
 import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
-import { TeamLogo } from "../features/public/PublicTeamChrome.jsx";
 import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
 import ShareButton from "../components/ShareButton.jsx";
 import usePageMetadata from "../hooks/usePageMetadata.js";
@@ -91,8 +91,7 @@ export default function PublicPlayerProfilePage() {
               className="mt-4 inline-flex items-center gap-3 text-sm text-lime-200"
               to={`/teams/${player.team.slug}`}
             >
-              <TeamLogo team={player.team} className="size-8 rounded-lg" />{" "}
-              {player.team.name}
+              <TeamIdentity team={player.team} logoClassName="size-8 rounded-lg" />
             </Link>
           </div>
         </div>

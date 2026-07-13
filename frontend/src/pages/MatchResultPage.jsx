@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LoadingScreen from "../components/LoadingScreen.jsx";
+import TeamIdentity from "../components/TeamIdentity.jsx";
 import EventTimeline from "../features/live/EventTimeline.jsx";
 import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
 import ShareButton from "../components/ShareButton.jsx";
@@ -167,7 +168,7 @@ export default function MatchResultPage({ audience = "team" }) {
       <header>
         <p className="eyebrow">Full time · verified result</p>
         <h1 className="page-title">
-          {bundle.match.team?.name || "Our team"} {bundle.result.finalTeamScore}
+          <TeamIdentity team={bundle.match.team} name={bundle.match.team?.name || "Our team"} logoClassName="size-10 rounded-xl" /> {bundle.result.finalTeamScore}
           –{bundle.result.finalOpponentScore} {bundle.match.opponent.name}
         </h1>
         <p className="page-copy">

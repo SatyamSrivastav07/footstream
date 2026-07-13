@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import api from '../api/client.js';
 import EmptyState from '../components/EmptyState.jsx';
 import Modal from '../components/Modal.jsx';
+import TeamIdentity from '../components/TeamIdentity.jsx';
 
 const initialTeam = { name: '', location: '', description: '' };
 const initialAdmin = { name: '', email: '', password: '', teamId: '' };
@@ -110,8 +111,7 @@ export default function SuperAdminDashboard({ section = '' }) {
             <div className="space-y-3">
               {teams.map((team) => (
                 <article key={team._id} className="list-card">
-                  <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-lime-300/10 font-display text-lg font-bold text-lime-200">{team.name.slice(0, 2).toUpperCase()}</div>
-                  <div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white">{team.name}</h3><p className="mt-1 truncate text-xs text-emerald-100/45">{team.city || team.location || 'Location not set'} · {team.adminCount} admin{team.adminCount === 1 ? '' : 's'}</p></div>
+                  <div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white"><TeamIdentity team={team} logoClassName="size-8 rounded-lg" /></h3><p className="mt-1 truncate text-xs text-emerald-100/45">{team.city || team.location || 'Location not set'} · {team.adminCount} admin{team.adminCount === 1 ? '' : 's'}</p></div>
                   <span className={`status-badge ${team.isPublished ? 'status-active' : 'status-neutral'}`}>{team.isPublished ? 'Public' : 'Private'}</span>
                   <Link to={`/admin/teams/${team._id}/profile`} className="icon-button" aria-label={`Edit ${team.name} public profile`} title="Public profile"><Pencil size={17} /></Link>
                   <Link to={`/admin/teams/${team._id}/statistics`} className="icon-button" aria-label={`View ${team.name} statistics`} title="Statistics"><BarChart3 size={17} /></Link>
@@ -130,7 +130,7 @@ export default function SuperAdminDashboard({ section = '' }) {
               {admins.map((admin) => (
                 <article key={admin._id} className="list-card">
                   <div className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-400/10 text-sm font-bold text-emerald-200">{admin.name.slice(0, 2).toUpperCase()}</div>
-                  <div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white">{admin.name}</h3><p className="mt-1 truncate text-xs text-emerald-100/45">{admin.team?.name || 'Unassigned'} · {admin.email}</p></div>
+                  <div className="min-w-0 flex-1"><h3 className="truncate font-semibold text-white">{admin.name}</h3><p className="mt-1 flex items-center gap-1 truncate text-xs text-emerald-100/45">{admin.team ? <TeamIdentity team={admin.team} logoClassName="size-4 rounded" /> : 'Unassigned'} <span>· {admin.email}</span></p></div>
                   <span className={`status-badge ${admin.isActive ? 'status-active' : 'status-off'}`}>{admin.isActive ? 'Active' : 'Disabled'}</span>
                   <button type="button" onClick={() => toggleStatus(admin)} className="icon-button" title={admin.isActive ? 'Disable administrator' : 'Enable administrator'} aria-label={`${admin.isActive ? 'Disable' : 'Enable'} ${admin.name}`}>
                     {admin.isActive ? <UserX size={17} /> : <UserCheck size={17} />}

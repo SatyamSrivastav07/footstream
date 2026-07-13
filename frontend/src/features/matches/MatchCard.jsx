@@ -1,5 +1,6 @@
 import { CalendarDays, Eye, MapPin, Pencil, Radio, Trash2, Trophy, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import TeamIdentity from '../../components/TeamIdentity.jsx';
 import { formatLocalDateTime, label } from './constants.js';
 
 const statusClass = {
@@ -12,8 +13,10 @@ const statusClass = {
 
 export default function MatchCard({ match, basePath, readOnly = false, onCancel, onDelete }) {
   const teamName = match.team?.name || 'Your team';
-  const left = match.teamSide === 'home' ? teamName : match.opponent.name;
-  const right = match.teamSide === 'home' ? match.opponent.name : teamName;
+  const leftIsTeam = match.teamSide === 'home';
+  const rightIsTeam = match.teamSide !== 'home';
+  const left = leftIsTeam ? teamName : match.opponent.name;
+  const right = rightIsTeam ? teamName : match.opponent.name;
 
   return (
     <article className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-5 transition hover:border-white/[0.14]">
@@ -22,7 +25,7 @@ export default function MatchCard({ match, basePath, readOnly = false, onCancel,
         <span className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 font-display text-sm font-bold text-lime-200">{match.formation === 'custom' ? match.customFormation : match.formation || 'No formation'}</span>
       </div>
       <div className="my-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-        <h2 className="font-display text-xl font-bold text-white">{left}</h2><span className="text-xs font-black uppercase tracking-[0.2em] text-lime-300/50">vs</span><h2 className="font-display text-xl font-bold text-white">{right}</h2>
+        <h2 className="flex justify-center font-display text-xl font-bold text-white">{leftIsTeam ? <TeamIdentity team={match.team} name={left} className="justify-center" logoClassName="size-7 rounded-lg" /> : left}</h2><span className="text-xs font-black uppercase tracking-[0.2em] text-lime-300/50">vs</span><h2 className="flex justify-center font-display text-xl font-bold text-white">{rightIsTeam ? <TeamIdentity team={match.team} name={right} className="justify-center" logoClassName="size-7 rounded-lg" /> : right}</h2>
       </div>
       <div className="space-y-2 border-y border-white/[0.06] py-4 text-sm text-emerald-100/50">
         <p className="flex items-center gap-2"><CalendarDays size={15} className="text-lime-300/60" /> {formatLocalDateTime(match.scheduledAt)}</p>

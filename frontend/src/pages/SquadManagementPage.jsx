@@ -2,6 +2,7 @@ import { Activity, Plus, Search, ShieldAlert, UserCheck, UsersRound, UserX } fro
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../api/client.js';
 import EmptyState from '../components/EmptyState.jsx';
+import TeamIdentity from '../components/TeamIdentity.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import PlayerCard from '../features/squad/PlayerCard.jsx';
 import PlayerFormModal from '../features/squad/PlayerFormModal.jsx';
@@ -73,7 +74,7 @@ export default function SquadManagementPage() {
   return (
     <>
       <header className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-        <div><p className="eyebrow">{user.team?.name || 'My team'}</p><h1 className="page-title">Permanent squad</h1><p className="page-copy">Keep every player card, role, and availability status accurate in one place.</p></div>
+        <div><p className="eyebrow"><TeamIdentity team={user.team} name={user.team?.name || 'My team'} logoClassName="size-5 rounded" /></p><h1 className="page-title">Permanent squad</h1><p className="page-copy">Keep every player card, role, and availability status accurate in one place.</p></div>
         <button type="button" className="primary-button w-fit" onClick={() => setEditor({ open: true, player: null })}><Plus size={17} /> Add player</button>
       </header>
 

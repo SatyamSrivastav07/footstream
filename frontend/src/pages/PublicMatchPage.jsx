@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LoadingScreen from "../components/LoadingScreen.jsx";
+import TeamIdentity from "../components/TeamIdentity.jsx";
 import { PublicError } from "../features/public/PublicStates.jsx";
 import { formatLocalDateTime, label } from "../features/matches/constants.js";
 import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
@@ -39,10 +40,10 @@ export default function PublicMatchPage() {
     : match.stream.isEnabled
       ? "Stream scheduled"
       : "";
-  const home =
-    match.teamSide === "home" ? match.team.name : match.opponent.name;
-  const away =
-    match.teamSide === "home" ? match.opponent.name : match.team.name;
+  const homeIsTeam = match.teamSide === "home";
+  const awayIsTeam = match.teamSide !== "home";
+  const home = homeIsTeam ? match.team.name : match.opponent.name;
+  const away = awayIsTeam ? match.team.name : match.opponent.name;
   return (
     <>
       <PublicBreadcrumbs
@@ -65,8 +66,8 @@ export default function PublicMatchPage() {
           )}
         </div>
         <div className="my-10 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-          <h1 className="font-display text-2xl font-black sm:text-4xl">
-            {home}
+          <h1 className="flex justify-center font-display text-2xl font-black sm:text-4xl">
+            {homeIsTeam ? <TeamIdentity team={match.team} name={home} className="justify-center" logoClassName="size-9 rounded-xl sm:size-11" /> : home}
           </h1>
           <div>
             {live || completed ? (
@@ -79,8 +80,8 @@ export default function PublicMatchPage() {
               </span>
             )}
           </div>
-          <h2 className="font-display text-2xl font-black sm:text-4xl">
-            {away}
+          <h2 className="flex justify-center font-display text-2xl font-black sm:text-4xl">
+            {awayIsTeam ? <TeamIdentity team={match.team} name={away} className="justify-center" logoClassName="size-9 rounded-xl sm:size-11" /> : away}
           </h2>
         </div>
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 border-t border-white/[0.08] pt-5 text-sm text-white/45">

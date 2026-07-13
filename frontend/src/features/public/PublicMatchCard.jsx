@@ -1,5 +1,6 @@
 import { CalendarDays, MapPin, Radio, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
+import TeamIdentity from "../../components/TeamIdentity.jsx";
 import { formatLocalDateTime, label } from "../matches/constants.js";
 
 export default function PublicMatchCard({ match, context = "fixture" }) {
@@ -15,10 +16,10 @@ export default function PublicMatchCard({ match, context = "fixture" }) {
     : completed
       ? "View result"
       : "View match";
-  const home =
-    match.teamSide === "home" ? match.team?.name : match.opponent.name;
-  const away =
-    match.teamSide === "home" ? match.opponent.name : match.team?.name;
+  const homeIsTeam = match.teamSide === "home";
+  const awayIsTeam = match.teamSide !== "home";
+  const home = homeIsTeam ? match.team?.name : match.opponent.name;
+  const away = awayIsTeam ? match.team?.name : match.opponent.name;
   const streamLabel = match.stream?.isPlayable
     ? "Stream available"
     : match.stream?.isEnabled
@@ -42,7 +43,11 @@ export default function PublicMatchCard({ match, context = "fixture" }) {
         )}
       </div>
       <div className="my-6 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-        <h2 className="font-display text-lg font-bold">{home}</h2>
+        <h2 className="flex justify-center font-display text-lg font-bold">
+          {homeIsTeam ? (
+            <TeamIdentity team={match.team} name={home} className="justify-center" logoClassName="size-7 rounded-lg" />
+          ) : home}
+        </h2>
         <div>
           {isLive || completed ? (
             <strong className="font-display text-3xl text-lime-300">
@@ -54,7 +59,11 @@ export default function PublicMatchCard({ match, context = "fixture" }) {
             </span>
           )}
         </div>
-        <h2 className="font-display text-lg font-bold">{away}</h2>
+        <h2 className="flex justify-center font-display text-lg font-bold">
+          {awayIsTeam ? (
+            <TeamIdentity team={match.team} name={away} className="justify-center" logoClassName="size-7 rounded-lg" />
+          ) : away}
+        </h2>
       </div>
       <div className="space-y-2 border-y border-white/[0.06] py-4 text-sm text-emerald-100/45">
         <p className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import api from "../api/client.js";
+import TeamIdentity from "../components/TeamIdentity.jsx";
 import PlayerAvatar from "../features/squad/PlayerAvatar.jsx";
 import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
 import {
@@ -260,10 +261,10 @@ function PlayerResults({ items }) {
           />
           <div className="min-w-0">
             <h3 className="truncate font-semibold">{player.name}</h3>
-            <p className="mt-1 truncate text-xs text-white/40">
-              {player.position} · #{player.jerseyNumber || "—"} ·{" "}
-              {player.team.name}
-            </p>
+            <div className="mt-1 flex items-center gap-1 truncate text-xs text-white/40">
+              <span>{player.position} · #{player.jerseyNumber || "—"} ·</span>
+              <TeamIdentity team={player.team} logoClassName="size-4 rounded" />
+            </div>
           </div>
           {player.isCaptain && (
             <span className="status-badge status-active">Captain</span>

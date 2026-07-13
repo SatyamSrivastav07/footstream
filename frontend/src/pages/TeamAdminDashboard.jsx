@@ -2,6 +2,7 @@ import { Building2, CalendarDays, MapPin, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '../api/client.js';
 import TeamBrandingUploader from '../components/TeamBrandingUploader.jsx';
+import TeamIdentity from '../components/TeamIdentity.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TeamAdminDashboard() {
@@ -27,8 +28,7 @@ export default function TeamAdminDashboard() {
       <section className="mt-9 overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(190,242,100,.09),rgba(255,255,255,.025))] p-7 sm:p-9">
         <div className="flex flex-col justify-between gap-8 md:flex-row md:items-center">
           <div className="flex items-center gap-5">
-            <div className="grid size-20 shrink-0 place-items-center rounded-2xl bg-lime-300 font-display text-2xl font-black text-emerald-950">{team?.name?.slice(0, 2).toUpperCase() || 'FS'}</div>
-            <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-lime-200/65">Assigned club</p><h2 className="mt-2 font-display text-3xl font-bold text-white">{team?.name || 'Team unavailable'}</h2><div className="mt-2 flex items-center gap-2 text-sm text-emerald-100/45"><MapPin size={15} /> Team profile initialized</div></div>
+            <div><p className="text-xs font-bold uppercase tracking-[0.2em] text-lime-200/65">Assigned club</p><h2 className="mt-2 font-display text-3xl font-bold text-white"><TeamIdentity team={team} name={team?.name || 'Team unavailable'} logoClassName="size-14 rounded-2xl" /></h2><div className="mt-2 flex items-center gap-2 text-sm text-emerald-100/45"><MapPin size={15} /> Team profile initialized</div></div>
           </div>
           <span className="status-badge status-active w-fit"><ShieldCheck size={13} /> Authorized</span>
         </div>

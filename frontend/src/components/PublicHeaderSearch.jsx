@@ -2,6 +2,7 @@ import { Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/client.js";
+import TeamIdentity from "./TeamIdentity.jsx";
 import { buildSearchParams } from "../utils/publicUrl.js";
 
 const destination = (item) =>
@@ -173,10 +174,13 @@ export default function PublicHeaderSearch() {
                 onClick={() => choose(item)}
               >
                 <span className="block truncate text-sm font-semibold">
-                  {item.label}
+                  {item.kind === "team" && <TeamIdentity team={item} logoClassName="size-5 rounded" />}
+                  {item.kind === "player" && item.label}
+                  {item.kind === "match" && <TeamIdentity team={item.team} name={item.team.name} logoClassName="size-5 rounded" />}
                 </span>
-                <span className="block truncate text-xs text-white/35">
-                  {item.kind} · {item.detail}
+                <span className="flex items-center gap-1 truncate text-xs text-white/35">
+                  <span>{item.kind} ·</span>
+                  {item.kind === "player" ? <><span>{item.position} ·</span><TeamIdentity team={item.team} logoClassName="size-4 rounded" /></> : item.detail}
                 </span>
               </button>
             ))

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LoadingScreen from "../components/LoadingScreen.jsx";
 import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
+import TeamIdentity from "../components/TeamIdentity.jsx";
 import { PublicError } from "../features/public/PublicStates.jsx";
 import { statusClass, statusLabel } from "../features/joinRequests/joinRequestConstants.js";
 import usePageMetadata from "../hooks/usePageMetadata.js";
@@ -53,7 +54,7 @@ export default function PublicJoinRequestStatusPage() {
         <section className="panel mt-7">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="eyebrow">{data.team.name}</p>
+              <p className="eyebrow"><TeamIdentity team={data.team} logoClassName="size-4 rounded" /></p>
               <h2 className="panel-title">{data.requestCode}</h2>
             </div>
             <span className={statusClass[data.status]}>{statusLabel(data.status)}</span>

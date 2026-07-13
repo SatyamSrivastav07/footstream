@@ -1,17 +1,20 @@
 import { CalendarDays, MapPin, NotebookText, UsersRound } from 'lucide-react';
+import TeamIdentity from '../../components/TeamIdentity.jsx';
 import SnapshotCard from './SnapshotCard.jsx';
 import { formatLocalDateTime, label } from './constants.js';
 
 export default function MatchDetails({ match, fallbackTeamName }) {
   const teamName = match.team?.name || fallbackTeamName || 'FootStream team';
-  const left = match.teamSide === 'home' ? teamName : match.opponent.name;
-  const right = match.teamSide === 'home' ? match.opponent.name : teamName;
+  const leftIsTeam = match.teamSide === 'home';
+  const rightIsTeam = match.teamSide !== 'home';
+  const left = leftIsTeam ? teamName : match.opponent.name;
+  const right = rightIsTeam ? teamName : match.opponent.name;
 
   return (
     <>
       <section className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(190,242,100,.1),rgba(255,255,255,.02)_52%)] p-6 sm:p-9">
         <div className="flex flex-wrap items-center justify-between gap-3"><span className={`status-badge ${match.status === 'cancelled' ? 'status-off' : match.status === 'completed' ? 'border-sky-300/15 bg-sky-300/[0.08] text-sky-200' : 'status-active'}`}>{label(match.status)}</span><span className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100/40">{label(match.matchType)} · {label(match.teamSide)}</span></div>
-        <div className="my-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-center"><h1 className="font-display text-3xl font-black text-white sm:text-5xl">{left}</h1><span className="font-display text-xl font-black text-lime-300/50">VS</span><h1 className="font-display text-3xl font-black text-white sm:text-5xl">{right}</h1></div>
+        <div className="my-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-center"><h1 className="flex justify-center font-display text-3xl font-black text-white sm:text-5xl">{leftIsTeam ? <TeamIdentity team={match.team} name={left} className="justify-center" logoClassName="size-10 rounded-xl sm:size-12" /> : left}</h1><span className="font-display text-xl font-black text-lime-300/50">VS</span><h1 className="flex justify-center font-display text-3xl font-black text-white sm:text-5xl">{rightIsTeam ? <TeamIdentity team={match.team} name={right} className="justify-center" logoClassName="size-10 rounded-xl sm:size-12" /> : right}</h1></div>
         <div className="grid gap-3 border-t border-white/[0.08] pt-6 text-sm text-emerald-100/55 sm:grid-cols-2 lg:grid-cols-4">
           <Info icon={CalendarDays} label="Kickoff" value={formatLocalDateTime(match.scheduledAt)} />
           <Info icon={MapPin} label="Venue" value={match.venue} />

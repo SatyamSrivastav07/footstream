@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api/client.js';
 import EmptyState from '../components/EmptyState.jsx';
+import TeamIdentity from '../components/TeamIdentity.jsx';
 import PlayerCard from '../features/squad/PlayerCard.jsx';
 
 export default function AdminSquadViewPage() {
@@ -27,7 +28,7 @@ export default function AdminSquadViewPage() {
     <>
       <Link to="/admin" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 transition hover:text-lime-200"><ArrowLeft size={16} /> Back to control room</Link>
       <header className="mt-7 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-        <div><p className="eyebrow">Read-only squad view</p><h1 className="page-title">{team?.name || 'Team squad'}</h1><p className="page-copy">Review the permanent squad without changing team-admin player records.</p></div>
+        <div><p className="eyebrow">Read-only squad view</p><h1 className="page-title"><TeamIdentity team={team} name={team?.name || 'Team squad'} logoClassName="size-12 rounded-2xl" /></h1><p className="page-copy">Review the permanent squad without changing team-admin player records.</p></div>
         <div className="flex gap-3"><span className="metric-card py-3"><UsersRound size={18} className="text-lime-200" /><strong>{players.length}</strong><span className="text-xs text-emerald-100/40">records</span></span><span className="metric-card py-3"><UserCheck size={18} className="text-emerald-200" /><strong>{active.length}</strong><span className="text-xs text-emerald-100/40">active</span></span></div>
       </header>
       {error && <div className="mt-7 rounded-xl border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm text-red-100" role="alert">{error}</div>}
