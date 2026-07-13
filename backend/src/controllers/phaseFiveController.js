@@ -4,6 +4,7 @@ import Player from '../models/Player.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
 import { confirmResult, getResultBundle } from '../services/resultService.js';
+import { queueResultPublishedPush } from '../services/pushService.js';
 import { getLeaderboards, getPlayerStatistics, loadTeamData } from '../services/statisticsService.js';
 import { removePhoto, uploadPhotos } from '../services/photoService.js';
 
@@ -13,7 +14,11 @@ const requestedTeamId = (req) => req.params.teamId || ownedTeamId(req);
 const resultReader = (owned) => asyncHandler(async (req, res) => res.json({ success: true, data: await getResultBundle({ matchId: req.params.matchId, ...(owned ? { teamId: ownedTeamId(req) } : {}) }) }));
 export const getTeamResult = resultReader(true);
 export const getAnyResult = resultReader(false);
-export const patchTeamResult = asyncHandler(async (req, res) => res.json({ success: true, data: await confirmResult({ matchId: req.params.matchId, teamId: ownedTeamId(req), userId: req.user._id, input: req.body }) }));
+export const patchTeamResult = asyncHandler(async (req, res) => {
+  const data = await confirmResult({ matchId: req.params.matchId, teamId: ownedTeamId(req), userId: req.user._id, input: req.body });
+  queueResultPublishedPush(req.params.matchId);
+  res.json({ success: true, data });
+});
 
 const photoReader = (owned) => asyncHandler(async (req, res) => {
   const matchFilter = { _id: req.params.matchId, isActive: true, status: 'completed' };

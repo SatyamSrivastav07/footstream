@@ -17,7 +17,17 @@ import { requestCodeValidator, submitJoinRequestValidator } from '../validators/
 import { uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature } from '../middleware/photoUpload.js';
 import { getPublicChat, getPublicMatchAnnouncement, getPublicPolls, getPublicReactions, postPublicChat, togglePublicReaction, votePublicPoll } from '../controllers/engagementController.js';
 import { listChatValidator, postChatValidator, chatMatchIdValidator, reactionMatchValidator, toggleReactionValidator, votePollValidator } from '../validators/engagementValidators.js';
-import { joinRequestStatusLimiter, joinRequestSubmitLimiter, publicChatPostLimiter } from '../middleware/rateLimiters.js';
+import { joinRequestStatusLimiter, joinRequestSubmitLimiter, publicChatPostLimiter, publicFollowLimiter } from '../middleware/rateLimiters.js';
+import {
+  deleteFollowTeam,
+  deletePushSubscribe,
+  followStatus,
+  patchFollowPreferences,
+  postFollowTeam,
+  postPushSubscribe,
+  publicPushConfig,
+} from '../controllers/followController.js';
+import { followActionValidator, followPreferencesValidator, followStatusValidator, pushSubscribeValidator, pushUnsubscribeValidator } from '../validators/followValidators.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
@@ -27,7 +37,14 @@ router.get('/fixtures', publicFixturesValidator, validate, publicFixtures);
 router.get('/results', publicResultsValidator, validate, publicResults);
 router.get('/search', publicSearchValidator, validate, publicSearch);
 router.get('/teams', publicTeamsValidator, validate, publicTeams);
+router.get('/push/config', publicPushConfig);
+router.post('/push/subscribe', publicFollowLimiter, pushSubscribeValidator, validate, postPushSubscribe);
+router.delete('/push/unsubscribe', publicFollowLimiter, pushUnsubscribeValidator, validate, deletePushSubscribe);
 router.post('/teams/:teamSlug/join-requests', joinRequestSubmitLimiter, uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature, submitJoinRequestValidator, validate, submitPublicJoinRequest);
+router.get('/teams/:teamSlug/follow-status', followStatusValidator, validate, followStatus);
+router.post('/teams/:teamSlug/follow', publicFollowLimiter, followActionValidator, validate, postFollowTeam);
+router.delete('/teams/:teamSlug/follow', publicFollowLimiter, followActionValidator, validate, deleteFollowTeam);
+router.patch('/teams/:teamSlug/follow/preferences', publicFollowLimiter, followPreferencesValidator, validate, patchFollowPreferences);
 router.get('/join-requests/:requestCode/status', joinRequestStatusLimiter, requestCodeValidator, validate, publicJoinRequestStatus);
 router.get('/teams/:teamSlug/squad', publicTeamSlugValidator, validate, publicTeamSquad);
 router.get('/teams/:teamSlug/fixtures', publicTeamMatchesValidator, validate, publicTeamFixtures);

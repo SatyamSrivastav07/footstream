@@ -16,6 +16,7 @@ import InstagramFollowButton from "../components/InstagramFollowButton.jsx";
 import LoadingScreen from "../components/LoadingScreen.jsx";
 import ShareButton from "../components/ShareButton.jsx";
 import PublicMatchCard from "../features/public/PublicMatchCard.jsx";
+import FollowTeamPanel from "../features/public/FollowTeamPanel.jsx";
 import { PublicEmpty, PublicError } from "../features/public/PublicStates.jsx";
 import { PublicTeamHeader } from "../features/public/PublicTeamChrome.jsx";
 import usePageMetadata from "../hooks/usePageMetadata.js";
@@ -84,6 +85,9 @@ export default function PublicTeamProfilePage() {
   return (
     <>
       <PublicTeamHeader team={team} actions={<PublicTeamActions team={team} fallbackSlug={teamSlug} />} />
+      <section className="mt-6">
+        <FollowTeamPanel team={team} fallbackSlug={teamSlug} />
+      </section>
       <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
         <article className="panel">
           <p className="eyebrow">Club profile</p>

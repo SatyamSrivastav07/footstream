@@ -24,6 +24,11 @@ if (process.env.NODE_ENV === 'production' && jwtSecret.length < 32) {
   throw new Error('JWT_SECRET must be at least 32 characters in production');
 }
 
+if (process.env.NODE_ENV === 'production') {
+  const missingPush = ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'].filter((name) => !process.env[name]);
+  if (missingPush.length) throw new Error(`Missing required push notification variables: ${missingPush.join(', ')}`);
+}
+
 const parseOrigins = (value) => value
   .split(',')
   .map((origin) => origin.trim())
@@ -80,10 +85,16 @@ const env = Object.freeze({
     searchMax: parsePositiveInteger('SEARCH_RATE_LIMIT_MAX', 120 * developmentMultiplier, { min: 10, max: 100_000 }),
     uploadMax: parsePositiveInteger('UPLOAD_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 1, max: 10_000 }),
     joinRequestMax: parsePositiveInteger('JOIN_REQUEST_RATE_LIMIT_MAX', 5 * (isDevelopment ? 3 : 1), { min: 1, max: 10_000 }),
+    followMax: parsePositiveInteger('FOLLOW_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 5, max: 10_000 }),
     mutationMax: parsePositiveInteger('MUTATION_RATE_LIMIT_MAX', 300 * developmentMultiplier, { min: 10, max: 100_000 }),
   },
   moderation: {
     blockedChatWords,
+  },
+  push: {
+    vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+    vapidSubject: process.env.VAPID_SUBJECT || 'mailto:admin@example.com',
   },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

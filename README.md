@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7A.1 through 7A.2, and Phases 7B.1 through 7B.2**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, team challenges, counter proposals, challenge history, challenge-to-fixture creation, challenge fixture format enforcement, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, and basic moderation controls.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7A.1 through 7A.2, Phases 7B.1 through 7B.2, and Phase 7C**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, team challenges, counter proposals, challenge history, challenge-to-fixture creation, challenge fixture format enforcement, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, and notification preferences.
 
-Deployment execution, browser push notifications, follow-team notifications, payments, AI features, tournaments, mobile apps, and Phase 7C/8 functionality are intentionally not included.
+Deployment execution, email/SMS notifications, payments, AI features, tournaments, mobile apps, and Phase 8 functionality are intentionally not included.
 
 ## Phase 1 Features
 
@@ -859,7 +859,11 @@ Required production environment:
 | `UPLOAD_RATE_LIMIT_MAX` | Upload mutation limiter ceiling |
 | `JOIN_REQUEST_RATE_LIMIT_MAX` | Public join-request submission limiter ceiling |
 | `MUTATION_RATE_LIMIT_MAX` | Authenticated non-GET mutation limiter ceiling |
+| `FOLLOW_RATE_LIMIT_MAX` | Public follow, preference, subscribe, and unsubscribe mutation limiter ceiling |
 | `CHAT_BLOCKED_WORDS` | Optional comma-separated blocked words rejected by public chat moderation |
+| `VAPID_PUBLIC_KEY` | Public VAPID key for Web Push |
+| `VAPID_PRIVATE_KEY` | Private VAPID key for Web Push; never commit a real value |
+| `VAPID_SUBJECT` | VAPID contact subject, usually a `mailto:` URL |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
 | `CLOUDINARY_API_KEY` | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
@@ -1231,4 +1235,88 @@ Manual Phase 7B.2 checks:
 8. Add `CHAT_BLOCKED_WORDS=example` locally, restart the backend, and confirm a chat message containing `example` is rejected.
 9. Confirm community polls do not modify result, statistics, player stats, or Man of the Match.
 
-Deployment automation, hosting configuration, community accounts, account notifications beyond existing in-app admin notifications, payments, tournament management, and custom video hosting are not included.
+## Phase 7C Team Follows and Browser Push
+
+Phase 7C lets public visitors follow public teams and optionally enable browser push notifications without creating FootStream user accounts. It preserves existing authenticated in-app notifications and keeps anonymous public followers separate from administrator users.
+
+Anonymous follow behavior:
+
+- The frontend generates a `followerSessionId` with `crypto.randomUUID()` and stores it in `localStorage`.
+- No email, phone, password, or public user account is collected.
+- A browser can follow multiple teams.
+- Follow is idempotent, unfollow soft-deactivates the follow, and re-follow reactivates the existing record.
+- Only published, non-archived public teams can be followed.
+- Public responses expose only safe follow state, preferences, notification-enabled status, timestamps, and aggregate follower count.
+- Public responses never expose `followerSessionId`, push endpoints, push keys, IPs, or delivery logs.
+
+Browser push behavior:
+
+- Web Push uses the `web-push` package and VAPID keys.
+- Real VAPID keys must be generated outside source control.
+- Backend variables: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`.
+- Frontend variable: `VITE_VAPID_PUBLIC_KEY`.
+- Production requires HTTPS and valid VAPID configuration.
+- The app never requests notification permission on page load. Permission is requested only after the visitor clicks **Enable notifications**.
+- Unsupported browsers and denied/default permission states are handled in the public team profile UI.
+- `frontend/public/sw.js` handles `push`, `notificationclick`, and `notificationclose`.
+- Notification clicks focus an existing same-origin window when possible or open a safe same-origin public path.
+- No offline caching or full PWA behavior is added.
+
+Notification preferences:
+
+- Match reminder
+- Match started
+- Goal alerts
+- Half-time
+- Full-time
+- Result published
+- Challenge-accepted is stored for future-safe compatibility, but public challenge details are not sent.
+
+Push trigger behavior:
+
+- Team-admin scheduled matches include a **Send Match Reminder** backend action. Reminder delivery is persisted so each follower gets at most one reminder per match.
+- Match-started alerts dispatch after the start transition succeeds.
+- Goal alerts dispatch after validated goal, penalty-scored, or own-goal events succeed.
+- Half-time alerts dispatch after the half-time transition succeeds.
+- Full-time alerts dispatch after match completion succeeds.
+- Result-published alerts dispatch after official result confirmation succeeds.
+- Push failures do not roll back match mutations.
+- Expired `404`/`410` push subscriptions are deactivated.
+- Delivery is best-effort in-process with persisted idempotency. No Redis, BullMQ, queues, workers, or background scheduler are added.
+
+Phase 7C REST API:
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/public/push/config` | Public | Read the VAPID public key |
+| `GET` | `/api/public/teams/:teamSlug/follow-status` | Public | Read anonymous follow state |
+| `POST` | `/api/public/teams/:teamSlug/follow` | Public | Follow a public team |
+| `DELETE` | `/api/public/teams/:teamSlug/follow` | Public | Unfollow one team for this browser |
+| `PATCH` | `/api/public/teams/:teamSlug/follow/preferences` | Public | Update notification preferences |
+| `POST` | `/api/public/push/subscribe` | Public | Store a browser push subscription for active follows |
+| `DELETE` | `/api/public/push/unsubscribe` | Public | Remove push subscriptions for this browser |
+| `POST` | `/api/team/matches/:matchId/reminder` | teamAdmin host | Send one manual match reminder |
+
+Push event types:
+
+- `team_match_reminder`
+- `team_match_started`
+- `team_goal`
+- `team_half_time`
+- `team_full_time`
+- `team_result_published`
+
+Manual Phase 7C checks:
+
+1. Open a public team profile and follow the team.
+2. Refresh and confirm the following state persists from browser storage.
+3. Unfollow and confirm only that team is deactivated.
+4. Follow two public teams from the same browser and confirm both are independent.
+5. Click **Enable notifications** and confirm the browser permission prompt appears only after the click.
+6. Deny browser permission and confirm the UI shows a safe error/state.
+7. Toggle notification preferences and confirm they persist.
+8. As host team admin, send a scheduled-match reminder and confirm duplicate sends are skipped by delivery records.
+9. Start a match, add a goal, enter half-time, complete the match, and publish the result; confirm push dispatch is attempted only after each mutation succeeds.
+10. Confirm public APIs never expose follower session IDs, subscription endpoints, subscription keys, IPs, or delivery logs.
+
+Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament management, native mobile apps, and custom video hosting are not included.

@@ -101,6 +101,7 @@ import {
   putTeamAnnouncement,
 } from '../controllers/engagementController.js';
 import { announcementValidator, chatMatchIdValidator, deleteChatValidator, pollBodyValidator, pollIdValidator, updatePollValidator } from '../validators/engagementValidators.js';
+import { postMatchReminder } from '../controllers/followController.js';
 
 const router = Router();
 
@@ -143,6 +144,7 @@ router.route('/matches')
   .get(listMatchesValidator, validateMatch, listTeamMatches)
   .post(createMatchValidator, validateMatch, createTeamMatch);
 router.post('/matches/:matchId/start', liveMatchIdValidator, validateMatch, startOwnedMatch);
+router.post('/matches/:matchId/reminder', liveMatchIdValidator, validateMatch, postMatchReminder);
 router.post('/matches/:matchId/end-first-half', liveMatchIdValidator, validateMatch, endOwnedFirstHalf);
 router.post('/matches/:matchId/start-second-half', liveMatchIdValidator, validateMatch, startOwnedSecondHalf);
 router.post('/matches/:matchId/complete', liveMatchIdValidator, validateMatch, completeOwnedMatch);

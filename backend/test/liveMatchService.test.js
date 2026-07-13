@@ -259,6 +259,10 @@ test('super admin cannot use team-admin live mutations and public routes are rea
       '/matches/:matchId/chat',
       '/matches/:matchId/reactions/:reactionType/toggle',
       '/matches/:matchId/polls/:pollId/vote',
+      '/push/subscribe',
+      '/push/unsubscribe',
+      '/teams/:teamSlug/follow',
+      '/teams/:teamSlug/follow/preferences',
     ].includes(layer.route.path))
     .flatMap((layer) => Object.keys(layer.route.methods));
   assert.deepEqual([...new Set(methods)], ['get']);

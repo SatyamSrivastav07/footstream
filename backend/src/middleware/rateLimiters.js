@@ -37,6 +37,11 @@ export const joinRequestStatusLimiter = makeLimiter({
   windowMs: 15 * 60 * 1000,
   limit: Math.max(60, env.rateLimits.publicReadMax),
 });
+export const publicFollowLimiter = makeLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: env.rateLimits.followMax,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.body?.followerSessionId || req.query?.followerSessionId || 'anonymous'}`,
+});
 export const authenticatedMutationLimiter = makeLimiter({ limit: env.rateLimits.mutationMax });
 export const publicChatPostLimiter = makeLimiter({
   windowMs: 60 * 1000,

@@ -18,11 +18,46 @@ const categories = [
   "other",
 ];
 
+const asArray = (value) => (Array.isArray(value) ? value : []);
+const displayLogo = (logo) => (typeof logo === "string" ? logo : logo?.imageUrl || "");
+const opponentForMatch = (match = {}) => ({
+  name: match.registeredOpponentTeam?.name || match.opponent?.name || "Opponent",
+  logo: displayLogo(match.registeredOpponentTeam?.logo || match.opponent?.logo),
+});
+
+export const normalizeResultBundle = (bundle) => {
+  if (!bundle?.match) return null;
+  const match = bundle.match;
+  const result = bundle.result || match.result || {};
+  return {
+    ...bundle,
+    match: {
+      ...match,
+      team: match.team || { name: "FootStream team" },
+      opponent: opponentForMatch(match),
+      startingXI: asArray(match.startingXI),
+      substitutes: asArray(match.substitutes),
+      attendance: match.attendance ?? null,
+      completionNotes: match.completionNotes || "",
+      tournament: match.tournament || "",
+      venue: match.venue || "Venue unavailable",
+    },
+    result: {
+      outcome: result.outcome || "unavailable",
+      finalTeamScore: result.finalTeamScore ?? result.teamScore ?? match.result?.finalTeamScore ?? null,
+      finalOpponentScore: result.finalOpponentScore ?? result.opponentScore ?? match.result?.finalOpponentScore ?? null,
+    },
+    events: asArray(bundle.events),
+    photos: asArray(bundle.photos),
+  };
+};
+
 export const motmEligiblePlayersForBundle = (bundle) => {
-  if (!bundle) return [];
-  const squad = [...bundle.match.startingXI, ...bundle.match.substitutes];
-  const eligibleIds = new Set(bundle.match.startingXI.map((player) => String(player.player)));
-  bundle.events
+  const normalized = normalizeResultBundle(bundle);
+  if (!normalized) return [];
+  const squad = [...normalized.match.startingXI, ...normalized.match.substitutes];
+  const eligibleIds = new Set(normalized.match.startingXI.map((player) => String(player.player)));
+  normalized.events
     .filter((event) => event.type === "substitution" && !event.isUndone && event.playerIn)
     .forEach((event) => eligibleIds.add(String(event.playerIn)));
   return squad.filter((player) => eligibleIds.has(String(player.player)));
@@ -47,12 +82,13 @@ export default function MatchResultPage({ audience = "team" }) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const resultName = bundle
-    ? `${bundle.match.team?.name || "FootStream team"} vs ${bundle.match.opponent.name}`
+  const normalizedBundle = useMemo(() => normalizeResultBundle(bundle), [bundle]);
+  const resultName = normalizedBundle
+    ? `${normalizedBundle.match.team?.name || "FootStream team"} vs ${normalizedBundle.match.opponent.name}`
     : "Match result";
   usePageMetadata({
     title: `${resultName} | Result | FootStream`,
-    description: bundle
+    description: normalizedBundle
       ? `Final score, match events, lineups, Man of the Match, and photos for ${resultName}.`
       : "Verified football match result on FootStream.",
     path:
@@ -61,18 +97,19 @@ export default function MatchResultPage({ audience = "team" }) {
         : `/${audience}/matches/${matchId}/result`,
     image:
       audience === "public"
-        ? bundle?.photos?.[0]?.imageUrl || bundle?.match?.team?.logo || ""
+        ? normalizedBundle?.photos?.[0]?.imageUrl || displayLogo(normalizedBundle?.match?.team?.logo) || ""
         : "",
   });
   const load = useCallback(async () => {
     try {
       const response = await api.get(`${base}/result`);
       const value = response.data.data;
+      const safeValue = normalizeResultBundle(value);
       setBundle(value);
       setForm({
-        manOfTheMatchPlayerId: value.match.manOfTheMatch?.player || "",
-        completionNotes: value.match.completionNotes || "",
-        attendance: value.match.attendance ?? "",
+        manOfTheMatchPlayerId: safeValue?.match.manOfTheMatch?.player || "",
+        completionNotes: safeValue?.match.completionNotes || "",
+        attendance: safeValue?.match.attendance ?? "",
       });
       setError("");
     } catch (requestError) {
@@ -92,14 +129,21 @@ export default function MatchResultPage({ audience = "team" }) {
   );
   const squad = useMemo(
     () =>
-      bundle ? [...bundle.match.startingXI, ...bundle.match.substitutes] : [],
-    [bundle],
+      normalizedBundle ? [...normalizedBundle.match.startingXI, ...normalizedBundle.match.substitutes] : [],
+    [normalizedBundle],
   );
   const motmEligibleSquad = useMemo(() => {
     return motmEligiblePlayersForBundle(bundle);
   }, [bundle]);
   if (!bundle && !error) return <LoadingScreen />;
-  if (!bundle) return <div className="text-red-200">{error}</div>;
+  if (!bundle) return <div className="rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error || "Result could not be loaded."}</div>;
+  if (!normalizedBundle) return <div className="rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-amber-100">Unavailable result.</div>;
+  const match = normalizedBundle.match;
+  const result = normalizedBundle.result;
+  const photos = normalizedBundle.photos;
+  const events = normalizedBundle.events;
+  const finalTeamScore = result.finalTeamScore ?? "—";
+  const finalOpponentScore = result.finalOpponentScore ?? "—";
   const save = async (event) => {
     event.preventDefault();
     try {
@@ -181,12 +225,12 @@ export default function MatchResultPage({ audience = "team" }) {
       <header>
         <p className="eyebrow">Full time · verified result</p>
         <h1 className="page-title">
-          <TeamIdentity team={bundle.match.team} name={bundle.match.team?.name || "Our team"} logoClassName="size-10 rounded-xl" /> {bundle.result.finalTeamScore}
-          –{bundle.result.finalOpponentScore} {bundle.match.opponent.name}
+          <TeamIdentity team={match.team} name={match.team?.name || "Our team"} logoClassName="size-10 rounded-xl" /> {finalTeamScore}
+          –{finalOpponentScore} {match.opponent.name}
         </h1>
         <p className="page-copy">
-          {new Date(bundle.match.scheduledAt).toLocaleString()} ·{" "}
-          {bundle.match.venue} · {bundle.match.tournament || "No tournament"}
+          {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString() : "Date unavailable"} ·{" "}
+          {match.venue} · {match.tournament || "No tournament"}
         </p>
       </header>
       {audience === "public" && (
@@ -210,27 +254,27 @@ export default function MatchResultPage({ audience = "team" }) {
           <p className="eyebrow">Outcome</p>
           <div className="mt-4 flex items-end gap-4">
             <span className="font-display text-7xl font-black text-lime-300">
-              {bundle.result.finalTeamScore}
+              {finalTeamScore}
             </span>
             <span className="pb-2 text-3xl text-white/30">–</span>
             <span className="font-display text-7xl font-black">
-              {bundle.result.finalOpponentScore}
+              {finalOpponentScore}
             </span>
           </div>
           <span className="status-badge status-active mt-5 uppercase">
-            {bundle.result.outcome}
+            {result.outcome}
           </span>
-          {bundle.match.manOfTheMatch && (
+          {match.manOfTheMatch && (
             <div className="mt-7 border-t border-white/[0.07] pt-6">
               <p className="text-xs font-bold uppercase tracking-wider text-white/35">
                 Man of the Match
               </p>
               <p className="mt-2 text-xl font-semibold">
-                {bundle.match.manOfTheMatch.name}
+                {match.manOfTheMatch.name}
               </p>
               <p className="text-sm text-white/40">
-                {bundle.match.manOfTheMatch.position} · #
-                {bundle.match.manOfTheMatch.jerseyNumber || "—"}
+                {match.manOfTheMatch.position} · #
+                {match.manOfTheMatch.jerseyNumber || "—"}
               </p>
             </div>
           )}
@@ -287,11 +331,11 @@ export default function MatchResultPage({ audience = "team" }) {
             <div className="mt-5 space-y-4 text-sm text-white/60">
               <p>
                 <strong className="text-white">Attendance:</strong>{" "}
-                {bundle.match.attendance ?? "Not recorded"}
+                {match.attendance ?? "Not recorded"}
               </p>
               <p className="whitespace-pre-wrap">
                 <strong className="text-white">Notes:</strong>{" "}
-                {bundle.match.completionNotes || "No completion notes."}
+                {match.completionNotes || "No completion notes."}
               </p>
             </div>
           )}
@@ -303,7 +347,7 @@ export default function MatchResultPage({ audience = "team" }) {
             <p className="eyebrow">Match day</p>
             <h2 className="panel-title">Photo gallery</h2>
           </div>
-          <span className="count-pill">{bundle.photos.length}/20</span>
+          <span className="count-pill">{photos.length}/20</span>
         </div>
         {editable && (
           <div className="mb-6 rounded-2xl border border-dashed border-lime-300/20 bg-lime-300/[0.03] p-4">
@@ -374,7 +418,7 @@ export default function MatchResultPage({ audience = "team" }) {
           </div>
         )}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {bundle.photos.map((photo) => (
+          {photos.map((photo) => (
             <figure
               className="group overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02]"
               key={photo._id}
@@ -412,7 +456,7 @@ export default function MatchResultPage({ audience = "team" }) {
               </figcaption>
             </figure>
           ))}
-          {bundle.photos.length === 0 && (
+          {photos.length === 0 && (
             <p className="text-sm text-white/40">
               No match photos have been uploaded.
             </p>
@@ -440,7 +484,7 @@ export default function MatchResultPage({ audience = "team" }) {
       <section className="panel mt-6">
         <h2 className="panel-title">Match events</h2>
         <div className="mt-5">
-          <EventTimeline events={bundle.events} />
+          <EventTimeline events={events} />
         </div>
       </section>
     </>

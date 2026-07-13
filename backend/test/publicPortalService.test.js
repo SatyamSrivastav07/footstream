@@ -363,4 +363,9 @@ test("public portal routes remain read-only except approved guest engagement sub
     "POST /matches/:matchId/chat",
     "POST /matches/:matchId/reactions/:reactionType/toggle",
     "POST /matches/:matchId/polls/:pollId/vote",
+    "POST /push/subscribe",
+    "DELETE /push/unsubscribe",
+    "POST /teams/:teamSlug/follow",
+    "DELETE /teams/:teamSlug/follow",
+    "PATCH /teams/:teamSlug/follow/preferences",
   ]), true));

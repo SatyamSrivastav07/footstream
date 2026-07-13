@@ -15,6 +15,7 @@ import {
   undoLatestEvent,
 } from '../services/liveMatchService.js';
 import { emitToMatch } from '../realtime/realtimeHub.js';
+import { queueFullTimePush, queueGoalPush, queueHalfTimePush, queueMatchStartedPush } from '../services/pushService.js';
 
 const ownedTeamId = (req) => req.user.team?._id || req.user.team;
 
@@ -44,16 +45,17 @@ const broadcastState = async (matchId, eventName, extra = {}) => {
   return bundle;
 };
 
-const transitionController = (service) => asyncHandler(async (req, res) => {
+const transitionController = (service, afterTransition) => asyncHandler(async (req, res) => {
   await service({ teamId: ownedTeamId(req), matchId: req.params.matchId, userId: req.user._id });
   const bundle = await broadcastState(req.params.matchId, 'match:transition');
+  if (afterTransition) afterTransition(req.params.matchId);
   res.json({ success: true, data: { state: bundle.state } });
 });
 
-export const startOwnedMatch = transitionController(startMatch);
-export const endOwnedFirstHalf = transitionController(endFirstHalf);
+export const startOwnedMatch = transitionController(startMatch, queueMatchStartedPush);
+export const endOwnedFirstHalf = transitionController(endFirstHalf, queueHalfTimePush);
 export const startOwnedSecondHalf = transitionController(startSecondHalf);
-export const completeOwnedMatch = transitionController(completeMatch);
+export const completeOwnedMatch = transitionController(completeMatch, queueFullTimePush);
 
 export const getOwnedLiveState = asyncHandler(async (req, res) => {
   const bundle = await liveBundle({ matchId: req.params.matchId, teamId: ownedTeamId(req) });
@@ -71,6 +73,7 @@ const eventController = (typeFromRequest) => asyncHandler(async (req, res) => {
     teamId: ownedTeamId(req), matchId: req.params.matchId, userId: req.user._id, type, input: req.body,
   });
   const bundle = await broadcastState(req.params.matchId, 'match:event-created', { event: serializeEvent(event) });
+  if (['goal', 'penalty_scored', 'own_goal'].includes(type)) queueGoalPush(req.params.matchId, event, bundle.state);
   res.status(201).json({ success: true, data: { event: serializeEvent(event), state: bundle.state } });
 });
 
