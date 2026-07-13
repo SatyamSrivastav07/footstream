@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client.js";
 import LiveMatchView from "../features/live/LiveMatchView.jsx";
+import PublicLiveEngagement from "../features/live/PublicLiveEngagement.jsx";
 import PublicBreadcrumbs from "../components/PublicBreadcrumbs.jsx";
 import ShareButton from "../components/ShareButton.jsx";
 import usePageMetadata from "../hooks/usePageMetadata.js";
@@ -11,6 +12,7 @@ export default function PublicLivePage() {
   const { matchId } = useParams();
   const [stream, setStream] = useState(undefined);
   const [match, setMatch] = useState(null);
+  const [viewerCount, setViewerCount] = useState(0);
   const matchName = match
     ? `${match.team.name} vs ${match.opponent.name}`
     : "Live match";
@@ -50,15 +52,16 @@ export default function PublicLivePage() {
           path={`/matches/${matchId}/live`}
         />
       </div>
+      <LiveMatchView matchId={matchId} mode="public" onViewerCount={setViewerCount} />
       {stream === undefined ? (
         <div
-          className="skeleton mb-6 aspect-video rounded-3xl"
+          className="my-6 skeleton aspect-video rounded-3xl"
           role="status"
           aria-live="polite"
           aria-label="Loading match stream"
         />
       ) : stream.isPlayable ? (
-        <section className="mb-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-black">
+        <section className="my-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-black">
           <div className="aspect-video">
             <iframe
               className="size-full"
@@ -76,7 +79,7 @@ export default function PublicLivePage() {
           )}
         </section>
       ) : (
-        <section className="mb-6 rounded-3xl border border-dashed border-white/10 p-8 text-center">
+        <section className="my-6 rounded-3xl border border-dashed border-white/10 p-8 text-center">
           <Radio className="mx-auto text-white/25" size={28} />
           <h2 className="mt-3 font-display text-xl font-bold">
             Stream not available
@@ -86,7 +89,7 @@ export default function PublicLivePage() {
           </p>
         </section>
       )}
-      <LiveMatchView matchId={matchId} mode="public" />
+      <PublicLiveEngagement matchId={matchId} viewerCount={viewerCount} />
     </>
   );
 }

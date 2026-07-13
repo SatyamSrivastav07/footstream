@@ -79,6 +79,7 @@ export const submitJoinRequest = async ({
   teamSlug,
   input,
   file,
+  notifyTeam = async () => {},
 }) => {
   const team = await publicTeamForJoin({ teamModel, teamSlug });
   const email = String(input.email).trim().toLowerCase();
@@ -114,6 +115,16 @@ export const submitJoinRequest = async ({
       requestCode: code,
     });
     request.team = team;
+    await notifyTeam({
+      teamId: team._id,
+      type: 'join_request_received',
+      title: 'New join request',
+      message: `${request.applicantName} submitted a join request.`,
+      entityType: 'joinRequest',
+      entityId: request._id,
+      actionUrl: `/team/join-requests/${request._id}`,
+      dedupeKey: `join-request:${request._id}:received`,
+    });
     return publicSubmissionResponse(request);
   } catch (error) {
     if (photo?.publicId) await storage.destroy(photo.publicId).catch(() => {});
@@ -186,6 +197,7 @@ export const approveJoinRequest = async ({
   requestId,
   userId,
   input,
+  notifyTeam = async () => {},
 }) => {
   const request = await pendingRequest({ requestModel, teamId, requestId });
   const playerValues = {
@@ -214,6 +226,16 @@ export const approveJoinRequest = async ({
   };
   request.createdPlayer = player._id;
   await request.save();
+  await notifyTeam({
+    teamId,
+    type: 'join_request_approved',
+    title: 'Join request approved',
+    message: `${request.applicantName} was approved into the squad.`,
+    entityType: 'joinRequest',
+    entityId: request._id,
+    actionUrl: `/team/join-requests/${request._id}`,
+    dedupeKey: `join-request:${request._id}:approved`,
+  });
   return { request: adminRequestResponse(request.toObject()), player };
 };
 
@@ -224,6 +246,7 @@ export const rejectJoinRequest = async ({
   requestId,
   userId,
   rejectionReason = '',
+  notifyTeam = async () => {},
 }) => {
   const request = await pendingRequest({ requestModel, teamId, requestId });
   await removeImageAsset({
@@ -238,6 +261,16 @@ export const rejectJoinRequest = async ({
   request.reviewedAt = new Date();
   request.rejectionReason = rejectionReason;
   await request.save();
+  await notifyTeam({
+    teamId,
+    type: 'join_request_rejected',
+    title: 'Join request rejected',
+    message: `${request.applicantName} was rejected.`,
+    entityType: 'joinRequest',
+    entityId: request._id,
+    actionUrl: `/team/join-requests/${request._id}`,
+    dedupeKey: `join-request:${request._id}:rejected`,
+  });
   return adminRequestResponse(request.toObject());
 };
 

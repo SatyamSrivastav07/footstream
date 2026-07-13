@@ -18,6 +18,16 @@ const categories = [
   "other",
 ];
 
+export const motmEligiblePlayersForBundle = (bundle) => {
+  if (!bundle) return [];
+  const squad = [...bundle.match.startingXI, ...bundle.match.substitutes];
+  const eligibleIds = new Set(bundle.match.startingXI.map((player) => String(player.player)));
+  bundle.events
+    .filter((event) => event.type === "substitution" && !event.isUndone && event.playerIn)
+    .forEach((event) => eligibleIds.add(String(event.playerIn)));
+  return squad.filter((player) => eligibleIds.has(String(player.player)));
+};
+
 export default function MatchResultPage({ audience = "team" }) {
   const { matchId } = useParams();
   const editable = audience === "team";
@@ -85,6 +95,9 @@ export default function MatchResultPage({ audience = "team" }) {
       bundle ? [...bundle.match.startingXI, ...bundle.match.substitutes] : [],
     [bundle],
   );
+  const motmEligibleSquad = useMemo(() => {
+    return motmEligiblePlayersForBundle(bundle);
+  }, [bundle]);
   if (!bundle && !error) return <LoadingScreen />;
   if (!bundle) return <div className="text-red-200">{error}</div>;
   const save = async (event) => {
@@ -236,7 +249,7 @@ export default function MatchResultPage({ audience = "team" }) {
                   }
                 >
                   <option value="">Not selected</option>
-                  {squad.map((player) => (
+                  {motmEligibleSquad.map((player) => (
                     <option key={player.player} value={player.player}>
                       {player.name}
                     </option>

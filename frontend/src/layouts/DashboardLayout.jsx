@@ -1,6 +1,7 @@
-import { BarChart3, Building2, CalendarDays, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Swords, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
-import { useState } from 'react';
+import { BarChart3, Bell, Building2, CalendarDays, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Swords, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import api from '../api/client.js';
 import Brand from '../components/Brand.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 
@@ -8,7 +9,25 @@ export default function DashboardLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const home = user.role === 'superAdmin' ? '/admin' : '/team';
+
+  const loadUnread = useCallback(async () => {
+    try {
+      const response = await api.get('/notifications/unread-count');
+      setUnreadCount(response.data.data.count);
+    } catch {
+      setUnreadCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUnread();
+    window.addEventListener('footstream:notifications-changed', loadUnread);
+    return () => window.removeEventListener('footstream:notifications-changed', loadUnread);
+  }, [loadUnread]);
+
+  const unreadDot = unreadCount > 0 ? <span className="ml-auto size-2 rounded-full bg-red-400" aria-label={`${unreadCount} unread notifications`} /> : null;
 
   const handleLogout = async () => {
     await logout();
@@ -42,7 +61,7 @@ export default function DashboardLayout() {
                 <UserCog size={18} /> Team admins
               </NavLink>
               <NavLink to="/admin/challenges" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <Swords size={18} /> Challenges
+                <Swords size={18} /> Challenges {unreadDot}
               </NavLink>
             </>
           ) : (
@@ -56,10 +75,10 @@ export default function DashboardLayout() {
                 <UsersRound size={18} /> Squad
               </NavLink>
               <NavLink to="/team/join-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <UserPlus size={18} /> Join Requests
+                <UserPlus size={18} /> Join Requests {unreadDot}
               </NavLink>
               <NavLink to="/team/challenges" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <Swords size={18} /> Challenges
+                <Swords size={18} /> Challenges {unreadDot}
               </NavLink>
             </>
           )}
@@ -67,6 +86,9 @@ export default function DashboardLayout() {
             <CalendarDays size={18} /> Matches
           </NavLink>
           {user.role === 'teamAdmin' && <><NavLink to="/team/statistics" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}><BarChart3 size={18} /> Statistics</NavLink><NavLink to="/team/history" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}><History size={18} /> History</NavLink></>}
+          <NavLink to="/notifications" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+            <Bell size={18} /> Notifications {unreadDot}
+          </NavLink>
         </nav>
 
         <div className="mt-auto rounded-2xl border border-white/[0.07] bg-white/[0.035] p-4">

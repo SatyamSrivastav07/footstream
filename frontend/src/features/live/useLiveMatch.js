@@ -11,6 +11,7 @@ export default function useLiveMatch(matchId, mode = 'public') {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [connection, setConnection] = useState('connecting');
+  const [viewerCount, setViewerCount] = useState(0);
   const notifications = useEventNotificationQueue();
   const { enqueue } = notifications;
 
@@ -36,7 +37,7 @@ export default function useLiveMatch(matchId, mode = 'public') {
     const socket = io(socketUrl, { withCredentials: true, reconnection: true });
     socket.on('connect', () => {
       setConnection('connected');
-      socket.emit('join-match', matchId, (response) => {
+      socket.emit('join-match', { matchId, mode }, (response) => {
         if (!response?.ok) setError(response?.error?.message || 'Unable to join live match updates.');
       });
       refresh();
@@ -44,6 +45,7 @@ export default function useLiveMatch(matchId, mode = 'public') {
     socket.on('disconnect', () => setConnection('reconnecting'));
     socket.io.on('reconnect_attempt', () => setConnection('reconnecting'));
     socket.on('match:state', setState);
+    socket.on('match:viewer-count', (payload) => setViewerCount(Number(payload?.count) || 0));
     socket.on('match:event-created', (payload) => {
       if (mode === 'public') enqueue({ kind: 'event', event: payload?.event, state: payload?.state });
       refresh();
@@ -60,5 +62,5 @@ export default function useLiveMatch(matchId, mode = 'public') {
     return () => { socket.emit('leave-match', matchId); socket.disconnect(); };
   }, [enqueue, matchId, mode, refresh]);
 
-  return { state, events, loading, error, connection, refresh, setError, notifications };
+  return { state, events, loading, error, connection, viewerCount, refresh, setError, notifications };
 }

@@ -1,6 +1,7 @@
 import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
 import AppError from '../utils/AppError.js';
+import { starterCountForFormat } from './matchService.js';
 import { publicImage } from './teamBrandingService.js';
 
 const idString = (value) => value ? String(value._id || value) : '';
@@ -85,8 +86,10 @@ export const buildCurrentLineup = (match, events) => {
     substitutions,
     substitutedOut,
     entered,
+    appeared: new Set([...starting.keys(), ...entered]),
     onFieldIds: new Set(onField.keys()),
     benchIds: new Set(bench.keys()),
+    sentOffIds: new Set(sentOff.keys()),
   };
 };
 
@@ -96,8 +99,51 @@ export const findLineupSnapshot = (match, playerId) => {
   return compactSnapshot(snapshot);
 };
 
+export const currentLineupEligibility = (match, events) => {
+  const state = buildCurrentLineup(match, events);
+  const currentGoalkeepers = state.onField.filter((player) => String(player.position || '').toLowerCase().includes('gk') || String(player.position || '').toLowerCase().includes('goalkeeper'));
+  const requireOnField = (playerId, field = 'playerId') => {
+    const selectedId = idString(playerId);
+    if (!selectedId) throw new AppError('Select a current on-field player.', 400, 'PLAYER_REQUIRED', [{ field, message: 'Select a current on-field player.' }]);
+    if (state.sentOffIds.has(selectedId)) throw new AppError('This player is no longer eligible after receiving a red card.', 400, 'PLAYER_RED_CARDED', [{ field, message: 'This player is no longer eligible after receiving a red card.' }]);
+    if (state.substitutedOut.has(selectedId)) throw new AppError('This player has already left the field.', 400, 'PLAYER_ALREADY_SUBSTITUTED_OUT', [{ field, message: 'This player has already left the field.' }]);
+    if (!state.onFieldIds.has(selectedId)) throw new AppError('Selected player is not currently on the field.', 400, 'PLAYER_NOT_ON_FIELD', [{ field, message: 'Selected player is not currently on the field.' }]);
+    return state.onField.find((player) => idString(player.player) === selectedId);
+  };
+  const requireBench = (playerId, field = 'playerInId') => {
+    const selectedId = idString(playerId);
+    if (!selectedId) throw new AppError('Select a current bench player.', 400, 'PLAYER_REQUIRED', [{ field, message: 'Select a current bench player.' }]);
+    if (state.sentOffIds.has(selectedId)) throw new AppError('This player is no longer eligible after receiving a red card.', 400, 'PLAYER_RED_CARDED', [{ field, message: 'This player is no longer eligible after receiving a red card.' }]);
+    if (state.entered.has(selectedId)) throw new AppError('A player cannot enter twice.', 400, 'PLAYER_ALREADY_ENTERED', [{ field, message: 'A player cannot enter twice.' }]);
+    if (state.substitutedOut.has(selectedId)) throw new AppError('This player has already left the field.', 400, 'PLAYER_ALREADY_SUBSTITUTED_OUT', [{ field, message: 'This player has already left the field.' }]);
+    if (!state.benchIds.has(selectedId)) throw new AppError('Selected substitute is not currently available on the bench.', 400, 'PLAYER_NOT_ON_BENCH', [{ field, message: 'Selected substitute is not currently available on the bench.' }]);
+    return state.bench.find((player) => idString(player.player) === selectedId);
+  };
+  return {
+    currentOnFieldPlayers: state.onField,
+    currentBenchPlayers: state.bench,
+    substitutedOutPlayers: [...state.substitutedOut],
+    redCardedPlayers: state.sentOff,
+    appearedPlayers: [...state.appeared],
+    currentGoalkeepers,
+    state,
+    requireOnField,
+    requireBench,
+  };
+};
+
 export const assertLiveMatch = (match) => {
   if (match.status !== 'live') throw new AppError('Events can only be added while the match is live.', 409, 'MATCH_NOT_LIVE');
+};
+
+export const assertCompleteLineup = (match) => {
+  const matchFormat = match.matchFormat || '11v11';
+  const required = starterCountForFormat(matchFormat);
+  if ((match.startingXI || []).length !== required) {
+    throw new AppError(`Complete your ${matchFormat} lineup before starting the match.`, 409, 'MATCH_LINEUP_INCOMPLETE', [
+      { field: 'startingPlayerIds', message: `${matchFormat} requires exactly ${required} starters.` },
+    ]);
+  }
 };
 
 export const findOwnedActiveMatch = async ({ matchModel = Match, teamId, matchId }) => {
@@ -111,6 +157,7 @@ const transition = async ({ matchModel = Match, teamId, matchId, userId, expecte
   if (match.status !== expectedStatus || (expectedPeriod && match.currentPeriod !== expectedPeriod)) {
     throw new AppError('That live transition is not valid right now.', 409, 'INVALID_TRANSITION');
   }
+  if (expectedStatus === 'scheduled') assertCompleteLineup(match);
   Object.assign(match, typeof updates === 'function' ? updates(match, now) : updates, { updatedBy: userId });
   await match.save();
   return match;
@@ -161,15 +208,14 @@ const eventPeriod = (match) => {
   return match.currentPeriod;
 };
 
-const ownPlayerFields = (match, playerId, prefix = 'player') => {
-  const snapshot = findLineupSnapshot(match, playerId);
+const ownPlayerFields = (match, playerId, prefix = 'player', eligibility) => {
+  const snapshot = eligibility ? eligibility.requireOnField(playerId, prefix === 'player' ? 'playerId' : `${prefix}Id`) : findLineupSnapshot(match, playerId);
   return { [prefix]: snapshot.player, [`${prefix}Snapshot`]: snapshot };
 };
 
-const actorFields = (match, input) => {
+const actorFields = (match, input, eligibility) => {
   if (input.scoringSide === 'team' || input.side === 'team') {
-    if (!input.playerId) throw new AppError('Select a match-day player.', 400, 'PLAYER_REQUIRED');
-    return { team: match.team, ...ownPlayerFields(match, input.playerId) };
+    return { team: match.team, ...ownPlayerFields(match, input.playerId, 'player', eligibility) };
   }
   if (!input.temporaryOpponentPlayerName?.trim()) throw new AppError('Enter the opponent player name.', 400, 'OPPONENT_PLAYER_REQUIRED');
   return { team: null, temporaryOpponentPlayerName: input.temporaryOpponentPlayerName.trim() };
@@ -177,6 +223,7 @@ const actorFields = (match, input) => {
 
 export const buildEventData = ({ match, events, type, input, now = new Date() }) => {
   assertLiveMatch(match);
+  const eligibility = currentLineupEligibility(match, events);
   const common = {
     type,
     period: eventPeriod(match),
@@ -187,45 +234,43 @@ export const buildEventData = ({ match, events, type, input, now = new Date() })
 
   if (type === 'goal') {
     if (!input.scoringSide) throw new AppError('Choose which side scored.', 400, 'SCORING_SIDE_REQUIRED');
-    const actor = actorFields(match, input);
+    const actor = actorFields(match, input, eligibility);
     const data = { ...common, ...actor, scoringSide: input.scoringSide };
     if (input.assistPlayerId) {
       if (input.scoringSide !== 'team') throw new AppError('Opponent assists use the temporary opponent description.', 400, 'INVALID_ASSIST');
-      if (String(input.assistPlayerId) === String(input.playerId)) throw new AppError('Scorer and assist player must be different.', 400, 'ASSIST_SAME_AS_SCORER');
-      Object.assign(data, ownPlayerFields(match, input.assistPlayerId, 'assistPlayer'));
+      if (String(input.assistPlayerId) === String(input.playerId)) throw new AppError('A player cannot assist their own goal.', 400, 'ASSIST_EQUALS_SCORER');
+      Object.assign(data, ownPlayerFields(match, input.assistPlayerId, 'assistPlayer', eligibility));
     }
     return data;
   }
 
-  if (['yellow_card', 'red_card'].includes(type)) return { ...common, ...actorFields(match, input) };
+  if (['yellow_card', 'red_card'].includes(type)) return { ...common, ...actorFields(match, input, eligibility) };
 
   if (type === 'substitution') {
-    if (String(input.playerInId) === String(input.playerOutId)) throw new AppError('Substitution players must be different.', 400, 'INVALID_SUBSTITUTION');
-    const state = buildCurrentLineup(match, events);
-    const outId = String(input.playerOutId);
-    const inId = String(input.playerInId);
-    if (!state.onFieldIds.has(outId)) throw new AppError('Player out is not currently on the field.', 400, 'PLAYER_OUT_NOT_ON_FIELD');
-    if (state.entered.has(inId)) throw new AppError('A player cannot enter twice.', 400, 'PLAYER_ALREADY_ENTERED');
-    if (state.substitutedOut.has(inId)) throw new AppError('A substituted-out player cannot re-enter.', 400, 'PLAYER_CANNOT_REENTER');
-    if (!state.benchIds.has(inId)) throw new AppError('Player in is not currently on the bench.', 400, 'PLAYER_IN_NOT_ON_BENCH');
+    if (String(input.playerInId) === String(input.playerOutId)) throw new AppError('Choose one current on-field player to leave and one current bench player to enter.', 400, 'INVALID_SUBSTITUTION');
+    const playerIn = eligibility.requireBench(input.playerInId, 'playerInId');
+    const playerOut = eligibility.requireOnField(input.playerOutId, 'playerOutId');
     return {
       ...common,
       team: match.team,
-      ...ownPlayerFields(match, input.playerInId, 'playerIn'),
-      ...ownPlayerFields(match, input.playerOutId, 'playerOut'),
+      playerIn: playerIn.player,
+      playerInSnapshot: playerIn,
+      playerOut: playerOut.player,
+      playerOutSnapshot: playerOut,
     };
   }
 
   if (type.startsWith('penalty_')) {
     if (!input.scoringSide) throw new AppError('Choose the penalty side.', 400, 'SCORING_SIDE_REQUIRED');
-    return { ...common, ...actorFields(match, input), scoringSide: input.scoringSide, penaltyOutcome: type.replace('penalty_', '') };
+    return { ...common, ...actorFields(match, input, eligibility), scoringSide: input.scoringSide, penaltyOutcome: type.replace('penalty_', '') };
   }
 
   if (type === 'own_goal') {
     if (!['team', 'opponent'].includes(input.ownGoalBySide)) throw new AppError('Choose the own-goal actor side.', 400, 'OWN_GOAL_SIDE_REQUIRED');
     const scoringSide = input.ownGoalBySide === 'team' ? 'opponent' : 'team';
+    const ownTeamPlayer = input.ownGoalBySide === 'team' ? eligibility.requireOnField(input.playerId) : null;
     const ownGoalBy = input.ownGoalBySide === 'team'
-      ? { side: 'team', player: findLineupSnapshot(match, input.playerId).player, playerSnapshot: findLineupSnapshot(match, input.playerId), temporaryOpponentPlayerName: '' }
+      ? { side: 'team', player: ownTeamPlayer.player, playerSnapshot: ownTeamPlayer, temporaryOpponentPlayerName: '' }
       : { side: 'opponent', player: null, playerSnapshot: null, temporaryOpponentPlayerName: input.temporaryOpponentPlayerName?.trim() || '' };
     if (input.ownGoalBySide === 'opponent' && !ownGoalBy.temporaryOpponentPlayerName) throw new AppError('Enter the opponent own-goal player.', 400, 'OPPONENT_PLAYER_REQUIRED');
     return { ...common, team: input.ownGoalBySide === 'team' ? match.team : null, scoringSide, ownGoalBy };
@@ -248,6 +293,7 @@ export const createMatchEvent = async ({
 }) => {
   const match = await findOwnedActiveMatch({ matchModel, teamId, matchId });
   assertLiveMatch(match);
+  assertCompleteLineup(match);
   const activeEvents = await eventModel.find({ match: matchId, isUndone: false }).sort({ sequence: 1 });
   const data = buildEventData({ match, events: activeEvents, type, input, now });
   const sequencedMatch = await matchModel.findOneAndUpdate(
@@ -264,11 +310,13 @@ export const createMatchEvent = async ({
 export const addAssistToGoal = async ({ eventModel = MatchEvent, matchModel = Match, teamId, matchId, eventId, userId, assistPlayerId }) => {
   const match = await findOwnedActiveMatch({ matchModel, teamId, matchId });
   assertLiveMatch(match);
+  assertCompleteLineup(match);
+  const activeEvents = await eventModel.find({ match: matchId, isUndone: false }).sort({ sequence: 1 });
   const event = await eventModel.findOne({ _id: eventId, match: matchId, type: 'goal', scoringSide: 'team', isUndone: false });
   if (!event) throw new AppError('Eligible goal event not found.', 404, 'GOAL_EVENT_NOT_FOUND');
   if (event.assistPlayer) throw new AppError('This goal already has an assist.', 409, 'ASSIST_EXISTS');
-  if (idString(event.player) === String(assistPlayerId)) throw new AppError('Scorer and assist player must be different.', 400, 'ASSIST_SAME_AS_SCORER');
-  const snapshot = findLineupSnapshot(match, assistPlayerId);
+  if (idString(event.player) === String(assistPlayerId)) throw new AppError('A player cannot assist their own goal.', 400, 'ASSIST_EQUALS_SCORER');
+  const snapshot = currentLineupEligibility(match, activeEvents).requireOnField(assistPlayerId, 'assistPlayerId');
   event.assistPlayer = snapshot.player;
   event.assistPlayerSnapshot = snapshot;
   event.updatedBy = userId;
@@ -279,6 +327,7 @@ export const addAssistToGoal = async ({ eventModel = MatchEvent, matchModel = Ma
 export const undoLatestEvent = async ({ eventModel = MatchEvent, matchModel = Match, teamId, matchId, userId, reason = '', now = new Date() }) => {
   const match = await findOwnedActiveMatch({ matchModel, teamId, matchId });
   assertLiveMatch(match);
+  assertCompleteLineup(match);
   const event = await eventModel.findOne({ match: matchId, isUndone: false }).sort({ sequence: -1 });
   if (!event) throw new AppError('There is no active event to undo.', 400, 'NO_EVENT_TO_UNDO');
   event.isUndone = true;
@@ -300,6 +349,7 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
   return {
     matchId: match._id,
     team,
+    matchFormat: match.matchFormat || '11v11',
     opponent: match.opponent,
     status: match.status,
     currentPeriod: match.currentPeriod,
@@ -318,6 +368,9 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
     startingXI: match.startingXI,
     substitutes: match.substitutes,
     currentLineup: { onField: lineup.onField, bench: lineup.bench, sentOff: lineup.sentOff, substitutions: lineup.substitutions },
+    currentOnFieldPlayers: lineup.onField,
+    currentBenchPlayers: lineup.bench,
+    appearedPlayers: [...lineup.appeared],
     latestEventSequence: match.lastEventSequence,
   };
 };

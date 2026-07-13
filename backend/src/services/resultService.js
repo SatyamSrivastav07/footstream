@@ -2,7 +2,7 @@ import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
 import MatchPhoto from '../models/MatchPhoto.js';
 import AppError from '../utils/AppError.js';
-import { calculateScore } from './liveMatchService.js';
+import { calculateScore, currentLineupEligibility } from './liveMatchService.js';
 
 export const idString = (value) => String(value?._id || value || '');
 const plain = (value) => typeof value?.toJSON === 'function' ? value.toJSON() : { ...value };
@@ -20,6 +20,12 @@ export const deriveResult = (match, events) => {
 
 export const matchSquadSnapshot = (match, playerId) => [...match.startingXI, ...match.substitutes]
   .find((entry) => idString(entry.player) === idString(playerId));
+
+export const participatedSnapshot = (match, events, playerId) => {
+  const appeared = currentLineupEligibility(match, events).appearedPlayers;
+  if (!appeared.includes(idString(playerId))) return null;
+  return matchSquadSnapshot(match, playerId);
+};
 
 export const findCompletedMatch = async ({ matchModel = Match, matchId, teamId }) => {
   const filter = { _id: matchId, isActive: true, status: 'completed' };
@@ -51,8 +57,8 @@ export const confirmResult = async ({ matchModel = Match, eventModel = MatchEven
   if (Object.hasOwn(input, 'manOfTheMatchPlayerId')) {
     if (!input.manOfTheMatchPlayerId) match.manOfTheMatch = null;
     else {
-      const snapshot = matchSquadSnapshot(match, input.manOfTheMatchPlayerId);
-      if (!snapshot) throw new AppError('Man of the Match must be selected from this match-day squad.', 400, 'INVALID_MAN_OF_THE_MATCH');
+      const snapshot = participatedSnapshot(match, events, input.manOfTheMatchPlayerId);
+      if (!snapshot) throw new AppError('Man of the Match must be selected from a player who appeared in this match.', 400, 'INVALID_MAN_OF_THE_MATCH');
       match.manOfTheMatch = { player: snapshot.player, name: snapshot.name, jerseyNumber: snapshot.jerseyNumber ?? null, position: snapshot.position, photoUrl: snapshot.photoUrl || '' };
     }
   }

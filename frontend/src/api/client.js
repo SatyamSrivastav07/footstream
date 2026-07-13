@@ -19,6 +19,10 @@ api.interceptors.response.use(
       error.userMessage = 'Unable to reach FootStream. Check that the backend is running.';
     } else {
       error.userMessage = error.response.data?.error?.message || 'The request could not be completed.';
+      if (error.response.status === 429) {
+        const retryAfter = error.response.headers?.['retry-after'];
+        error.userMessage = retryAfter ? `${error.userMessage} Try again in ${retryAfter} seconds.` : error.userMessage;
+      }
       error.fieldErrors = error.response.data?.error?.details || [];
     }
     return Promise.reject(error);

@@ -65,6 +65,23 @@ test('result confirmation rejects client-supplied protected score fields', async
   await assert.rejects(confirmResult({ matchModel, matchId: 'm1', teamId: 't1', userId: 'u1', input: { finalTeamScore: 99 } }), (error) => error.code === 'PROTECTED_RESULT_FIELDS');
 });
 
+test('result confirmation allows Man of the Match only from players who appeared', async () => {
+  const completed = { ...match(), save: async () => completed };
+  const matchModel = { findOne: async () => completed };
+  const eventModel = { find: () => ({ lean: async () => [] }) };
+  await confirmResult({ matchModel, eventModel, matchId: 'm1', teamId: 't1', userId: 'u1', input: { manOfTheMatchPlayerId: 'p1' } });
+  assert.equal(completed.manOfTheMatch.name, 'Ada');
+  await assert.rejects(confirmResult({ matchModel, eventModel, matchId: 'm1', teamId: 't1', userId: 'u1', input: { manOfTheMatchPlayerId: 'p2' } }), (error) => error.code === 'INVALID_MAN_OF_THE_MATCH');
+});
+
+test('result confirmation allows Man of the Match for a substitute who entered', async () => {
+  const completed = { ...match(), save: async () => completed };
+  const matchModel = { findOne: async () => completed };
+  const eventModel = { find: () => ({ lean: async () => [event('substitution', { playerIn: 'p2', playerInSnapshot: completed.substitutes[0], playerOut: 'p1', playerOutSnapshot: completed.startingXI[0] })] }) };
+  await confirmResult({ matchModel, eventModel, matchId: 'm1', teamId: 't1', userId: 'u1', input: { manOfTheMatchPlayerId: 'p2' } });
+  assert.equal(completed.manOfTheMatch.name, 'Bea');
+});
+
 test('photo signature validation rejects MIME-spoofed content', () => {
   let received; validatePhotoSignatures({ files: [{ mimetype: 'image/png', buffer: Buffer.from('not png') }] }, {}, (error) => { received = error; });
   assert.equal(received.code, 'INVALID_PHOTO_CONTENT');

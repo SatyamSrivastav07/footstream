@@ -73,34 +73,46 @@ import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejec
 import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
 import {
   acceptTeamChallenge,
+  acceptCounterTeamChallenge,
   cancelTeamChallenge,
+  counterTeamChallenge,
   declineTeamChallenge,
+  getTeamChallengeHistory,
   getTeamChallenge,
   listTeamChallengeableTeams,
   listReceivedTeamChallenges,
   listSentTeamChallenges,
   postTeamChallenge,
+  rejectCounterTeamChallenge,
 } from '../controllers/challengeController.js';
-import { challengeIdValidator, challengeTeamSearchValidator, createChallengeValidator, listChallengesValidator } from '../validators/challengeValidators.js';
+import { challengeIdValidator, challengeTeamSearchValidator, counterChallengeValidator, createChallengeValidator, listChallengesValidator } from '../validators/challengeValidators.js';
 import { body } from 'express-validator';
+import { authenticatedMutationLimiter, uploadLimiter } from '../middleware/rateLimiters.js';
+import { deleteTeamAnnouncement, deleteTeamChatMessage, getTeamAnnouncement, putTeamAnnouncement } from '../controllers/engagementController.js';
+import { announcementValidator, chatMatchIdValidator, deleteChatValidator } from '../validators/engagementValidators.js';
 
 const router = Router();
 
 router.use(protect, requireRole(USER_ROLES.TEAM_ADMIN));
+router.use((req, res, next) => ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? next() : authenticatedMutationLimiter(req, res, next));
 router.get('/current', getAssignedTeam);
-router.put('/profile/logo', uploadTeamLogo, validateTeamImageSignature, uploadOwnLogo);
+router.put('/profile/logo', uploadLimiter, uploadTeamLogo, validateTeamImageSignature, uploadOwnLogo);
 router.delete('/profile/logo', removeOwnLogo);
-router.put('/profile/cover', uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
+router.put('/profile/cover', uploadLimiter, uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
 router.delete('/profile/cover', removeOwnCover);
 router.patch('/profile/join-requests-status', body('acceptingJoinRequests').isBoolean().withMessage('Join-request status must be true or false.').toBoolean(), validate, updateOwnJoinRequestStatus);
 router.post('/challenges', createChallengeValidator, validate, postTeamChallenge);
 router.get('/challenges/teams', challengeTeamSearchValidator, validate, listTeamChallengeableTeams);
 router.get('/challenges/sent', listChallengesValidator, validate, listSentTeamChallenges);
 router.get('/challenges/received', listChallengesValidator, validate, listReceivedTeamChallenges);
+router.get('/challenges/:challengeId/history', challengeIdValidator, validate, getTeamChallengeHistory);
 router.get('/challenges/:challengeId', challengeIdValidator, validate, getTeamChallenge);
 router.patch('/challenges/:challengeId/accept', challengeIdValidator, validate, acceptTeamChallenge);
 router.patch('/challenges/:challengeId/decline', challengeIdValidator, validate, declineTeamChallenge);
 router.patch('/challenges/:challengeId/cancel', challengeIdValidator, validate, cancelTeamChallenge);
+router.patch('/challenges/:challengeId/counter', counterChallengeValidator, validate, counterTeamChallenge);
+router.patch('/challenges/:challengeId/accept-counter', challengeIdValidator, validate, acceptCounterTeamChallenge);
+router.patch('/challenges/:challengeId/reject-counter', challengeIdValidator, validate, rejectCounterTeamChallenge);
 router.get('/join-requests', listJoinRequestsValidator, validate, listTeamJoinRequests);
 router.get('/join-requests/:requestId', joinRequestIdValidator, validate, getTeamJoinRequest);
 router.patch('/join-requests/:requestId/approve', approveJoinRequestValidator, validate, approveTeamJoinRequest);
@@ -109,7 +121,7 @@ router.route('/players')
   .get(listPlayersValidator, validate, listTeamPlayers)
   .post(createPlayerValidator, validate, createTeamPlayer);
 router.patch('/players/:playerId/status', updatePlayerStatusValidator, validate, updateTeamPlayerStatus);
-router.put('/players/:playerId/photo', playerIdValidator, validate, uploadPlayerPhoto, validatePlayerImageSignature, uploadTeamPlayerPhoto);
+router.put('/players/:playerId/photo', uploadLimiter, playerIdValidator, validate, uploadPlayerPhoto, validatePlayerImageSignature, uploadTeamPlayerPhoto);
 router.delete('/players/:playerId/photo', playerIdValidator, validate, deleteTeamPlayerPhoto);
 router.route('/players/:playerId')
   .get(playerIdValidator, validate, getTeamPlayer)
@@ -125,6 +137,11 @@ router.post('/matches/:matchId/start-second-half', liveMatchIdValidator, validat
 router.post('/matches/:matchId/complete', liveMatchIdValidator, validateMatch, completeOwnedMatch);
 router.get('/matches/:matchId/live-state', liveMatchIdValidator, validateMatch, getOwnedLiveState);
 router.get('/matches/:matchId/events', liveMatchIdValidator, validateMatch, getOwnedEvents);
+router.route('/matches/:matchId/announcement')
+  .get(chatMatchIdValidator, validateMatch, getTeamAnnouncement)
+  .put(announcementValidator, validateMatch, putTeamAnnouncement)
+  .delete(chatMatchIdValidator, validateMatch, deleteTeamAnnouncement);
+router.delete('/matches/:matchId/chat/:messageId', deleteChatValidator, validateMatch, deleteTeamChatMessage);
 router.route('/matches/:matchId/stream')
   .get(streamIdValidator, validateMatch, readOwnedStream)
   .put(configureStreamValidator, validateMatch, putOwnedStream)
@@ -135,7 +152,7 @@ router.route('/matches/:matchId/result')
   .patch(updateResultValidator, validateMatch, patchTeamResult);
 router.route('/matches/:matchId/photos')
   .get(resultIdValidator, validateMatch, getTeamPhotos)
-  .post(uploadMatchPhotos, validatePhotoSignatures, photoUploadValidator, validateMatch, postTeamPhotos);
+  .post(uploadLimiter, uploadMatchPhotos, validatePhotoSignatures, photoUploadValidator, validateMatch, postTeamPhotos);
 router.route('/matches/:matchId/photos/:photoId')
   .patch(photoMutationValidator, validateMatch, patchTeamPhoto)
   .delete(photoMutationValidator, validateMatch, deleteTeamPhoto);

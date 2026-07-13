@@ -4,18 +4,19 @@ import AppError from '../utils/AppError.js';
 import {
   cancelMatchForTeam,
   createMatchForTeam,
-  getOwnedMatch,
+  getParticipantMatch,
+  serializeMatchForTeam,
   softDeleteMatchForTeam,
   sortMatchesForDisplay,
+  teamMatchParticipantFilter,
   updateMatchForTeam,
 } from '../services/matchService.js';
 
 const teamId = (req) => req.user.team?._id || req.user.team;
 const safeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const matchFilter = (query, ownedTeamId) => {
+const matchFilter = (query) => {
   const filter = { isActive: true };
-  if (ownedTeamId) filter.team = ownedTeamId;
   if (query.teamId) filter.team = query.teamId;
   if (query.status) filter.status = query.status;
   if (query.matchType) filter.matchType = query.matchType;
@@ -36,12 +37,19 @@ const findMatches = async (filter) => {
   const matches = await Match.find(filter)
     .select('-__v -createdBy -updatedBy')
     .populate('team', 'name slug logo')
+    .populate('registeredOpponentTeam', 'name slug logo')
     .lean();
   return sortMatchesForDisplay(matches);
 };
 
 export const listTeamMatches = asyncHandler(async (req, res) => {
-  const matches = await findMatches(matchFilter(req.query, teamId(req)));
+  const baseQuery = { ...req.query };
+  delete baseQuery.teamId;
+  delete baseQuery.search;
+  const rawMatches = await findMatches(teamMatchParticipantFilter(teamId(req), matchFilter(baseQuery)));
+  const matches = rawMatches
+    .map((match) => serializeMatchForTeam(match, teamId(req)))
+    .filter((match) => !req.query.search || match.opponent.name.toLowerCase().includes(req.query.search.toLowerCase()));
   res.json({ success: true, data: { matches, sort: 'upcoming-ascending-then-past-descending' } });
 });
 
@@ -51,7 +59,7 @@ export const createTeamMatch = asyncHandler(async (req, res) => {
 });
 
 export const getTeamMatch = asyncHandler(async (req, res) => {
-  const match = await getOwnedMatch({ teamId: teamId(req), matchId: req.params.matchId });
+  const match = await getParticipantMatch({ teamId: teamId(req), matchId: req.params.matchId });
   res.json({ success: true, data: { match } });
 });
 
@@ -80,7 +88,8 @@ export const listAdminMatches = asyncHandler(async (req, res) => {
 export const getAdminMatch = asyncHandler(async (req, res) => {
   const match = await Match.findOne({ _id: req.params.matchId, isActive: true })
     .select('-__v -createdBy -updatedBy')
-    .populate('team', 'name slug logo');
+    .populate('team', 'name slug logo')
+    .populate('registeredOpponentTeam', 'name slug logo');
   if (!match) throw new AppError('Match not found.', 404, 'MATCH_NOT_FOUND');
   res.json({ success: true, data: { match } });
 });

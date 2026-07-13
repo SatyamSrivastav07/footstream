@@ -1,6 +1,12 @@
 export const MATCH_TYPES = ['friendly', 'league', 'knockout', 'practice'];
 export const MATCH_STATUSES = ['scheduled', 'live', 'half_time', 'cancelled', 'completed'];
 export const FORMATIONS = ['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom'];
+export const FORMAT_FORMATIONS = {
+  '5v5': ['1-2-1', '2-1-1', '1-1-2'],
+  '7v7': ['2-3-1', '3-2-1', '2-2-2'],
+  '11v11': FORMATIONS,
+};
+export const FORMAT_STARTERS = { '5v5': 5, '7v7': 7, '11v11': 11 };
 export const TEAM_SIDES = ['home', 'away'];
 
 export const label = (value) => value ? value.charAt(0).toUpperCase() + value.slice(1).replace(/[-_]/g, ' ') : 'Not set';
@@ -21,4 +27,3 @@ export const emptyMatch = Object.freeze({
   scheduledAt: '', formation: '4-3-3', customFormation: '', notes: '', temporaryPlayers: [],
   startingPlayerIds: [], substitutePlayerIds: [],
 });
-

@@ -6,16 +6,19 @@ import LoadingScreen from '../components/LoadingScreen.jsx';
 import TeamIdentity from '../components/TeamIdentity.jsx';
 
 const statusClass = {
-  Pending: 'status-badge status-neutral',
-  Accepted: 'status-badge status-active',
-  Declined: 'status-badge status-off',
-  Cancelled: 'status-badge border-amber-300/20 bg-amber-300/10 text-amber-100',
+  pending: 'status-badge status-neutral',
+  countered: 'status-badge border-sky-300/20 bg-sky-300/10 text-sky-100',
+  accepted: 'status-badge status-active',
+  declined: 'status-badge status-off',
+  cancelled: 'status-badge border-amber-300/20 bg-amber-300/10 text-amber-100',
 };
+const displayStatus = (status) => `${status || ''}`.replace(/^\w/, (letter) => letter.toUpperCase());
 
 export default function AdminChallengesPage() {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [history, setHistory] = useState({});
 
   useEffect(() => {
     api.get('/admin/challenges')
@@ -28,6 +31,15 @@ export default function AdminChallengesPage() {
   }, []);
 
   if (loading) return <LoadingScreen />;
+
+  const loadHistory = async (challenge) => {
+    try {
+      const response = await api.get(`/admin/challenges/${challenge._id}/history`);
+      setHistory((current) => ({ ...current, [challenge._id]: response.data.data.history }));
+    } catch (requestError) {
+      setError(requestError.userMessage);
+    }
+  };
 
   return (
     <>
@@ -50,14 +62,29 @@ export default function AdminChallengesPage() {
                       <TeamIdentity team={challenge.challengedTeam} logoClassName="size-8 rounded-lg" />
                     </div>
                   </div>
-                  <span className={statusClass[challenge.status]}>{challenge.status}</span>
+                  <span className={statusClass[challenge.status] || 'status-badge status-neutral'}>{displayStatus(challenge.status)}</span>
                 </div>
                 <div className="mt-5 grid gap-3 text-sm text-white/55 sm:grid-cols-3">
                   <Info icon={Shield} label="Format" value={`${challenge.matchType} - ${challenge.squadSize}`} />
                   <Info icon={MapPin} label="Venue" value={challenge.venue} />
                   <Info icon={CalendarDays} label="Date" value={`${new Date(challenge.proposedDate).toLocaleDateString()} - ${challenge.proposedTime}`} />
                 </div>
+                {challenge.createdMatch && <a className="primary-button mt-5 inline-flex" href={`/admin/matches/${challenge.createdMatch._id}`}>View Fixture</a>}
                 {challenge.message && <p className="mt-5 rounded-2xl bg-black/10 p-4 text-sm text-white/55">{challenge.message}</p>}
+                <button type="button" className="secondary-button mt-5" onClick={() => loadHistory(challenge)}>Challenge History</button>
+                {history[challenge._id] && (
+                  <ol className="mt-4 space-y-3 border-l border-white/10 pl-4">
+                    {history[challenge._id].map((item) => (
+                      <li key={`${item.action}-${item.createdAt}`} className="text-sm text-white/55">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.actorTeam && <TeamIdentity team={item.actorTeam} logoClassName="size-6 rounded-md" />}
+                          <span className="font-semibold text-white/80">{item.action.replaceAll('-', ' ')}</span>
+                          <span>{new Date(item.createdAt).toLocaleString()}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
               </article>
             ))}
           </div>

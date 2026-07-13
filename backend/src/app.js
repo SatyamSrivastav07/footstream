@@ -4,11 +4,11 @@ import compression from 'compression';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { rateLimit } from 'express-rate-limit';
 import env from './config/env.js';
 import adminRoutes from './routes/adminRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import healthRoutes from './routes/healthRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import teamRoutes from './routes/teamRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import { getHealth, getReadiness } from './controllers/healthController.js';
@@ -16,6 +16,7 @@ import { imageCacheHeaders, publicCacheHeaders } from './middleware/cacheHeaders
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 import { requestId } from './middleware/requestId.js';
 import AppError from './utils/AppError.js';
+import { publicReadLimiter, searchLimiter } from './middleware/rateLimiters.js';
 
 const app = express();
 const corsOptions = {
@@ -27,13 +28,8 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
 };
-const rateLimitHandler = (_req, _res, next) => next(new AppError('Too many requests. Try again later.', 429, 'RATE_LIMITED'));
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, handler: rateLimitHandler });
-const uploadLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false, handler: rateLimitHandler });
-const searchLimiter = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false, handler: rateLimitHandler });
-
 app.disable('x-powered-by');
-app.set('trust proxy', env.isProduction ? 1 : false);
+app.set('trust proxy', env.trustProxy);
 app.use(requestId);
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -57,12 +53,12 @@ app.get('/ready', getReadiness);
 app.use('/api/health', healthRoutes);
 app.use('/api/public', publicCacheHeaders);
 app.use(imageCacheHeaders);
-app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/team', uploadLimiter, teamRoutes);
-app.use('/uploads', uploadLimiter);
+app.use('/api/team', teamRoutes);
 app.use('/api/public/search', searchLimiter);
-app.use('/api/public', publicRoutes);
+app.use('/api/public', publicReadLimiter, publicRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

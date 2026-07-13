@@ -43,7 +43,7 @@ const matchFields = (required) => [
   body('customFormation').optional().isString().withMessage('Custom formation must be text.').trim().isLength({ max: 60 }).withMessage('Custom formation is too long.'),
   required
     ? body('startingPlayerIds').isArray({ min: 11, max: 11 }).withMessage('Select exactly 11 starting players.')
-    : body('startingPlayerIds').optional().isArray({ min: 11, max: 11 }).withMessage('Select exactly 11 starting players.'),
+    : body('startingPlayerIds').optional().isArray({ min: 1, max: 11 }).withMessage('Select a valid starting lineup.'),
   body('startingPlayerIds.*').isMongoId().withMessage('Starting XI contains an invalid player.'),
   body('substitutePlayerIds').optional().isArray({ max: 30 }).withMessage('Substitutes must be an array of at most 30 players.'),
   body('substitutePlayerIds.*').isMongoId().withMessage('Substitutes contain an invalid player.'),

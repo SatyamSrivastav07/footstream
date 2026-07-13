@@ -5,6 +5,7 @@ import { formatLocalDateTime, label } from './constants.js';
 
 export default function MatchDetails({ match, fallbackTeamName }) {
   const teamName = match.team?.name || fallbackTeamName || 'FootStream team';
+  const starterCount = match.startingXI?.length || 0;
   const leftIsTeam = match.teamSide === 'home';
   const rightIsTeam = match.teamSide !== 'home';
   const left = leftIsTeam ? teamName : match.opponent.name;
@@ -26,7 +27,7 @@ export default function MatchDetails({ match, fallbackTeamName }) {
       {match.notes && <section className="panel mt-6"><p className="eyebrow">Match notes</p><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-emerald-50/60">{match.notes}</p></section>}
 
       <section className="mt-7 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Match-day snapshot</p><h2 className="panel-title">Starting XI</h2></div><span className="count-pill">11 players</span></div><div className="grid gap-3 md:grid-cols-2">{match.startingXI.map((entry, index) => <SnapshotCard key={entry.player} snapshot={entry} index={index} />)}</div></div>
+        <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Match-day snapshot</p><h2 className="panel-title">Starting XI</h2></div><span className="count-pill">{starterCount} players</span></div>{starterCount ? <div className="grid gap-3 md:grid-cols-2">{match.startingXI.map((entry, index) => <SnapshotCard key={entry.player} snapshot={entry} index={index} />)}</div> : <p className="text-sm text-emerald-100/40">Lineup not selected yet.</p>}</div>
         <div className="space-y-6">
           <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Match-day snapshot</p><h2 className="panel-title">Substitutes</h2></div><span className="count-pill">{match.substitutes.length}</span></div>{match.substitutes.length ? <div className="space-y-3">{match.substitutes.map((entry, index) => <SnapshotCard key={entry.player} snapshot={entry} index={index} />)}</div> : <p className="text-sm text-emerald-100/40">No substitutes selected.</p>}</div>
           {match.opponent.temporaryPlayers?.length > 0 && <div className="panel"><p className="eyebrow">Opponent notes</p><h2 className="panel-title">Temporary player list</h2><ul className="mt-4 space-y-2">{match.opponent.temporaryPlayers.map((player, index) => <li key={`${player.name}-${index}`} className="flex justify-between rounded-xl bg-white/[0.035] px-3 py-2 text-sm"><span>{player.name}</span><span className="text-emerald-100/40">{player.position || '—'} {player.jerseyNumber ? `#${player.jerseyNumber}` : ''}</span></li>)}</ul></div>}

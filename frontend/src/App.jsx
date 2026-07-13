@@ -30,6 +30,7 @@ import TeamJoinRequestsPage from "./pages/TeamJoinRequestsPage.jsx";
 import TeamJoinRequestDetailsPage from "./pages/TeamJoinRequestDetailsPage.jsx";
 import TeamChallengesPage from "./pages/TeamChallengesPage.jsx";
 import AdminChallengesPage from "./pages/AdminChallengesPage.jsx";
+import NotificationsPage from "./pages/NotificationsPage.jsx";
 
 const PublicLivePage = lazy(() => import("./pages/PublicLivePage.jsx"));
 const PublicMatchPage = lazy(() => import("./pages/PublicMatchPage.jsx"));
@@ -224,6 +225,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route index element={<DashboardRedirect />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route element={<RoleRoute roles={["superAdmin"]} />}>
             <Route path="/admin" element={<SuperAdminDashboard />} />
             <Route

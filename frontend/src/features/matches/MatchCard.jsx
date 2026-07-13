@@ -13,6 +13,12 @@ const statusClass = {
 
 export default function MatchCard({ match, basePath, readOnly = false, onCancel, onDelete }) {
   const teamName = match.team?.name || 'Your team';
+  const permissions = match.permissions || {};
+  const canEdit = !readOnly && match.status === 'scheduled' && (permissions.canEditDetails !== false || permissions.canEditLineup !== false);
+  const canControlLive = !readOnly && permissions.canControlLive !== false;
+  const canCancel = !readOnly && permissions.canCancel !== false;
+  const canDelete = !readOnly && permissions.canDelete !== false;
+  const resultPath = permissions.canManage === false ? `/matches/${match._id}/result` : `${basePath}/${match._id}/result`;
   const leftIsTeam = match.teamSide === 'home';
   const rightIsTeam = match.teamSide !== 'home';
   const left = leftIsTeam ? teamName : match.opponent.name;
@@ -34,12 +40,12 @@ export default function MatchCard({ match, basePath, readOnly = false, onCancel,
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         <Link to={`${basePath}/${match._id}`} className="secondary-button flex-1 px-3"><Eye size={15} /> View</Link>
-        {match.status === 'completed' && <Link to={`${basePath}/${match._id}/result`} className="primary-button px-3"><Trophy size={15} /> Result</Link>}
-        {!readOnly && ['scheduled', 'live', 'half_time'].includes(match.status) && <Link to={`${basePath}/${match._id}/live`} className="primary-button px-3"><Radio size={15} /> Live control</Link>}
+        {match.status === 'completed' && <Link to={resultPath} className="primary-button px-3"><Trophy size={15} /> Result</Link>}
+        {!readOnly && ['scheduled', 'live', 'half_time'].includes(match.status) && <Link to={`${basePath}/${match._id}/live`} className={canControlLive ? 'primary-button px-3' : 'secondary-button px-3'}><Radio size={15} /> {canControlLive ? 'Live control' : 'Live view'}</Link>}
         {!readOnly && match.status === 'scheduled' && <>
-          <Link to={`${basePath}/${match._id}/edit`} className="secondary-button px-3"><Pencil size={15} /> Edit</Link>
-          <button type="button" className="icon-button size-11 text-amber-200/70" onClick={() => onCancel(match)} title="Cancel match" aria-label={`Cancel match against ${match.opponent.name}`}><XCircle size={17} /></button>
-          <button type="button" className="icon-button size-11 text-red-200/70" onClick={() => onDelete(match)} title="Delete match" aria-label={`Delete match against ${match.opponent.name}`}><Trash2 size={17} /></button>
+          {canEdit && <Link to={`${basePath}/${match._id}/edit`} className="secondary-button px-3"><Pencil size={15} /> Edit</Link>}
+          {canCancel && <button type="button" className="icon-button size-11 text-amber-200/70" onClick={() => onCancel(match)} title="Cancel match" aria-label={`Cancel match against ${match.opponent.name}`}><XCircle size={17} /></button>}
+          {canDelete && <button type="button" className="icon-button size-11 text-red-200/70" onClick={() => onDelete(match)} title="Delete match" aria-label={`Delete match against ${match.opponent.name}`}><Trash2 size={17} /></button>}
         </>}
       </div>
     </article>

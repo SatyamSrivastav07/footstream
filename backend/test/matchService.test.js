@@ -10,6 +10,8 @@ import {
   createMatchForTeam,
   getOwnedMatch,
   playerSnapshot,
+  serializeMatchForTeam,
+  teamMatchParticipantFilter,
   updateMatchForTeam,
   validateFormation,
   validateSelections,
@@ -94,6 +96,15 @@ test('exactly 11 unique starters are required', () => {
   assert.throws(() => validateSelections([...starterIds.slice(0, 10), starterIds[0]], []), (error) => error.code === 'DUPLICATE_STARTER');
 });
 
+test('dynamic match formats require the correct starter count', () => {
+  assert.doesNotThrow(() => validateSelections(starterIds.slice(0, 5), [], '5v5'));
+  assert.doesNotThrow(() => validateSelections(starterIds.slice(0, 7), [], '7v7'));
+  assert.doesNotThrow(() => validateSelections(starterIds, [], '11v11'));
+  assert.throws(() => validateSelections(starterIds.slice(0, 4), [], '5v5'), (error) => error.code === 'STARTING_XI_SIZE');
+  assert.throws(() => validateSelections(starterIds.slice(0, 6), [], '7v7'), (error) => error.code === 'STARTING_XI_SIZE');
+  assert.throws(() => validateSelections(starterIds.slice(0, 10), [], '11v11'), (error) => error.code === 'STARTING_XI_SIZE');
+});
+
 test('starter and substitute overlap is rejected', () => {
   assert.throws(() => validateSelections(starterIds, [starterIds[0]]), (error) => error.code === 'LINEUP_OVERLAP');
 });
@@ -119,6 +130,143 @@ test('custom formation requires a description and standard formation rejects one
   assert.throws(() => validateFormation('custom', ''), (error) => error.code === 'CUSTOM_FORMATION_REQUIRED');
   assert.throws(() => validateFormation('4-3-3', '2-3-5'), (error) => error.code === 'CUSTOM_FORMATION_NOT_ALLOWED');
   assert.doesNotThrow(() => validateFormation('custom', '2-3-2-3'));
+});
+
+test('formation must match the fixture format', () => {
+  assert.doesNotThrow(() => validateFormation('1-2-1', '', '5v5'));
+  assert.doesNotThrow(() => validateFormation('2-3-1', '', '7v7'));
+  assert.doesNotThrow(() => validateFormation('4-3-3', '', '11v11'));
+  assert.throws(() => validateFormation('4-3-3', '', '5v5'), (error) => error.code === 'FORMATION_FORMAT_MISMATCH');
+  assert.throws(() => validateFormation('1-2-1', '', '11v11'), (error) => error.code === 'FORMATION_FORMAT_MISMATCH');
+});
+
+test('challenge-created match format is immutable and drives lineup updates', async () => {
+  const match = document({
+    _id: ids.match,
+    status: 'scheduled',
+    team: ids.teamA,
+    sourceChallenge: '65e000000000000000000001',
+    matchFormat: '5v5',
+    formation: '1-2-1',
+    customFormation: '',
+    startingXI: [],
+    substitutes: [],
+  });
+  const matchModel = { findOne: async () => match };
+  await assert.rejects(updateMatchForTeam({
+    matchModel,
+    playerModel: playerModel(),
+    teamId: ids.teamA,
+    matchId: ids.match,
+    userId: ids.user,
+    input: { matchFormat: '11v11' },
+  }), (error) => error.code === 'MATCH_FORMAT_IMMUTABLE');
+
+  const result = await updateMatchForTeam({
+    matchModel,
+    playerModel: playerModel(),
+    teamId: ids.teamA,
+    matchId: ids.match,
+    userId: ids.user,
+    input: { startingPlayerIds: starterIds.slice(0, 5), substitutePlayerIds: [starterIds[5]], formation: '2-1-1' },
+  });
+  assert.equal(result.startingXI.length, 5);
+  assert.equal(result.formation, '2-1-1');
+});
+
+test('team match participant filter includes host and registered opponent teams', () => {
+  assert.deepEqual(teamMatchParticipantFilter(ids.teamB, { status: 'scheduled' }), {
+    status: 'scheduled',
+    isActive: true,
+    $or: [{ team: ids.teamB }, { registeredOpponentTeam: ids.teamB }],
+  });
+});
+
+test('registered opponent sees the shared fixture from their own perspective', () => {
+  const match = {
+    _id: ids.match,
+    team: { _id: ids.teamA, name: 'KIET', slug: 'kiet' },
+    registeredOpponentTeam: { _id: ids.teamB, name: 'IMS', slug: 'ims' },
+    opponent: { name: 'IMS', temporaryPlayers: [] },
+    teamSide: 'home',
+    formation: '1-2-1',
+    customFormation: '',
+    registeredOpponentFormation: '2-1-1',
+    registeredOpponentCustomFormation: '',
+    startingXI: [{ player: starterIds[0], name: 'Host Player' }],
+    substitutes: [],
+    registeredOpponentStartingXI: [{ player: starterIds[1], name: 'Opponent Player' }],
+    registeredOpponentSubstitutes: [],
+  };
+  const serialized = serializeMatchForTeam(match, ids.teamB);
+  assert.equal(serialized.team.name, 'IMS');
+  assert.equal(serialized.opponent.name, 'KIET');
+  assert.equal(serialized.teamSide, 'away');
+  assert.equal(serialized.formation, '2-1-1');
+  assert.equal(serialized.startingXI[0].name, 'Opponent Player');
+  assert.equal(serialized.permissions.canControlLive, false);
+  assert.equal(serialized.permissions.canEditLineup, true);
+});
+
+test('registered opponent can update only its own challenge fixture lineup', async () => {
+  const teamBPlayers = [...starterIds, ...substituteIds].map((id) => makePlayer(id, { team: ids.teamB }));
+  const hostLineup = starterIds.slice(0, 5).map((id) => playerSnapshot(makePlayer(id)));
+  const match = document({
+    _id: ids.match,
+    status: 'scheduled',
+    team: ids.teamA,
+    registeredOpponentTeam: ids.teamB,
+    sourceChallenge: '65e000000000000000000001',
+    matchFormat: '5v5',
+    formation: '1-2-1',
+    customFormation: '',
+    startingXI: hostLineup,
+    substitutes: [],
+    registeredOpponentFormation: null,
+    registeredOpponentCustomFormation: '',
+    registeredOpponentStartingXI: [],
+    registeredOpponentSubstitutes: [],
+  });
+  const matchModel = { findOne: async () => match };
+  const result = await updateMatchForTeam({
+    matchModel,
+    playerModel: playerModel(teamBPlayers),
+    teamId: ids.teamB,
+    matchId: ids.match,
+    userId: ids.user,
+    input: { startingPlayerIds: starterIds.slice(0, 5), substitutePlayerIds: [starterIds[5]], formation: '2-1-1' },
+  });
+  assert.equal(match.startingXI[0].name, hostLineup[0].name);
+  assert.equal(match.registeredOpponentStartingXI.length, 5);
+  assert.equal(result.startingXI.length, 5);
+  assert.equal(result.formation, '2-1-1');
+  assert.equal(result.permissions.canControlLive, false);
+});
+
+test('registered opponent cannot edit shared fixture details', async () => {
+  const match = document({
+    _id: ids.match,
+    status: 'scheduled',
+    team: ids.teamA,
+    registeredOpponentTeam: ids.teamB,
+    sourceChallenge: '65e000000000000000000001',
+    matchFormat: '5v5',
+    formation: '1-2-1',
+    customFormation: '',
+    startingXI: [],
+    substitutes: [],
+    registeredOpponentStartingXI: [],
+    registeredOpponentSubstitutes: [],
+  });
+  const matchModel = { findOne: async () => match };
+  await assert.rejects(updateMatchForTeam({
+    matchModel,
+    playerModel: playerModel(),
+    teamId: ids.teamB,
+    matchId: ids.match,
+    userId: ids.user,
+    input: { venue: 'Changed Ground' },
+  }), (error) => error.code === 'MATCH_OPPONENT_LINEUP_ONLY');
 });
 
 test('snapshot copies match-day player values and later profile edits do not mutate it', () => {

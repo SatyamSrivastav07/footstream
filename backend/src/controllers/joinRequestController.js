@@ -9,6 +9,7 @@ import {
   rejectJoinRequest,
   submitJoinRequest,
 } from '../services/joinRequestService.js';
+import { createNotificationForTeam } from '../services/notificationService.js';
 
 const assignedTeamId = (req) => req.user.team?._id || req.user.team;
 
@@ -17,6 +18,7 @@ export const submitPublicJoinRequest = asyncHandler(async (req, res) => {
     teamSlug: req.params.teamSlug,
     input: req.body,
     file: req.file,
+    notifyTeam: createNotificationForTeam,
   });
   res.status(201).json({ success: true, data });
 });
@@ -42,6 +44,7 @@ export const approveTeamJoinRequest = asyncHandler(async (req, res) => {
     requestId: req.params.requestId,
     userId: req.user._id,
     input: req.body,
+    notifyTeam: createNotificationForTeam,
   });
   res.json({ success: true, data });
 });
@@ -52,6 +55,7 @@ export const rejectTeamJoinRequest = asyncHandler(async (req, res) => {
     requestId: req.params.requestId,
     userId: req.user._id,
     rejectionReason: req.body.rejectionReason || '',
+    notifyTeam: createNotificationForTeam,
   });
   res.json({ success: true, data: { request } });
 });

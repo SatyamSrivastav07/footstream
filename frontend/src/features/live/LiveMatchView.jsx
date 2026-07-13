@@ -1,5 +1,5 @@
 import { ArrowRightLeft, CircleDot, Goal, RotateCcw, ShieldAlert, Trophy, Undo2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../../api/client.js';
 import TeamIdentity from '../../components/TeamIdentity.jsx';
 import PlayerAvatar from '../squad/PlayerAvatar.jsx';
@@ -15,12 +15,17 @@ const actions = [
   ['redCard', ShieldAlert, 'Red card'], ['substitution', ArrowRightLeft, 'Substitution'],
   ['penalty', Trophy, 'Penalty'], ['ownGoal', RotateCcw, 'Own goal'], ['undo', Undo2, 'Undo last'],
 ];
+const formatStarters = { '5v5': 5, '7v7': 7, '11v11': 11 };
 
-export default function LiveMatchView({ matchId, mode = 'public' }) {
-  const { state, events, loading, error, connection, refresh, setError, notifications } = useLiveMatch(matchId, mode);
+export default function LiveMatchView({ matchId, mode = 'public', onViewerCount }) {
+  const { state, events, loading, error, connection, viewerCount, refresh, setError, notifications } = useLiveMatch(matchId, mode);
   const [action, setAction] = useState(null);
   const [saving, setSaving] = useState(false);
-  const editable = mode === 'team';
+  const editable = mode === 'team' && state?.permissions?.canControlLive !== false;
+
+  useEffect(() => {
+    if (typeof onViewerCount === 'function') onViewerCount(viewerCount);
+  }, [onViewerCount, viewerCount]);
 
   const transition = async (endpoint, confirmation) => {
     if (confirmation && !window.confirm(confirmation)) return;
@@ -59,18 +64,23 @@ export default function LiveMatchView({ matchId, mode = 'public' }) {
   const homeName = homeIsTeam ? teamName : state.opponent.name;
   const awayName = awayIsTeam ? teamName : state.opponent.name;
   const nextTransition = state.status === 'scheduled' ? ['start', 'Start match'] : state.status === 'live' && state.currentPeriod === 'first_half' ? ['end-first-half', 'End first half'] : state.status === 'half_time' ? ['start-second-half', 'Start second half'] : state.status === 'live' && state.currentPeriod === 'second_half' ? ['complete', 'Complete match'] : null;
+  const matchFormat = state.matchFormat || '11v11';
+  const requiredStarters = formatStarters[matchFormat] || 11;
+  const lineupIncomplete = state.startingXI.length !== requiredStarters;
+  const lineupWarning = `Complete your ${matchFormat} lineup before starting the match.`;
 
   return <>
     {mode === 'public' && <LiveEventOverlay notification={notifications.active} onDismiss={notifications.dismiss} />}
     {error && <div className="mb-5 rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100" role="alert">{error}</div>}
     <section className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(239,68,68,.11),rgba(190,242,100,.055)_38%,rgba(255,255,255,.02)_70%)] p-5 sm:p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><span className={`size-2 rounded-full ${state.status === 'live' ? 'animate-pulse bg-red-400' : 'bg-white/30'}`} /><span className="text-xs font-black uppercase tracking-[0.18em] text-white/70">{label(state.status)} · {label(state.currentPeriod)}</span></div><span className={`status-badge ${connection === 'connected' ? 'status-active' : 'status-neutral'}`}>{connection}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><span className={`size-2 rounded-full ${state.status === 'live' ? 'animate-pulse bg-red-400' : 'bg-white/30'}`} /><span className="text-xs font-black uppercase tracking-[0.18em] text-white/70">{label(state.status)} · {label(state.currentPeriod)}</span></div><div className="flex items-center gap-2">{mode === 'public' && <span className="status-badge status-active">{viewerCount} watching</span>}<span className={`status-badge ${connection === 'connected' ? 'status-active' : 'status-neutral'}`}>{connection}</span></div></div>
       <div className="my-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center"><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Home</p><h1 className="mt-2 flex justify-center font-display text-xl font-black text-white sm:text-4xl">{homeIsTeam ? <TeamIdentity team={state.team} name={homeName} className="justify-center" logoClassName="size-9 rounded-xl sm:size-11" /> : homeName}</h1></div><div className="rounded-2xl border border-white/10 bg-black/25 px-4 py-3 sm:px-7"><p className="font-display text-4xl font-black tracking-wider text-lime-300 sm:text-6xl">{state.homeScore}–{state.awayScore}</p><p className="mt-1 text-sm font-bold text-white/60"><LiveTimer elapsedSeconds={state.elapsedSeconds} running={state.status === 'live'} /></p></div><div><p className="text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Away</p><h1 className="mt-2 flex justify-center font-display text-xl font-black text-white sm:text-4xl">{awayIsTeam ? <TeamIdentity team={state.team} name={awayName} className="justify-center" logoClassName="size-9 rounded-xl sm:size-11" /> : awayName}</h1></div></div>
       <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-white/[0.08] pt-5 text-xs text-emerald-100/45"><span>{state.venue}</span><span>{state.tournament || 'No tournament'}</span><span>{formatLocalDateTime(state.scheduledAt)}</span></div>
-      {editable && nextTransition && <div className="mt-6 flex justify-center"><button type="button" className="primary-button" disabled={saving} onClick={() => transition(nextTransition[0], nextTransition[0] === 'complete' ? 'Complete this match and lock new events?' : undefined)}>{nextTransition[1]}</button></div>}
+      {editable && lineupIncomplete && <div className="mt-5 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-center text-sm font-semibold text-amber-100">{lineupWarning}</div>}
+      {editable && nextTransition && <div className="mt-6 flex justify-center"><button type="button" className="primary-button" disabled={saving || (nextTransition[0] === 'start' && lineupIncomplete)} onClick={() => transition(nextTransition[0], nextTransition[0] === 'complete' ? 'Complete this match and lock new events?' : undefined)}>{nextTransition[1]}</button></div>}
     </section>
 
-      {editable && <section className="panel mt-6"><div className="panel-heading"><div><p className="eyebrow">Match operations</p><h2 className="panel-title">Event controls</h2></div><span className="count-pill">REST secured</span></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">{actions.map(([key, Icon, text]) => { const unavailable = state.status !== 'live' || saving || (key === 'undo' && !events.some((event) => !event.isUndone)) || (key === 'assist' && !events.some((event) => event.type === 'goal' && event.scoringSide === 'team' && !event.isUndone && !event.assistPlayer)) || (key === 'substitution' && state.currentLineup.bench.length === 0); return <button key={key} type="button" disabled={unavailable} onClick={() => { setError(''); setAction(key); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-black/10 p-3 text-center text-xs font-bold text-white/65 transition hover:border-lime-300/20 hover:bg-lime-300/[0.055] hover:text-white disabled:opacity-30"><Icon size={21} className="text-lime-200" />{text}</button>; })}</div></section>}
+      {editable && <section className="panel mt-6"><div className="panel-heading"><div><p className="eyebrow">Match operations</p><h2 className="panel-title">Event controls</h2></div><span className="count-pill">REST secured</span></div>{lineupIncomplete && <p className="mb-4 rounded-xl bg-amber-300/10 p-3 text-sm text-amber-100">{lineupWarning}</p>}<div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">{actions.map(([key, Icon, text]) => { const unavailable = lineupIncomplete || state.status !== 'live' || saving || (key === 'undo' && !events.some((event) => !event.isUndone)) || (key === 'assist' && !events.some((event) => event.type === 'goal' && event.scoringSide === 'team' && !event.isUndone && !event.assistPlayer)) || (key === 'substitution' && state.currentLineup.bench.length === 0); return <button key={key} type="button" disabled={unavailable} onClick={() => { setError(''); setAction(key); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-black/10 p-3 text-center text-xs font-bold text-white/65 transition hover:border-lime-300/20 hover:bg-lime-300/[0.055] hover:text-white disabled:opacity-30"><Icon size={21} className="text-lime-200" />{text}</button>; })}</div></section>}
 
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
       <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Live feed</p><h2 className="panel-title">Event timeline</h2></div><span className="count-pill">{events.filter((event) => !event.isUndone).length} active</span></div><EventTimeline events={events} /></section>

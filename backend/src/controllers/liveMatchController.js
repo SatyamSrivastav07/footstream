@@ -2,6 +2,7 @@ import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
+import { isHostTeam, teamMatchParticipantFilter } from '../services/matchService.js';
 import {
   addAssistToGoal,
   completeMatch,
@@ -18,15 +19,19 @@ import { emitToMatch } from '../realtime/realtimeHub.js';
 const ownedTeamId = (req) => req.user.team?._id || req.user.team;
 
 const liveBundle = async ({ matchId, teamId, includeUndone = true }) => {
-  const filter = { _id: matchId, isActive: true };
-  if (teamId) filter.team = teamId;
-  const match = await Match.findOne(filter).populate('team', 'name slug logo');
+  const filter = teamId ? teamMatchParticipantFilter(teamId, { _id: matchId }) : { _id: matchId, isActive: true };
+  const match = await Match.findOne(filter).populate('team', 'name slug logo').populate('registeredOpponentTeam', 'name slug logo');
   if (!match) throw new AppError('Match not found.', 404, 'MATCH_NOT_FOUND');
   const eventFilter = { match: matchId };
   if (!includeUndone) eventFilter.isUndone = false;
   const events = await MatchEvent.find(eventFilter).sort({ sequence: 1 });
   return {
-    state: serializeLiveState({ match, events }),
+    state: {
+      ...serializeLiveState({ match, events }),
+      permissions: {
+        canControlLive: teamId ? isHostTeam(match, teamId) : false,
+      },
+    },
     events: events.map(serializeEvent),
     match,
   };
