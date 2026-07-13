@@ -28,6 +28,8 @@ import PublicDirectoryPage from "./pages/PublicDirectoryPage.jsx";
 import AdminTeamProfileEditorPage from "./pages/AdminTeamProfileEditorPage.jsx";
 import TeamJoinRequestsPage from "./pages/TeamJoinRequestsPage.jsx";
 import TeamJoinRequestDetailsPage from "./pages/TeamJoinRequestDetailsPage.jsx";
+import TeamChallengesPage from "./pages/TeamChallengesPage.jsx";
+import AdminChallengesPage from "./pages/AdminChallengesPage.jsx";
 
 const PublicLivePage = lazy(() => import("./pages/PublicLivePage.jsx"));
 const PublicMatchPage = lazy(() => import("./pages/PublicMatchPage.jsx"));
@@ -253,6 +255,7 @@ function App() {
               path="/admin/matches/:matchId/result"
               element={<MatchResultPage audience="admin" />}
             />
+            <Route path="/admin/challenges" element={<AdminChallengesPage />} />
             <Route
               path="/admin/teams/:teamId/statistics"
               element={<StatisticsPage audience="admin" />}
@@ -272,6 +275,7 @@ function App() {
             <Route path="/team/squad" element={<SquadManagementPage />} />
             <Route path="/team/join-requests" element={<TeamJoinRequestsPage />} />
             <Route path="/team/join-requests/:requestId" element={<TeamJoinRequestDetailsPage />} />
+            <Route path="/team/challenges" element={<TeamChallengesPage />} />
             <Route path="/team/matches" element={<TeamMatchesPage />} />
             <Route path="/team/matches/new" element={<MatchEditorPage />} />
             <Route

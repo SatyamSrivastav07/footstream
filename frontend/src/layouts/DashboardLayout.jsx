@@ -1,4 +1,4 @@
-import { BarChart3, Building2, CalendarDays, History, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
+import { BarChart3, Building2, CalendarDays, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Swords, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Brand from '../components/Brand.jsx';
@@ -41,6 +41,9 @@ export default function DashboardLayout() {
               <NavLink to="/admin/team-admins" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserCog size={18} /> Team admins
               </NavLink>
+              <NavLink to="/admin/challenges" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Swords size={18} /> Challenges
+              </NavLink>
             </>
           ) : (
             <NavLink to="/team/current" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
@@ -54,6 +57,9 @@ export default function DashboardLayout() {
               </NavLink>
               <NavLink to="/team/join-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserPlus size={18} /> Join Requests
+              </NavLink>
+              <NavLink to="/team/challenges" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Swords size={18} /> Challenges
               </NavLink>
             </>
           )}

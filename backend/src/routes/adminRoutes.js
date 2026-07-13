@@ -33,6 +33,8 @@ import { streamIdValidator } from '../validators/streamValidators.js';
 import { uploadTeamCover, uploadTeamLogo, validateTeamImageSignature } from '../middleware/photoUpload.js';
 import { getAdminJoinRequest, listAdminTeamJoinRequests } from '../controllers/joinRequestController.js';
 import { joinRequestIdValidator, listJoinRequestsValidator } from '../validators/joinRequestValidators.js';
+import { getAdminChallenge, listAdminChallenges } from '../controllers/challengeController.js';
+import { challengeIdValidator, listChallengesValidator } from '../validators/challengeValidators.js';
 
 const router = Router();
 
@@ -46,6 +48,8 @@ router.delete('/teams/:teamId/cover', teamIdValidator, validate, removeTeamCover
 router.get('/teams/:teamId/players', teamIdValidator, validate, listPlayersForAdmin);
 router.get('/teams/:teamId/join-requests', teamIdValidator, listJoinRequestsValidator, validate, listAdminTeamJoinRequests);
 router.get('/join-requests/:requestId', joinRequestIdValidator, validate, getAdminJoinRequest);
+router.get('/challenges', listChallengesValidator, validate, listAdminChallenges);
+router.get('/challenges/:challengeId', challengeIdValidator, validate, getAdminChallenge);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);
 const validateMatch = validateWithStatus(400);

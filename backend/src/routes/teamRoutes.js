@@ -71,6 +71,17 @@ import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStr
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
 import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejectTeamJoinRequest } from '../controllers/joinRequestController.js';
 import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
+import {
+  acceptTeamChallenge,
+  cancelTeamChallenge,
+  declineTeamChallenge,
+  getTeamChallenge,
+  listTeamChallengeableTeams,
+  listReceivedTeamChallenges,
+  listSentTeamChallenges,
+  postTeamChallenge,
+} from '../controllers/challengeController.js';
+import { challengeIdValidator, challengeTeamSearchValidator, createChallengeValidator, listChallengesValidator } from '../validators/challengeValidators.js';
 import { body } from 'express-validator';
 
 const router = Router();
@@ -82,6 +93,14 @@ router.delete('/profile/logo', removeOwnLogo);
 router.put('/profile/cover', uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
 router.delete('/profile/cover', removeOwnCover);
 router.patch('/profile/join-requests-status', body('acceptingJoinRequests').isBoolean().withMessage('Join-request status must be true or false.').toBoolean(), validate, updateOwnJoinRequestStatus);
+router.post('/challenges', createChallengeValidator, validate, postTeamChallenge);
+router.get('/challenges/teams', challengeTeamSearchValidator, validate, listTeamChallengeableTeams);
+router.get('/challenges/sent', listChallengesValidator, validate, listSentTeamChallenges);
+router.get('/challenges/received', listChallengesValidator, validate, listReceivedTeamChallenges);
+router.get('/challenges/:challengeId', challengeIdValidator, validate, getTeamChallenge);
+router.patch('/challenges/:challengeId/accept', challengeIdValidator, validate, acceptTeamChallenge);
+router.patch('/challenges/:challengeId/decline', challengeIdValidator, validate, declineTeamChallenge);
+router.patch('/challenges/:challengeId/cancel', challengeIdValidator, validate, cancelTeamChallenge);
 router.get('/join-requests', listJoinRequestsValidator, validate, listTeamJoinRequests);
 router.get('/join-requests/:requestId', joinRequestIdValidator, validate, getTeamJoinRequest);
 router.patch('/join-requests/:requestId/approve', approveJoinRequestValidator, validate, approveTeamJoinRequest);

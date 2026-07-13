@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5 plus Phases 6A through 6F**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, and public team join requests.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, and Phase 7A.1**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, and the core team challenge workflow.
 
-Deployment execution, community interaction features, payments, AI features, tournaments, mobile apps, and Phase 7/8 functionality are intentionally not included.
+Deployment execution, chat, reactions, polls, notifications, payments, AI features, tournaments, mobile apps, and Phase 7A.2/7B/7C/8 functionality are intentionally not included.
 
 ## Phase 1 Features
 
@@ -115,6 +115,17 @@ Deployment execution, community interaction features, payments, AI features, tou
 - Rejection removes the applicant's temporary Cloudinary photo asset before marking the request rejected.
 - Super admins can inspect join requests read-only for oversight.
 - Public search does not index or expose join requests.
+
+## Phase 7A.1 Features
+
+- Team admins can challenge another published, non-archived FootStream team.
+- Challenges include match type, squad size, venue, proposed date, proposed time, and an optional message.
+- Team admins can view Sent and Received challenge lists.
+- The challenged team can accept or decline only pending received challenges.
+- The sending team can cancel only pending sent challenges.
+- Duplicate pending challenges between the same two teams for the same proposed date are rejected.
+- Super admins have read-only challenge oversight with no mutation controls.
+- Public users cannot create, view, accept, decline, or cancel challenges.
 
 ## Technology
 
@@ -238,6 +249,8 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/admin/teams/:teamId/players` | superAdmin | View a team's squad read-only |
 | `GET` | `/api/admin/teams/:teamId/join-requests` | superAdmin | Read-only join requests for one team |
 | `GET` | `/api/admin/join-requests/:requestId` | superAdmin | Read-only join request detail |
+| `GET` | `/api/admin/challenges` | superAdmin | Read-only challenge oversight list |
+| `GET` | `/api/admin/challenges/:challengeId` | superAdmin | Read-only challenge detail |
 | `GET` | `/api/admin/matches` | superAdmin | List all active matches with filters |
 | `GET` | `/api/admin/matches/:matchId` | superAdmin | View one match and lineup snapshots |
 | `GET` | `/api/admin/team-admins` | superAdmin | List team administrators |
@@ -261,6 +274,14 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/team/join-requests/:requestId` | teamAdmin | Review one owned public join request |
 | `PATCH` | `/api/team/join-requests/:requestId/approve` | teamAdmin | Approve a pending request into the official squad |
 | `PATCH` | `/api/team/join-requests/:requestId/reject` | teamAdmin | Reject a pending request and clean applicant photo storage |
+| `GET` | `/api/team/challenges/teams` | teamAdmin | Search published active teams available for challenges |
+| `POST` | `/api/team/challenges` | teamAdmin | Send a challenge from the assigned team |
+| `GET` | `/api/team/challenges/sent` | teamAdmin | List challenges sent by the assigned team |
+| `GET` | `/api/team/challenges/received` | teamAdmin | List challenges received by the assigned team |
+| `GET` | `/api/team/challenges/:challengeId` | teamAdmin | View one sent or received challenge |
+| `PATCH` | `/api/team/challenges/:challengeId/accept` | teamAdmin | Accept a pending received challenge |
+| `PATCH` | `/api/team/challenges/:challengeId/decline` | teamAdmin | Decline a pending received challenge |
+| `PATCH` | `/api/team/challenges/:challengeId/cancel` | teamAdmin | Cancel a pending sent challenge |
 | `POST` | `/api/team/matches/:matchId/start` | teamAdmin | Start an owned scheduled match |
 | `POST` | `/api/team/matches/:matchId/end-first-half` | teamAdmin | Pause at half-time |
 | `POST` | `/api/team/matches/:matchId/start-second-half` | teamAdmin | Resume the second half |
@@ -910,5 +931,59 @@ Manual Phase 6F test checklist:
 14. Sign in as super admin and confirm the read-only oversight endpoints/pages expose no mutation controls.
 15. Search publicly for applicant names, emails, and phones and confirm join requests are not returned.
 16. Re-test login, dashboards, squad management, player photos, match scheduling, live control, results, public portal, public profiles, search, team branding, and production health endpoints.
+
+## Phase 7A.1 Team Challenges
+
+Phase 7A.1 adds the core registered-team challenge workflow. It does not create match fixtures automatically and does not notify teams outside the dashboard. Team admins open `/team/challenges` and use three tabs: Received, Sent, and Create Challenge. Super admins can open `/admin/challenges` for read-only oversight.
+
+Challenge API:
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/team/challenges/teams` | teamAdmin | Search published, non-archived teams except the authenticated admin's own team |
+| `POST` | `/api/team/challenges` | teamAdmin | Send a challenge from the authenticated admin's assigned team |
+| `GET` | `/api/team/challenges/sent` | teamAdmin | List challenges sent by the assigned team |
+| `GET` | `/api/team/challenges/received` | teamAdmin | List challenges received by the assigned team |
+| `GET` | `/api/team/challenges/:challengeId` | teamAdmin | View a sent or received challenge |
+| `PATCH` | `/api/team/challenges/:challengeId/accept` | teamAdmin | Accept a pending received challenge |
+| `PATCH` | `/api/team/challenges/:challengeId/decline` | teamAdmin | Decline a pending received challenge |
+| `PATCH` | `/api/team/challenges/:challengeId/cancel` | teamAdmin | Cancel a pending sent challenge |
+| `GET` | `/api/admin/challenges` | superAdmin | Read-only challenge oversight |
+| `GET` | `/api/admin/challenges/:challengeId` | superAdmin | Read-only challenge detail |
+
+Rules:
+
+- Only authenticated active team admins can send, accept, decline, or cancel challenges.
+- A team can challenge only another published, non-archived registered team.
+- A team cannot challenge itself.
+- Match type must be `Friendly`, `Practice`, or `League`.
+- Squad size must be `5v5`, `7v7`, or `11v11`.
+- Proposed date/time must be in the future.
+- Only pending challenges can be accepted, declined, or cancelled.
+- Only the challenged team can accept or decline.
+- Only the sender can cancel.
+- Duplicate pending challenges between the same two teams for the same proposed date are rejected.
+- Super admins can view challenges but have no mutation endpoint or dashboard controls.
+- Public users have no challenge APIs and no public challenge UI.
+
+Manual Phase 7A.1 test checklist:
+
+1. Sign in as team admin A, open `/team/challenges`, search for a published active team B, and send a valid challenge.
+2. Confirm team A sees the challenge in Sent with `Pending` status and a Cancel button.
+3. Sign in as team admin B and confirm the challenge appears in Received with Accept and Decline buttons.
+4. Accept a pending challenge as team B and confirm team A sees `Accepted`; verify no match fixture was created automatically.
+5. Send another challenge and decline it as team B.
+6. Send another challenge and cancel it as team A.
+7. Try challenging the same team for the same proposed date while a pending challenge already exists; confirm rejection.
+8. Try a past date/time, invalid match type, invalid squad size, self-team ID, unpublished team, archived team, and cross-team challenge ID; confirm safe errors.
+9. Sign in as super admin, open `/admin/challenges`, and confirm challenges are visible without accept/decline/cancel controls.
+10. Verify public pages expose no challenge create/list/status UI or APIs.
+
+Limitations intentionally deferred to Phase 7A.2:
+
+- Counter proposals.
+- Automatic fixture creation after acceptance.
+- Dashboard, email, push, or follow notifications.
+- Challenge history beyond the basic Sent, Received, and super-admin oversight lists.
 
 Deployment automation, hosting configuration, community accounts, chat, reactions, polls, account notifications, payments, tournament management, and custom video hosting are not included.
