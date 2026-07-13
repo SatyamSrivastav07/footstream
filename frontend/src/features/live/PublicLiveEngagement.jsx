@@ -1,10 +1,19 @@
-import { Megaphone, Send, UserRound } from 'lucide-react';
+import { BarChart3, Megaphone, Send, SmilePlus, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import api from '../../api/client.js';
 
 const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const storageKey = 'footstream_guest_identity';
+const reactionStorageKey = (matchId) => `footstream_reactions_${matchId}`;
+const pollStorageKey = (matchId) => `footstream_poll_votes_${matchId}`;
+const reactions = [
+  { type: 'like', label: 'Like', emoji: '👍' },
+  { type: 'heart', label: 'Heart', emoji: '❤️' },
+  { type: 'fire', label: 'Fire', emoji: '🔥' },
+  { type: 'clap', label: 'Clap', emoji: '👏' },
+  { type: 'wow', label: 'Wow', emoji: '😮' },
+];
 
 const createGuestId = () => crypto.randomUUID();
 const cleanName = (value) => value.trim().replace(/[<>&"']/g, '').slice(0, 30);
@@ -23,6 +32,14 @@ export default function PublicLiveEngagement({ matchId, viewerCount = 0 }) {
   const [displayName, setDisplayName] = useState(identity?.displayName || '');
   const [messages, setMessages] = useState([]);
   const [announcement, setAnnouncement] = useState(null);
+  const [reactionCounts, setReactionCounts] = useState({});
+  const [selectedReactions, setSelectedReactions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(reactionStorageKey(matchId)) || '[]'); } catch { return []; }
+  });
+  const [polls, setPolls] = useState([]);
+  const [pollVotes, setPollVotes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(pollStorageKey(matchId)) || '{}'); } catch { return {}; }
+  });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -57,8 +74,14 @@ export default function PublicLiveEngagement({ matchId, viewerCount = 0 }) {
         api.get(`/public/matches/${matchId}/chat`),
         api.get(`/public/matches/${matchId}/announcement`),
       ]);
+      const [reactionResponse, pollResponse] = await Promise.all([
+        api.get(`/public/matches/${matchId}/reactions`),
+        api.get(`/public/matches/${matchId}/polls`),
+      ]);
       setMessages(chatResponse.data.data.messages);
       setAnnouncement(announcementResponse.data.data.announcement);
+      setReactionCounts(reactionResponse.data.data.reactions);
+      setPolls(pollResponse.data.data.polls);
       setError('');
     } catch (requestError) {
       setError(requestError.userMessage);
@@ -83,6 +106,12 @@ export default function PublicLiveEngagement({ matchId, viewerCount = 0 }) {
     });
     socket.on('match:announcement-updated', (payload) => setAnnouncement(payload?.announcement || null));
     socket.on('match:announcement-removed', () => setAnnouncement(null));
+    socket.on('match:reactions', (payload) => setReactionCounts(payload?.reactions || {}));
+    socket.on('poll-created', (payload) => setPolls((current) => current.some((poll) => poll._id === payload?.poll?._id) ? current : [payload.poll, ...current]));
+    socket.on('poll-opened', (payload) => setPolls((current) => current.map((poll) => poll._id === payload?.poll?._id ? payload.poll : poll)));
+    socket.on('poll-updated', (payload) => setPolls((current) => current.map((poll) => poll._id === payload?.poll?._id ? payload.poll : poll)));
+    socket.on('poll-voted', (payload) => setPolls((current) => current.map((poll) => poll._id === payload?.poll?._id ? payload.poll : poll)));
+    socket.on('poll-closed', (payload) => setPolls((current) => current.map((poll) => poll._id === payload?.poll?._id ? payload.poll : poll).filter((poll) => !poll.isDeleted)));
     return () => { socket.emit('leave-match', matchId); socket.disconnect(); };
   }, [matchId]);
 
@@ -107,6 +136,50 @@ export default function PublicLiveEngagement({ matchId, viewerCount = 0 }) {
   };
 
   const olderCursor = useMemo(() => messages[0]?.createdAt, [messages]);
+  const persistSelectedReactions = (next) => {
+    setSelectedReactions(next);
+    localStorage.setItem(reactionStorageKey(matchId), JSON.stringify(next));
+  };
+
+  const toggleReaction = async (reactionType) => {
+    if (!ready) {
+      setError('Choose a display name before reacting.');
+      return;
+    }
+    try {
+      const response = await api.post(`/public/matches/${matchId}/reactions/${reactionType}/toggle`, { guestSessionId: identity.guestSessionId });
+      setReactionCounts(response.data.data.counts);
+      const next = response.data.data.selected
+        ? [...new Set([...selectedReactions, reactionType])]
+        : selectedReactions.filter((item) => item !== reactionType);
+      persistSelectedReactions(next);
+      setError('');
+    } catch (requestError) {
+      setError(requestError.userMessage);
+    }
+  };
+
+  const persistPollVote = (pollId, optionId) => {
+    const next = { ...pollVotes, [pollId]: optionId };
+    setPollVotes(next);
+    localStorage.setItem(pollStorageKey(matchId), JSON.stringify(next));
+  };
+
+  const vote = async (pollId, optionId) => {
+    if (!ready) {
+      setError('Choose a display name before voting.');
+      return;
+    }
+    try {
+      const response = await api.post(`/public/matches/${matchId}/polls/${pollId}/vote`, { guestSessionId: identity.guestSessionId, optionId });
+      setPolls((current) => current.map((poll) => poll._id === response.data.data.poll._id ? response.data.data.poll : poll));
+      persistPollVote(pollId, optionId);
+      setError('');
+    } catch (requestError) {
+      setError(requestError.userMessage);
+    }
+  };
+
   const loadOlder = async () => {
     if (!olderCursor) return;
     try {
@@ -133,6 +206,58 @@ export default function PublicLiveEngagement({ matchId, viewerCount = 0 }) {
       </div>
 
       <aside className="rounded-3xl border border-white/[0.08] bg-white/[0.025] p-4">
+        <div className="mb-5 rounded-2xl border border-white/[0.07] bg-black/10 p-3">
+          <div className="mb-3 flex items-center gap-2 text-white"><SmilePlus size={17} /><p className="text-sm font-semibold">Live reactions</p></div>
+          <div className="flex flex-wrap gap-2">
+            {reactions.map((reaction) => {
+              const selected = selectedReactions.includes(reaction.type);
+              return (
+                <button
+                  key={reaction.type}
+                  type="button"
+                  className={`rounded-full border px-3 py-2 text-sm transition ${selected ? 'border-lime-300 bg-lime-300/15 text-lime-100' : 'border-white/10 bg-white/[0.04] text-white/70 hover:border-lime-300/40'}`}
+                  onClick={() => toggleReaction(reaction.type)}
+                  aria-pressed={selected}
+                  aria-label={`${reaction.label} reaction`}
+                >
+                  <span aria-hidden="true">{reaction.emoji}</span> {reactionCounts?.[reaction.type] || 0}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mb-5 space-y-3 rounded-2xl border border-white/[0.07] bg-black/10 p-3">
+          <div className="flex items-center gap-2 text-white"><BarChart3 size={17} /><p className="text-sm font-semibold">Community polls</p></div>
+          {polls.length === 0 ? <p className="text-sm text-white/40">No community polls yet.</p> : polls.map((poll) => (
+            <article key={poll._id} className="rounded-xl bg-white/[0.035] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-semibold text-white">{poll.question}</p>
+                <span className={`status-badge ${poll.status === 'open' ? 'status-active' : 'status-neutral'}`}>{poll.status}</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                {poll.options.map((option) => {
+                  const percent = poll.totalVotes ? Math.round((option.votes / poll.totalVotes) * 100) : 0;
+                  const voted = pollVotes[poll._id] === option._id;
+                  return (
+                    <button
+                      key={option._id}
+                      type="button"
+                      className={`w-full rounded-xl border p-2 text-left ${voted ? 'border-lime-300/50 bg-lime-300/10' : 'border-white/10 bg-black/10'}`}
+                      disabled={poll.status !== 'open' || Boolean(pollVotes[poll._id])}
+                      onClick={() => vote(poll._id, option._id)}
+                    >
+                      <div className="flex justify-between gap-3 text-sm"><span className="text-white/80">{option.text}</span><span className="text-white/50">{percent}%</span></div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-lime-300" style={{ width: `${percent}%` }} /></div>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-xs text-white/40">Community Poll · {poll.totalVotes} votes · Does not affect official match result.</p>
+            </article>
+          ))}
+        </div>
+
         <div className="mb-4 flex items-center justify-between gap-3">
           <div><p className="eyebrow">Public live chat</p><h2 className="font-display text-2xl font-bold text-white">Match chat</h2></div>
           {newCount > 0 && <button type="button" className="count-pill" onClick={() => { setNewCount(0); bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }}>{newCount} new</button>}

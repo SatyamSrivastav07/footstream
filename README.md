@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7A.1 through 7A.2, and Phase 7B.1**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, team challenges, counter proposals, challenge history, challenge-to-fixture creation, challenge fixture format enforcement, persistent in-app notifications, public live chat, viewer counts, and team match announcements.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7A.1 through 7A.2, and Phases 7B.1 through 7B.2**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, team challenges, counter proposals, challenge history, challenge-to-fixture creation, challenge fixture format enforcement, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, and basic moderation controls.
 
-Deployment execution, reactions, polls, browser push notifications, follow-team notifications, payments, AI features, tournaments, mobile apps, and Phase 7B.2/7C/8 functionality are intentionally not included.
+Deployment execution, browser push notifications, follow-team notifications, payments, AI features, tournaments, mobile apps, and Phase 7C/8 functionality are intentionally not included.
 
 ## Phase 1 Features
 
@@ -859,6 +859,7 @@ Required production environment:
 | `UPLOAD_RATE_LIMIT_MAX` | Upload mutation limiter ceiling |
 | `JOIN_REQUEST_RATE_LIMIT_MAX` | Public join-request submission limiter ceiling |
 | `MUTATION_RATE_LIMIT_MAX` | Authenticated non-GET mutation limiter ceiling |
+| `CHAT_BLOCKED_WORDS` | Optional comma-separated blocked words rejected by public chat moderation |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
 | `CLOUDINARY_API_KEY` | Cloudinary API key |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret |
@@ -1161,4 +1162,73 @@ Manual Phase 7B.1 checks:
 8. Soft-delete a chat message as team admin and confirm public clients remove it.
 9. Confirm public APIs never expose `guestSessionId`, socket IDs, IPs, emails, JWTs, Cloudinary IDs, or admin account data.
 
-Deployment automation, hosting configuration, community accounts, reactions, polls, account notifications beyond existing in-app admin notifications, payments, tournament management, and custom video hosting are not included.
+## Phase 7B.2 Emoji Reactions, Community Polls, and Moderation
+
+Phase 7B.2 adds lightweight public engagement around live matches without changing official football records. It does not add browser push notifications, follow-team notifications, team internal chat, player accounts, viewer accounts, ratings, heatmaps, xG, fantasy football, AI moderation, tournaments, payments, Phase 7C, or Phase 8.
+
+Emoji reaction behavior:
+
+- Supported reactions are fixed: Like, Heart, Fire, Clap, and Wow.
+- Public guests can toggle each supported reaction once per match using their local guest session.
+- Toggling the same reaction again removes it.
+- Public APIs and Socket.IO events return aggregate counts only.
+- `guestSessionId`, socket IDs, IPs, emails, JWTs, Cloudinary IDs, and internal user IDs are never exposed.
+- Reactions are accepted only while a public active match is `live`, `half_time`, or `completed`.
+
+Community poll behavior:
+
+- Only the host team admin can create and manage match polls.
+- Poll questions are limited to 160 characters.
+- Polls require 2 to 6 options, each limited to 80 characters.
+- Public guests can vote once per poll using their local guest session.
+- Votes cannot be edited.
+- Poll results show percentages and total votes.
+- Polls are explicitly community engagement only and never modify official match result, statistics, player stats, or Man of the Match.
+- Server-side validation rejects official MOTM, player-rating, official-award, statistics, or player-stat poll topics.
+
+Moderation behavior:
+
+- Public chat keeps length validation, duplicate-message rejection, and rate-limit feedback.
+- `CHAT_BLOCKED_WORDS` can define a comma-separated blocked-word list for simple server-side filtering.
+- Team admins can soft-delete chat messages.
+- No bans, reports, or AI moderation are included.
+
+Phase 7B.2 REST API:
+
+| Method | Route | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/public/matches/:matchId/reactions` | Public | Read aggregate reaction counts |
+| `POST` | `/api/public/matches/:matchId/reactions/:reactionType/toggle` | Public | Toggle a supported guest reaction |
+| `GET` | `/api/team/matches/:matchId/polls` | teamAdmin host | List all non-deleted polls and vote counts |
+| `POST` | `/api/team/matches/:matchId/polls` | teamAdmin host | Create a draft community poll |
+| `PATCH` | `/api/team/matches/:matchId/polls/:pollId` | teamAdmin host | Edit a draft poll |
+| `PATCH` | `/api/team/matches/:matchId/polls/:pollId/open` | teamAdmin host | Open a poll for public voting |
+| `PATCH` | `/api/team/matches/:matchId/polls/:pollId/close` | teamAdmin host | Close an open poll |
+| `DELETE` | `/api/team/matches/:matchId/polls/:pollId` | teamAdmin host | Soft-delete a poll |
+| `GET` | `/api/public/matches/:matchId/polls` | Public | Read open/closed community polls |
+| `POST` | `/api/public/matches/:matchId/polls/:pollId/vote` | Public | Cast one guest vote |
+
+Phase 7B.2 Socket.IO events:
+
+| Event | Direction | Purpose |
+| --- | --- | --- |
+| `match:reactions` | Server to match room | Broadcast aggregate reaction counts |
+| `poll-created` | Server to match room | Broadcast a new poll |
+| `poll-opened` | Server to match room | Broadcast an opened poll |
+| `poll-updated` | Server to match room | Broadcast edited draft poll data |
+| `poll-voted` | Server to match room | Broadcast updated vote counts |
+| `poll-closed` | Server to match room | Broadcast closed or deleted poll state |
+
+Manual Phase 7B.2 checks:
+
+1. Open a live public match, choose a guest display name, and toggle each supported reaction.
+2. Toggle the same reaction twice and confirm the count increments then decrements.
+3. Open another browser session and confirm reaction counts update in real time.
+4. As host team admin, create a community poll draft with 2 to 6 options.
+5. Open the poll and vote publicly; confirm percentages and total votes update.
+6. Try voting twice from the same guest session and confirm the second vote is rejected.
+7. Try creating a poll about official MOTM, player ratings, official awards, or statistics and confirm it is rejected.
+8. Add `CHAT_BLOCKED_WORDS=example` locally, restart the backend, and confirm a chat message containing `example` is rejected.
+9. Confirm community polls do not modify result, statistics, player stats, or Man of the Match.
+
+Deployment automation, hosting configuration, community accounts, account notifications beyond existing in-app admin notifications, payments, tournament management, and custom video hosting are not included.

@@ -2,12 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createChatMessage,
+  createPoll,
   deleteChatMessage,
+  getReactionCounts,
   getPublicAnnouncement,
   listChatMessages,
+  listPublicPolls,
+  openPoll,
   removeAnnouncement,
   serializeChatMessage,
+  toggleReaction,
   upsertAnnouncement,
+  votePoll,
 } from '../src/services/engagementService.js';
 
 const ids = {
@@ -149,4 +155,147 @@ test('chat serializer never exposes guest session or moderator identity', () => 
   const message = serializeChatMessage(chatDocument({ deletedBy: ids.user }));
   assert.equal(message.guestSessionId, undefined);
   assert.equal(message.deletedBy, undefined);
+});
+
+test('chat moderation rejects configured blocked words', async () => {
+  const chatModel = {
+    exists: async () => null,
+    create: async () => chatDocument(),
+  };
+  await assert.rejects(createChatMessage({
+    matchModel: matchModel(),
+    chatModel,
+    matchId: ids.match,
+    blockedWords: ['badword'],
+    input: { guestSessionId: 'b0fd2df5-a5b0-4835-9d45-0922af722111', displayName: 'Fan', message: 'badword' },
+  }), (error) => error.code === 'CHAT_BLOCKED_WORD');
+});
+
+test('reaction toggle creates removes and returns aggregate counts only', async () => {
+  let stored = null;
+  const reactionModel = {
+    findOne: async () => stored,
+    create: async (data) => { stored = { _id: '65f000000000000000000099', ...data }; return stored; },
+    deleteOne: async () => { stored = null; },
+    aggregate: async () => stored ? [{ _id: stored.reactionType, count: 1 }] : [],
+  };
+  const first = await toggleReaction({
+    reactionModel,
+    matchModel: matchModel(matchDoc({ status: 'completed' })),
+    matchId: ids.match,
+    reactionType: 'fire',
+    guestSessionId: 'b0fd2df5-a5b0-4835-9d45-0922af722111',
+  });
+  assert.equal(first.selected, true);
+  assert.equal(first.counts.fire, 1);
+  assert.equal(first.guestSessionId, undefined);
+
+  const second = await toggleReaction({
+    reactionModel,
+    matchModel: matchModel(matchDoc({ status: 'completed' })),
+    matchId: ids.match,
+    reactionType: 'fire',
+    guestSessionId: 'b0fd2df5-a5b0-4835-9d45-0922af722111',
+  });
+  assert.equal(second.selected, false);
+  assert.equal(second.counts.fire, 0);
+});
+
+test('reaction aggregation rejects scheduled or private matches', async () => {
+  const reactionModel = { aggregate: async () => [{ _id: 'like', count: 3 }] };
+  const counts = await getReactionCounts({ reactionModel, matchModel: matchModel(matchDoc({ status: 'half_time' })), matchId: ids.match });
+  assert.equal(counts.like, 3);
+  assert.equal(counts.heart, 0);
+
+  await assert.rejects(getReactionCounts({
+    reactionModel,
+    matchModel: matchModel(matchDoc({ status: 'scheduled' })),
+    matchId: ids.match,
+  }), (error) => error.code === 'ENGAGEMENT_NOT_OPEN');
+});
+
+test('poll creation voting and one vote rule keep polls community-only', async () => {
+  const pollId = '65f000000000000000000100';
+  const optionOne = '65f000000000000000000101';
+  const optionTwo = '65f000000000000000000102';
+  const pollDoc = {
+    _id: pollId,
+    match: ids.match,
+    team: ids.team,
+    question: 'Who attacks better?',
+    options: [{ _id: optionOne, text: 'Home' }, { _id: optionTwo, text: 'Away' }],
+    status: 'draft',
+    isDeleted: false,
+    async save() { return this; },
+    toJSON() { return { ...this }; },
+  };
+  const pollModel = {
+    create: async (data) => ({ ...pollDoc, ...data, _id: pollId, options: data.options.map((option, index) => ({ _id: index === 0 ? optionOne : optionTwo, ...option })) }),
+    findOne: async () => pollDoc,
+    find: () => ({ sort: () => ({ lean: async () => [pollDoc] }) }),
+  };
+  const votes = [];
+  const voteModel = {
+    create: async (data) => {
+      if (votes.some((vote) => vote.poll === data.poll && vote.guestSessionId === data.guestSessionId)) {
+        const error = new Error('duplicate');
+        error.code = 11000;
+        throw error;
+      }
+      votes.push(data);
+      return data;
+    },
+    aggregate: async () => votes.length ? [{ _id: { poll: pollId, optionId: optionOne }, count: votes.length }] : [],
+  };
+
+  const created = await createPoll({
+    pollModel,
+    matchModel: { findOne: async () => matchDoc({ team: ids.team }) },
+    teamId: ids.team,
+    userId: ids.user,
+    matchId: ids.match,
+    input: { question: '<b>Who attacks better?</b>', options: ['Home', 'Away'] },
+  });
+  assert.equal(created.createdBy, undefined);
+  assert.equal(created.question, '&lt;b&gt;Who attacks better?&lt;/b&gt;');
+
+  const opened = await openPoll({ pollModel, voteModel, matchModel: { findOne: async () => matchDoc({ team: ids.team }) }, teamId: ids.team, matchId: ids.match, pollId });
+  assert.equal(opened.status, 'open');
+
+  const voted = await votePoll({
+    pollModel,
+    voteModel,
+    matchModel: matchModel(matchDoc({ status: 'live' })),
+    matchId: ids.match,
+    pollId,
+    optionId: optionOne,
+    guestSessionId: 'b0fd2df5-a5b0-4835-9d45-0922af722111',
+  });
+  assert.equal(voted.totalVotes, 1);
+  assert.equal(voted.options[0].votes, 1);
+
+  await assert.rejects(votePoll({
+    pollModel,
+    voteModel,
+    matchModel: matchModel(matchDoc({ status: 'live' })),
+    matchId: ids.match,
+    pollId,
+    optionId: optionTwo,
+    guestSessionId: 'b0fd2df5-a5b0-4835-9d45-0922af722111',
+  }), (error) => error.code === 'POLL_ALREADY_VOTED');
+
+  const publicPolls = await listPublicPolls({ pollModel, voteModel, matchModel: matchModel(matchDoc({ status: 'completed' })), matchId: ids.match });
+  assert.equal(publicPolls[0].createdBy, undefined);
+});
+
+test('poll creation rejects official awards ratings and statistics topics', async () => {
+  const pollModel = { create: async () => ({}) };
+  await assert.rejects(createPoll({
+    pollModel,
+    matchModel: { findOne: async () => matchDoc({ team: ids.team }) },
+    teamId: ids.team,
+    userId: ids.user,
+    matchId: ids.match,
+    input: { question: 'Official Man of the Match?', options: ['A', 'B'] },
+  }), (error) => error.code === 'POLL_FORBIDDEN_TOPIC');
 });

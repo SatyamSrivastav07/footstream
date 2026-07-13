@@ -15,8 +15,8 @@ import { publicSearchValidator } from '../validators/publicSearchValidators.js';
 import { publicJoinRequestStatus, submitPublicJoinRequest } from '../controllers/joinRequestController.js';
 import { requestCodeValidator, submitJoinRequestValidator } from '../validators/joinRequestValidators.js';
 import { uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature } from '../middleware/photoUpload.js';
-import { getPublicChat, getPublicMatchAnnouncement, postPublicChat } from '../controllers/engagementController.js';
-import { listChatValidator, postChatValidator, chatMatchIdValidator } from '../validators/engagementValidators.js';
+import { getPublicChat, getPublicMatchAnnouncement, getPublicPolls, getPublicReactions, postPublicChat, togglePublicReaction, votePublicPoll } from '../controllers/engagementController.js';
+import { listChatValidator, postChatValidator, chatMatchIdValidator, reactionMatchValidator, toggleReactionValidator, votePollValidator } from '../validators/engagementValidators.js';
 import { joinRequestStatusLimiter, joinRequestSubmitLimiter, publicChatPostLimiter } from '../middleware/rateLimiters.js';
 
 const router = Router();
@@ -42,6 +42,10 @@ router.get('/matches/:matchId/stream', streamIdValidator, validate, readPublicSt
 router.get('/matches/:matchId/chat', listChatValidator, validate, getPublicChat);
 router.post('/matches/:matchId/chat', publicChatPostLimiter, postChatValidator, validate, postPublicChat);
 router.get('/matches/:matchId/announcement', chatMatchIdValidator, validate, getPublicMatchAnnouncement);
+router.get('/matches/:matchId/reactions', reactionMatchValidator, validate, getPublicReactions);
+router.post('/matches/:matchId/reactions/:reactionType/toggle', toggleReactionValidator, validate, togglePublicReaction);
+router.get('/matches/:matchId/polls', chatMatchIdValidator, validate, getPublicPolls);
+router.post('/matches/:matchId/polls/:pollId/vote', votePollValidator, validate, votePublicPoll);
 router.get('/matches/:matchId/result', resultIdValidator, validate, getAnyResult);
 router.get('/matches/:matchId/photos', resultIdValidator, validate, getAnyPhotos);
 router.get('/teams/:teamId/statistics', teamStatsValidator, validate, getTeamStatistics);

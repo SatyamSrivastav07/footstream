@@ -1,4 +1,5 @@
 import { body, param, query } from 'express-validator';
+import { REACTION_TYPES } from '../models/MatchReaction.js';
 
 export const chatMatchIdValidator = [param('matchId').isMongoId().withMessage('Invalid match identifier.')];
 
@@ -31,6 +32,54 @@ export const announcementValidator = [
   body().custom((value) => {
     const unknown = Object.keys(value).filter((key) => key !== 'message');
     if (unknown.length) throw new Error(`Unsupported announcement fields: ${unknown.join(', ')}.`);
+    return true;
+  }),
+];
+
+export const reactionMatchValidator = [...chatMatchIdValidator];
+
+export const toggleReactionValidator = [
+  ...chatMatchIdValidator,
+  param('reactionType').isIn(REACTION_TYPES).withMessage('Unsupported reaction.'),
+  body('guestSessionId').isUUID().withMessage('Guest session is invalid.'),
+  body().custom((value) => {
+    const unknown = Object.keys(value).filter((key) => key !== 'guestSessionId');
+    if (unknown.length) throw new Error(`Unsupported reaction fields: ${unknown.join(', ')}.`);
+    return true;
+  }),
+];
+
+export const pollIdValidator = [
+  ...chatMatchIdValidator,
+  param('pollId').isMongoId().withMessage('Invalid poll identifier.'),
+];
+
+const pollBodyFields = ['question', 'options'];
+
+export const pollBodyValidator = [
+  ...chatMatchIdValidator,
+  body('question').isString().withMessage('Question must be text.').trim().isLength({ min: 1, max: 160 }).withMessage('Question must be 1 to 160 characters.'),
+  body('options').isArray({ min: 2, max: 6 }).withMessage('Polls must include 2 to 6 options.'),
+  body('options.*').isString().withMessage('Poll options must be text.').trim().isLength({ min: 1, max: 80 }).withMessage('Poll options must be 1 to 80 characters.'),
+  body().custom((value) => {
+    const unknown = Object.keys(value).filter((key) => !pollBodyFields.includes(key));
+    if (unknown.length) throw new Error(`Unsupported poll fields: ${unknown.join(', ')}.`);
+    return true;
+  }),
+];
+
+export const updatePollValidator = [
+  ...pollBodyValidator,
+  param('pollId').isMongoId().withMessage('Invalid poll identifier.'),
+];
+
+export const votePollValidator = [
+  ...pollIdValidator,
+  body('guestSessionId').isUUID().withMessage('Guest session is invalid.'),
+  body('optionId').isMongoId().withMessage('Invalid poll option.'),
+  body().custom((value) => {
+    const unknown = Object.keys(value).filter((key) => !['guestSessionId', 'optionId'].includes(key));
+    if (unknown.length) throw new Error(`Unsupported vote fields: ${unknown.join(', ')}.`);
     return true;
   }),
 ];

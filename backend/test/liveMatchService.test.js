@@ -253,7 +253,13 @@ test('super admin cannot use team-admin live mutations and public routes are rea
   teamMutationGuard({ user: { role: USER_ROLES.SUPER_ADMIN } }, {}, (error) => { denied = error; });
   assert.equal(denied.statusCode, 403);
   const methods = publicRoutes.stack
-    .filter((layer) => layer.route && !['/teams/:teamSlug/join-requests', '/join-requests/:requestCode/status', '/matches/:matchId/chat'].includes(layer.route.path))
+    .filter((layer) => layer.route && ![
+      '/teams/:teamSlug/join-requests',
+      '/join-requests/:requestCode/status',
+      '/matches/:matchId/chat',
+      '/matches/:matchId/reactions/:reactionType/toggle',
+      '/matches/:matchId/polls/:pollId/vote',
+    ].includes(layer.route.path))
     .flatMap((layer) => Object.keys(layer.route.methods));
   assert.deepEqual([...new Set(methods)], ['get']);
 });

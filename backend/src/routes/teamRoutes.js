@@ -88,8 +88,19 @@ import {
 import { challengeIdValidator, challengeTeamSearchValidator, counterChallengeValidator, createChallengeValidator, listChallengesValidator } from '../validators/challengeValidators.js';
 import { body } from 'express-validator';
 import { authenticatedMutationLimiter, uploadLimiter } from '../middleware/rateLimiters.js';
-import { deleteTeamAnnouncement, deleteTeamChatMessage, getTeamAnnouncement, putTeamAnnouncement } from '../controllers/engagementController.js';
-import { announcementValidator, chatMatchIdValidator, deleteChatValidator } from '../validators/engagementValidators.js';
+import {
+  closeTeamPoll,
+  deleteTeamAnnouncement,
+  deleteTeamChatMessage,
+  deleteTeamPoll,
+  getTeamAnnouncement,
+  getTeamPolls,
+  openTeamPoll,
+  patchTeamPoll,
+  postTeamPoll,
+  putTeamAnnouncement,
+} from '../controllers/engagementController.js';
+import { announcementValidator, chatMatchIdValidator, deleteChatValidator, pollBodyValidator, pollIdValidator, updatePollValidator } from '../validators/engagementValidators.js';
 
 const router = Router();
 
@@ -142,6 +153,14 @@ router.route('/matches/:matchId/announcement')
   .put(announcementValidator, validateMatch, putTeamAnnouncement)
   .delete(chatMatchIdValidator, validateMatch, deleteTeamAnnouncement);
 router.delete('/matches/:matchId/chat/:messageId', deleteChatValidator, validateMatch, deleteTeamChatMessage);
+router.route('/matches/:matchId/polls')
+  .get(chatMatchIdValidator, validateMatch, getTeamPolls)
+  .post(pollBodyValidator, validateMatch, postTeamPoll);
+router.route('/matches/:matchId/polls/:pollId')
+  .patch(updatePollValidator, validateMatch, patchTeamPoll)
+  .delete(pollIdValidator, validateMatch, deleteTeamPoll);
+router.patch('/matches/:matchId/polls/:pollId/open', pollIdValidator, validateMatch, openTeamPoll);
+router.patch('/matches/:matchId/polls/:pollId/close', pollIdValidator, validateMatch, closeTeamPoll);
 router.route('/matches/:matchId/stream')
   .get(streamIdValidator, validateMatch, readOwnedStream)
   .put(configureStreamValidator, validateMatch, putOwnedStream)

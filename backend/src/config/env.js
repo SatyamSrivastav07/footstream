@@ -46,6 +46,10 @@ const isTest = process.env.NODE_ENV === 'test';
 const isDevelopment = !isProduction && !isTest;
 const defaultWindowMs = parsePositiveInteger('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000, { min: 1000, max: 24 * 60 * 60 * 1000 });
 const developmentMultiplier = isDevelopment ? 5 : 1;
+const blockedChatWords = (process.env.CHAT_BLOCKED_WORDS || '')
+  .split(',')
+  .map((word) => word.trim().toLowerCase())
+  .filter(Boolean);
 
 const env = Object.freeze({
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -77,6 +81,9 @@ const env = Object.freeze({
     uploadMax: parsePositiveInteger('UPLOAD_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 1, max: 10_000 }),
     joinRequestMax: parsePositiveInteger('JOIN_REQUEST_RATE_LIMIT_MAX', 5 * (isDevelopment ? 3 : 1), { min: 1, max: 10_000 }),
     mutationMax: parsePositiveInteger('MUTATION_RATE_LIMIT_MAX', 300 * developmentMultiplier, { min: 10, max: 100_000 }),
+  },
+  moderation: {
+    blockedChatWords,
   },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
