@@ -1,8 +1,24 @@
 import axios from 'axios';
 
-const apiBaseUrl =
+const rawApiBaseUrl =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
+
+export const apiBaseUrl = rawApiBaseUrl.replace(/\/+$/, '');
+
+const resolveSocketUrl = () => {
+  // Absolute backend URL: https://backend.onrender.com/api
+  if (/^https?:\/\//i.test(apiBaseUrl)) {
+    return new URL(apiBaseUrl).origin;
+  }
+
+  // Relative /api fallback means frontend and backend are on same origin.
+  return window.location.origin;
+};
+
+export const socketUrl =
+  import.meta.env.VITE_SOCKET_URL?.replace(/\/+$/, '') ||
+  resolveSocketUrl();
 
 const api = axios.create({
   baseURL: apiBaseUrl,
