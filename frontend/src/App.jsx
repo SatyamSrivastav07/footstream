@@ -222,7 +222,7 @@ function App() {
       </Route>
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route index element={<DashboardRedirect />} />
+          <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route element={<RoleRoute roles={["superAdmin"]} />}>
             <Route path="/admin" element={<SuperAdminDashboard />} />
