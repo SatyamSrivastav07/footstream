@@ -8,7 +8,6 @@ const preferenceSchema = new mongoose.Schema(
     halfTime: { type: Boolean, default: true },
     fullTime: { type: Boolean, default: true },
     resultPublished: { type: Boolean, default: true },
-    challengeAccepted: { type: Boolean, default: false },
   },
   { _id: false },
 );

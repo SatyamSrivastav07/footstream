@@ -2,7 +2,7 @@ import Team from '../models/Team.js';
 import TeamFollow from '../models/TeamFollow.js';
 import AppError from '../utils/AppError.js';
 
-const preferenceKeys = ['matchReminder', 'matchStarted', 'goal', 'halfTime', 'fullTime', 'resultPublished', 'challengeAccepted'];
+const preferenceKeys = ['matchReminder', 'matchStarted', 'goal', 'halfTime', 'fullTime', 'resultPublished'];
 
 export const safeFollow = (follow, followerCount = null) => {
   if (!follow) return { following: false, isFollowing: false, preferences: {}, pushConfigured: false, notificationsEnabled: false, followerCount };

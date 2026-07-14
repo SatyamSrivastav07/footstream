@@ -15,6 +15,10 @@ export const errorHandler = (error, req, res, _next) => {
   } else if (error.code === 11000) {
     if (error.keyValue?.jerseyNumber !== undefined) {
       normalized = new AppError('That jersey number is already assigned to an active player.', 409, 'JERSEY_IN_USE');
+    } else if (error.keyPattern?.sourceChallenge && error.keyValue?.sourceChallenge) {
+      normalized = new AppError('This challenge already has a generated fixture. Open the existing fixture from the challenge card.', 409, 'CHALLENGE_FIXTURE_EXISTS');
+    } else if (error.keyPattern?.sourceChallenge) {
+      normalized = new AppError('The match could not be created because of a stale challenge index. Remove the old sourceChallenge_1 index and try again.', 409, 'STALE_MATCH_INDEX');
     } else if (error.keyValue?.isCaptain) {
       normalized = new AppError('This team already has an active captain.', 409, 'CAPTAIN_EXISTS');
     } else if (error.keyValue?.isViceCaptain) {

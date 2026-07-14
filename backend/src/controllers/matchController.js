@@ -5,6 +5,8 @@ import {
   cancelMatchForTeam,
   createMatchForTeam,
   getParticipantMatch,
+  listOpponentPlayers,
+  listOpponentTeams,
   serializeMatchForTeam,
   softDeleteMatchForTeam,
   sortMatchesForDisplay,
@@ -68,6 +70,16 @@ export const updateTeamMatch = asyncHandler(async (req, res) => {
     teamId: teamId(req), matchId: req.params.matchId, userId: req.user._id, input: req.body,
   });
   res.json({ success: true, data: { match } });
+});
+
+export const getOpponentPlayers = asyncHandler(async (req, res) => {
+  const data = await listOpponentPlayers({ hostTeamId: teamId(req), opponentTeamId: req.params.teamId });
+  res.json({ success: true, data });
+});
+
+export const getOpponentTeams = asyncHandler(async (req, res) => {
+  const data = await listOpponentTeams({ hostTeamId: teamId(req), query: req.query });
+  res.json({ success: true, data });
 });
 
 export const cancelTeamMatch = asyncHandler(async (req, res) => {

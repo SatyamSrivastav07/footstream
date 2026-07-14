@@ -38,6 +38,21 @@ const playerSnapshotSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const opponentPlayerSnapshotSchema = new mongoose.Schema(
+  {
+    sourceType: { type: String, enum: ['registered', 'temporary'], required: true, default: 'registered' },
+    player: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', default: null },
+    registeredPlayer: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', default: null },
+    name: { type: String, required: true, trim: true },
+    jerseyNumber: { type: Number, default: null },
+    position: { type: String, required: true, trim: true },
+    photoUrl: { type: String, default: '' },
+    isCaptain: { type: Boolean, default: false },
+    isViceCaptain: { type: Boolean, default: false },
+  },
+  { _id: false },
+);
+
 const resultSchema = new mongoose.Schema({
   outcome: { type: String, enum: ['win', 'draw', 'loss'], required: true },
   winnerSide: { type: String, enum: ['team', 'opponent', 'draw'], required: true },
@@ -100,7 +115,7 @@ const matchSchema = new mongoose.Schema(
       validate: {
         validator(value) {
           const required = this.matchFormat === '5v5' ? 5 : this.matchFormat === '7v7' ? 7 : 11;
-          return this.sourceChallenge ? value.length === 0 || value.length === required : value.length === required;
+          return value.length === required;
         },
         message: 'Starting lineup does not match the match format.',
       },
@@ -109,7 +124,7 @@ const matchSchema = new mongoose.Schema(
     registeredOpponentFormation: { type: String, enum: MATCH_FORMATIONS, default: null },
     registeredOpponentCustomFormation: { type: String, trim: true, maxlength: 60, default: '' },
     registeredOpponentStartingXI: {
-      type: [playerSnapshotSchema],
+      type: [opponentPlayerSnapshotSchema],
       default: [],
       validate: {
         validator(value) {
@@ -120,7 +135,8 @@ const matchSchema = new mongoose.Schema(
         message: 'Registered opponent lineup does not match the match format.',
       },
     },
-    registeredOpponentSubstitutes: { type: [playerSnapshotSchema], default: [] },
+    registeredOpponentSubstitutes: { type: [opponentPlayerSnapshotSchema], default: [] },
+    registeredOpponentLineupManagedByOpponent: { type: Boolean, default: false },
     notes: { type: String, trim: true, maxlength: 2000, default: '' },
     isActive: { type: Boolean, default: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -133,7 +149,7 @@ const matchSchema = new mongoose.Schema(
     resultConfirmedAt: { type: Date, default: null },
     resultConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     stream: { type: streamSchema, default: null },
-    sourceChallenge: { type: mongoose.Schema.Types.ObjectId, ref: 'TeamChallenge', default: null },
+    sourceChallenge: { type: mongoose.Schema.Types.ObjectId, default: undefined },
   },
   { timestamps: true },
 );
@@ -168,7 +184,10 @@ matchSchema.index({ status: 1, scheduledAt: 1, isActive: 1 });
 matchSchema.index({ 'opponent.name': 1, scheduledAt: 1 });
 matchSchema.index({ tournament: 1, status: 1, isActive: 1, scheduledAt: -1 });
 matchSchema.index({ 'stream.videoId': 1 }, { sparse: true });
-matchSchema.index({ sourceChallenge: 1 }, { unique: true, sparse: true });
+matchSchema.index(
+  { sourceChallenge: 1 },
+  { unique: true, partialFilterExpression: { sourceChallenge: { $type: 'objectId' } } },
+);
 
 matchSchema.set('toJSON', {
   transform: (_document, returned) => {

@@ -24,6 +24,8 @@ import {
   cancelTeamMatch,
   createTeamMatch,
   deleteTeamMatch,
+  getOpponentPlayers,
+  getOpponentTeams,
   getTeamMatch,
   listTeamMatches,
   updateTeamMatch,
@@ -71,22 +73,7 @@ import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStr
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
 import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejectTeamJoinRequest } from '../controllers/joinRequestController.js';
 import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
-import {
-  acceptTeamChallenge,
-  acceptCounterTeamChallenge,
-  cancelTeamChallenge,
-  counterTeamChallenge,
-  declineTeamChallenge,
-  getTeamChallengeHistory,
-  getTeamChallenge,
-  listTeamChallengeableTeams,
-  listReceivedTeamChallenges,
-  listSentTeamChallenges,
-  postTeamChallenge,
-  rejectCounterTeamChallenge,
-} from '../controllers/challengeController.js';
-import { challengeIdValidator, challengeTeamSearchValidator, counterChallengeValidator, createChallengeValidator, listChallengesValidator } from '../validators/challengeValidators.js';
-import { body } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { authenticatedMutationLimiter, uploadLimiter } from '../middleware/rateLimiters.js';
 import {
   closeTeamPoll,
@@ -113,18 +100,6 @@ router.delete('/profile/logo', removeOwnLogo);
 router.put('/profile/cover', uploadLimiter, uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
 router.delete('/profile/cover', removeOwnCover);
 router.patch('/profile/join-requests-status', body('acceptingJoinRequests').isBoolean().withMessage('Join-request status must be true or false.').toBoolean(), validate, updateOwnJoinRequestStatus);
-router.post('/challenges', createChallengeValidator, validate, postTeamChallenge);
-router.get('/challenges/teams', challengeTeamSearchValidator, validate, listTeamChallengeableTeams);
-router.get('/challenges/sent', listChallengesValidator, validate, listSentTeamChallenges);
-router.get('/challenges/received', listChallengesValidator, validate, listReceivedTeamChallenges);
-router.get('/challenges/:challengeId/history', challengeIdValidator, validate, getTeamChallengeHistory);
-router.get('/challenges/:challengeId', challengeIdValidator, validate, getTeamChallenge);
-router.patch('/challenges/:challengeId/accept', challengeIdValidator, validate, acceptTeamChallenge);
-router.patch('/challenges/:challengeId/decline', challengeIdValidator, validate, declineTeamChallenge);
-router.patch('/challenges/:challengeId/cancel', challengeIdValidator, validate, cancelTeamChallenge);
-router.patch('/challenges/:challengeId/counter', counterChallengeValidator, validate, counterTeamChallenge);
-router.patch('/challenges/:challengeId/accept-counter', challengeIdValidator, validate, acceptCounterTeamChallenge);
-router.patch('/challenges/:challengeId/reject-counter', challengeIdValidator, validate, rejectCounterTeamChallenge);
 router.get('/join-requests', listJoinRequestsValidator, validate, listTeamJoinRequests);
 router.get('/join-requests/:requestId', joinRequestIdValidator, validate, getTeamJoinRequest);
 router.patch('/join-requests/:requestId/approve', approveJoinRequestValidator, validate, approveTeamJoinRequest);
@@ -143,6 +118,8 @@ const validateMatch = validateWithStatus(400);
 router.route('/matches')
   .get(listMatchesValidator, validateMatch, listTeamMatches)
   .post(createMatchValidator, validateMatch, createTeamMatch);
+router.get('/opponents', query('search').optional().isString().trim().isLength({ max: 120 }).withMessage('Search is too long.'), validateMatch, getOpponentTeams);
+router.get('/opponents/:teamId/players', param('teamId').isMongoId().withMessage('Invalid opponent team identifier.'), validateMatch, getOpponentPlayers);
 router.post('/matches/:matchId/start', liveMatchIdValidator, validateMatch, startOwnedMatch);
 router.post('/matches/:matchId/reminder', liveMatchIdValidator, validateMatch, postMatchReminder);
 router.post('/matches/:matchId/end-first-half', liveMatchIdValidator, validateMatch, endOwnedFirstHalf);

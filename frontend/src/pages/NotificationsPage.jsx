@@ -65,7 +65,7 @@ export default function NotificationsPage() {
         <div>
           <p className="eyebrow">Notification center</p>
           <h1 className="page-title">Notifications</h1>
-          <p className="page-copy">Persistent in-app updates for challenges, fixtures, and join requests.</p>
+          <p className="page-copy">Persistent in-app updates for fixtures, join requests, and live engagement.</p>
         </div>
         <button type="button" className="secondary-button" disabled={saving || notifications.every((item) => item.isRead)} onClick={markAllRead}>
           <CheckCheck size={16} /> Mark all read
@@ -73,7 +73,7 @@ export default function NotificationsPage() {
       </header>
       {error && <div className="mt-6 rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error}</div>}
       <section className="mt-7">
-        {!notifications.length ? <EmptyState title="No notifications" message="Challenge and join-request updates will appear here." /> : (
+        {!notifications.length ? <EmptyState title="No notifications" message="Fixture, join-request, and engagement updates will appear here." /> : (
           <div className="space-y-3">
             {notifications.map((notification) => (
               <button

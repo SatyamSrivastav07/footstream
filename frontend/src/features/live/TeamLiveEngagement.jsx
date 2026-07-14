@@ -1,6 +1,9 @@
 import { BarChart3, Megaphone, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 import api from '../../api/client.js';
+
+const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 
 export default function TeamLiveEngagement({ matchId, viewerCount = 0 }) {
   const [announcement, setAnnouncement] = useState(null);
@@ -30,6 +33,19 @@ export default function TeamLiveEngagement({ matchId, viewerCount = 0 }) {
   }, [matchId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const socket = io(socketUrl, { withCredentials: true, reconnection: true });
+    socket.on('connect', () => socket.emit('join-match', { matchId, mode: 'team-engagement' }));
+    socket.on('match:chat-message', (payload) => {
+      if (!payload?.message?._id) return;
+      setChat((current) => current.some((item) => item._id === payload.message._id) ? current : [...current, payload.message]);
+    });
+    socket.on('match:chat-deleted', (payload) => {
+      setChat((current) => current.filter((item) => item._id !== payload?.messageId));
+    });
+    return () => { socket.emit('leave-match', matchId); socket.disconnect(); };
+  }, [matchId]);
 
   const save = async (event) => {
     event.preventDefault();

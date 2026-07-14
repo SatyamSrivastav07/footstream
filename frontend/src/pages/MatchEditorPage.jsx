@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../api/client.js';
 import LoadingScreen from '../components/LoadingScreen.jsx';
@@ -14,6 +14,7 @@ export default function MatchEditorPage() {
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
 
@@ -26,6 +27,8 @@ export default function MatchEditorPage() {
   useEffect(() => { load(); }, [load]);
 
   const save = async (payload) => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true); setError(''); setFieldErrors({});
     try {
       const response = editing ? await api.patch(`/team/matches/${matchId}`, payload) : await api.post('/team/matches', payload);
@@ -33,7 +36,7 @@ export default function MatchEditorPage() {
     } catch (requestError) {
       setError(requestError.userMessage);
       setFieldErrors(Object.fromEntries((requestError.fieldErrors || []).map((item) => [item.field, item.message])));
-    } finally { setSaving(false); }
+    } finally { savingRef.current = false; setSaving(false); }
   };
 
   if (loading) return <LoadingScreen />;
@@ -41,4 +44,3 @@ export default function MatchEditorPage() {
 
   return <><Link to="/team/matches" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 hover:text-lime-200"><ArrowLeft size={16} /> Back to matches</Link><header className="mb-8 mt-6"><p className="eyebrow">{editing ? 'Scheduled match editor' : 'New fixture'}</p><h1 className="page-title">{editing ? `Edit vs ${match.opponent.name}` : 'Create match'}</h1><p className="page-copy">Build the official match-day squad from active, available players.</p></header><MatchForm initialMatch={match} teamName={user.team?.name || 'Your team'} saving={saving} serverError={error} serverFieldErrors={fieldErrors} onSubmit={save} /></>;
 }
-

@@ -1,6 +1,6 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7A.1 through 7A.2, Phases 7B.1 through 7B.2, and Phase 7C**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, team challenges, counter proposals, challenge history, challenge-to-fixture creation, challenge fixture format enforcement, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, and notification preferences.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, and Phase 7C**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, and notification preferences.
 
 Deployment execution, email/SMS notifications, payments, AI features, tournaments, mobile apps, and Phase 8 functionality are intentionally not included.
 
@@ -117,33 +117,16 @@ Deployment execution, email/SMS notifications, payments, AI features, tournament
 - Super admins can inspect join requests read-only for oversight.
 - Public search does not index or expose join requests.
 
-## Phase 7A.1 Features
+## Phase 7A Status
 
-- Team admins can challenge another published, non-archived FootStream team.
-- Challenges include match type, squad size, venue, proposed date, proposed time, and an optional message.
-- Team admins can view Sent and Received challenge lists.
-- The challenged team can accept or decline only pending received challenges.
-- The sending team can cancel only pending sent challenges.
-- Duplicate pending challenges between the same two teams for the same proposed date are rejected.
-- Super admins have read-only challenge oversight with no mutation controls.
-- Public users cannot create, view, accept, decline, or cancel challenges.
+The Team Challenge workflow was removed. Team admins now create matches directly from the Matches section using either a manual opponent or a registered FootStream opponent. There are no team-admin, super-admin, or public Challenge pages/routes.
 
-## Phase 7A.2 Features
-
-- Challenged teams can suggest counter proposal changes for venue, date, time, and message.
-- Challengers can accept or reject unresolved counter proposals.
-- Final acceptance of an original challenge or accepted counter proposal creates one scheduled match automatically.
-- Challenge-created fixtures preserve the accepted squad size as the match format: `5v5`, `7v7`, or `11v11`.
-- Match editing enforces exactly 5, 7, or 11 starters based on the fixture format and shows only compatible formations.
-- Challenge-created fixture format is immutable; manually-created matches remain backward-compatible `11v11` fixtures.
+- Registered-opponent match creation supports `5v5`, `7v7`, and `11v11` match formats.
+- Match editing enforces exactly 5, 7, or 11 starters based on the selected fixture format and shows only compatible formations.
 - Live kickoff, timer transitions, and event creation are blocked until the required starter count is complete.
-- Challenge records and generated matches are linked through `TeamChallenge.createdMatch` and `Match.sourceChallenge`.
-- `Match.sourceChallenge` has a unique sparse index so retries cannot create duplicate fixtures.
-- Challenge history records created, countered, counter-accepted, counter-rejected, accepted, declined, cancelled, and fixture-created actions.
-- Team admins and super admins can view sanitized challenge timelines without account emails or private user IDs.
-- Generated fixtures remain a single authoritative `Match` and are visible in both registered teams' Match dashboards.
-- Persistent in-app notifications are created for challenge, fixture, and join-request workflow updates.
-- Dashboard navigation shows unread red-dot indicators for Challenges, Join Requests, and Notifications.
+- Generated registered-opponent fixtures remain a single authoritative `Match` and can be visible in both registered teams' Match dashboards where supported.
+- Persistent in-app notifications are used for fixture, join-request, moderation, and engagement workflow updates.
+- Dashboard navigation shows unread red-dot indicators for Join Requests and Notifications.
 - Live-event player eligibility is football-correct: goals, assists, cards, penalties, and own-team own goals can select only current on-field players.
 - Substitutions can select only one current on-field player out and one current bench player in; rolling substitutions are not enabled.
 - Red-carded and substituted-out players become ineligible immediately, and undo restores eligibility by replaying active events.
@@ -276,9 +259,6 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/admin/teams/:teamId/players` | superAdmin | View a team's squad read-only |
 | `GET` | `/api/admin/teams/:teamId/join-requests` | superAdmin | Read-only join requests for one team |
 | `GET` | `/api/admin/join-requests/:requestId` | superAdmin | Read-only join request detail |
-| `GET` | `/api/admin/challenges` | superAdmin | Read-only challenge oversight list |
-| `GET` | `/api/admin/challenges/:challengeId` | superAdmin | Read-only challenge detail |
-| `GET` | `/api/admin/challenges/:challengeId/history` | superAdmin | Read-only sanitized challenge timeline |
 | `GET` | `/api/admin/matches` | superAdmin | List all active matches with filters |
 | `GET` | `/api/admin/matches/:matchId` | superAdmin | View one match and lineup snapshots |
 | `GET` | `/api/admin/team-admins` | superAdmin | List team administrators |
@@ -294,6 +274,8 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `DELETE` | `/api/team/players/:playerId` | teamAdmin | Soft-delete an owned player |
 | `GET` | `/api/team/matches` | teamAdmin | List owned matches with filters |
 | `POST` | `/api/team/matches` | teamAdmin | Schedule a match and build lineup snapshots |
+| `GET` | `/api/team/opponents` | teamAdmin | Search active published teams available as registered match opponents |
+| `GET` | `/api/team/opponents/:teamId/players` | teamAdmin | Fetch active public-safe squad members for a registered opponent team |
 | `GET` | `/api/team/matches/:matchId` | teamAdmin | View one owned match |
 | `PATCH` | `/api/team/matches/:matchId` | teamAdmin | Edit an owned scheduled match |
 | `PATCH` | `/api/team/matches/:matchId/cancel` | teamAdmin | Cancel an owned scheduled match |
@@ -302,18 +284,6 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/team/join-requests/:requestId` | teamAdmin | Review one owned public join request |
 | `PATCH` | `/api/team/join-requests/:requestId/approve` | teamAdmin | Approve a pending request into the official squad |
 | `PATCH` | `/api/team/join-requests/:requestId/reject` | teamAdmin | Reject a pending request and clean applicant photo storage |
-| `GET` | `/api/team/challenges/teams` | teamAdmin | Search published active teams available for challenges |
-| `POST` | `/api/team/challenges` | teamAdmin | Send a challenge from the assigned team |
-| `GET` | `/api/team/challenges/sent` | teamAdmin | List challenges sent by the assigned team |
-| `GET` | `/api/team/challenges/received` | teamAdmin | List challenges received by the assigned team |
-| `GET` | `/api/team/challenges/:challengeId` | teamAdmin | View one sent or received challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/accept` | teamAdmin | Accept a pending received challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/decline` | teamAdmin | Decline a pending received challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/cancel` | teamAdmin | Cancel a pending sent challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/counter` | teamAdmin | Challenged team suggests venue/date/time changes |
-| `PATCH` | `/api/team/challenges/:challengeId/accept-counter` | teamAdmin | Challenger accepts the current counter proposal and creates a fixture |
-| `PATCH` | `/api/team/challenges/:challengeId/reject-counter` | teamAdmin | Challenger rejects the current counter and returns the challenge to pending |
-| `GET` | `/api/team/challenges/:challengeId/history` | teamAdmin | Sanitized challenge timeline for either involved team |
 | `POST` | `/api/team/matches/:matchId/start` | teamAdmin | Start an owned scheduled match |
 | `POST` | `/api/team/matches/:matchId/end-first-half` | teamAdmin | Pause at half-time |
 | `POST` | `/api/team/matches/:matchId/start-second-half` | teamAdmin | Resume the second half |
@@ -350,6 +320,19 @@ Jersey numbers can be reused only after the previous holder is inactive. Deactiv
 ## Match Scheduling Usage
 
 Team administrators open `/team/matches` to create and manage scheduled fixtures. The client sends only player IDs; the API verifies every selection and stores independent lineup snapshots. Later player-card edits therefore do not alter existing match details.
+
+Match creation supports two opponent modes:
+
+- **Manual / external opponent** keeps the original flow: enter the opponent name and optional temporary opponent players stored only on the match.
+- **Registered opponent** lets the host team admin search for one active, published, non-archived FootStream team inside the Registered Opponent section. Selecting a team automatically fetches that team's active squad and allows opponent starters/substitutes from registered players plus optional temporary guest players.
+
+Registered-opponent lineups are stored as independent historical snapshots in `registeredOpponentStartingXI` and `registeredOpponentSubstitutes`. Registered entries preserve the player reference plus name, position, jersey, and photo at match time. Temporary entries use `sourceType: "temporary"` and never create permanent `Player` records or statistics. The opponent display name is derived from the selected Team document; client-supplied opponent names are ignored in registered mode.
+
+The Match Format selector is available on scheduled matches. `11v11` remains the default for backward compatibility, while `5v5` and `7v7` can be selected before kickoff. The starter count is format-aware: `5v5` requires exactly 5 starters, `7v7` requires exactly 7, and `11v11` requires exactly 11. Registered players cannot be duplicated or appear as both starter and substitute, temporary guest names cannot be duplicated within the match, and registered players must belong to the selected opponent team and be active.
+
+Duplicate scheduled-match protection is exact: an active, non-cancelled fixture conflicts only when the host team, registered opponent team or normalized manual opponent name, and scheduled kickoff timestamp all match. Matches at a different kickoff time remain valid.
+
+For shared registered-team fixtures, the host can prefill the opponent lineup before the opponent team submits its own lineup. Once the registered opponent team admin saves their lineup through their own fixture view, that side is marked opponent-managed and the host can no longer overwrite it silently.
 
 Only scheduled matches may be edited, cancelled, or deleted. Cancellation records `cancelledAt`. Deletion uses `isActive=false` and hides the record from active match lists. Team admins cannot mark matches completed during Phase 3.
 
@@ -516,16 +499,20 @@ Deployment configuration is reserved for a later milestone and is not included i
 
 1. Give a team at least 11 active, available permanent players.
 2. Sign in as its team admin and open **Matches**.
-3. Create a fixture with opponent, venue, future kickoff, type, side, formation, and exactly 11 starters.
+3. Create a manual fixture with opponent, venue, future kickoff, type, side, formation, and exactly 11 starters.
 4. Add optional substitutes and temporary opponent names, then review and save.
-5. Open match details and verify snapshot names, numbers, positions, photos, and leadership badges.
-6. Edit a permanent player card and confirm the saved match snapshot does not change.
-7. Try selecting an injured, suspended, unavailable, inactive, duplicate, or cross-team player through the API and confirm rejection.
-8. Edit the scheduled fixture and verify snapshots are rebuilt when selections change.
-9. Cancel a scheduled fixture and confirm further editing and deletion are rejected.
-10. Soft-delete another scheduled fixture and confirm it disappears from active lists.
-11. Sign in as a different team admin and confirm the fixture cannot be read or changed.
-12. Sign in as super admin, open **Matches**, use team/status/type/date filters, and inspect details without edit controls.
+5. Create a registered-opponent fixture: select **Registered Team**, choose another team, fetch its squad, select exactly 11 opponent starters, add one temporary guest, and save.
+6. Confirm the registered opponent name is derived from the selected team and the temporary guest did not create a permanent player.
+7. Edit the registered-opponent fixture before kickoff and confirm duplicate opponent selections, starter/substitute overlap, own-team opponent selection, and inactive opponent players are rejected.
+8. Sign in as the registered opponent team admin, open the same fixture, save only that team's lineup, then confirm the host can no longer overwrite that opponent-managed lineup.
+9. Open match details and verify snapshot names, numbers, positions, photos, and leadership badges.
+10. Edit a permanent player card and confirm the saved match snapshot does not change.
+11. Try selecting an injured, suspended, unavailable, inactive, duplicate, or cross-team host player through the API and confirm rejection.
+12. Edit the scheduled fixture and verify snapshots are rebuilt when selections change.
+13. Cancel a scheduled fixture and confirm further editing and deletion are rejected.
+14. Soft-delete another scheduled fixture and confirm it disappears from active lists.
+15. Sign in as a different unrelated team admin and confirm the fixture cannot be read or changed.
+16. Sign in as super admin, open **Matches**, use team/status/type/date filters, and inspect details without edit controls.
 
 ## Manual Phase 4 Test Checklist
 
@@ -979,29 +966,16 @@ Manual Phase 6F test checklist:
 15. Search publicly for applicant names, emails, and phones and confirm join requests are not returned.
 16. Re-test login, dashboards, squad management, player photos, match scheduling, live control, results, public portal, public profiles, search, team branding, and production health endpoints.
 
-## Phase 7A Team Challenges
+## Phase 7A Direct Registered-Opponent Matches
 
-Phase 7A.1 added the core registered-team challenge workflow. Phase 7A.2 adds counter proposals, automatic fixture creation after final acceptance, challenge-to-match linking, and sanitized challenge history. Team admins open `/team/challenges` and use Received, Sent, and Create Challenge views with status filters. Super admins can open `/admin/challenges` for read-only oversight.
+The earlier Team Challenge workflow has been removed. Team admins now create fixtures directly from **Matches**. A match can use either a manual/external opponent or a registered FootStream opponent, without any Challenge inbox, counter proposal, or challenge-history screen.
 
-Challenge API:
+Registered-opponent API:
 
 | Method | Route | Access | Purpose |
 | --- | --- | --- | --- |
-| `GET` | `/api/team/challenges/teams` | teamAdmin | Search published, non-archived teams except the authenticated admin's own team |
-| `POST` | `/api/team/challenges` | teamAdmin | Send a challenge from the authenticated admin's assigned team |
-| `GET` | `/api/team/challenges/sent` | teamAdmin | List challenges sent by the assigned team |
-| `GET` | `/api/team/challenges/received` | teamAdmin | List challenges received by the assigned team |
-| `GET` | `/api/team/challenges/:challengeId` | teamAdmin | View a sent or received challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/accept` | teamAdmin | Accept a pending received challenge and create/link a scheduled fixture |
-| `PATCH` | `/api/team/challenges/:challengeId/decline` | teamAdmin | Decline a pending received challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/cancel` | teamAdmin | Cancel a pending sent challenge |
-| `PATCH` | `/api/team/challenges/:challengeId/counter` | teamAdmin | Challenged team suggests venue/date/time changes |
-| `PATCH` | `/api/team/challenges/:challengeId/accept-counter` | teamAdmin | Challenger accepts the counter and creates/links a scheduled fixture |
-| `PATCH` | `/api/team/challenges/:challengeId/reject-counter` | teamAdmin | Challenger rejects the counter and returns the challenge to pending |
-| `GET` | `/api/team/challenges/:challengeId/history` | teamAdmin | View sanitized timeline for an involved challenge |
-| `GET` | `/api/admin/challenges` | superAdmin | Read-only challenge oversight |
-| `GET` | `/api/admin/challenges/:challengeId` | superAdmin | Read-only challenge detail |
-| `GET` | `/api/admin/challenges/:challengeId/history` | superAdmin | Read-only sanitized challenge timeline |
+| `GET` | `/api/team/opponents` | teamAdmin | Search active, published, non-archived teams except the authenticated admin's own team |
+| `GET` | `/api/team/opponents/:teamId/players` | teamAdmin | Fetch active public-safe squad members for a registered opponent team |
 
 Notification API:
 
@@ -1014,27 +988,16 @@ Notification API:
 
 Rules:
 
-- Only authenticated active team admins can send, accept, decline, cancel, counter, or resolve challenges.
-- A team can challenge only another published, non-archived registered team.
-- A team cannot challenge itself.
-- Match type must be `Friendly`, `Practice`, or `League`.
-- Squad size must be `5v5`, `7v7`, or `11v11`.
-- Proposed date/time must be in the future.
-- Only pending challenges can be accepted, declined, cancelled, or countered.
-- Only the challenged team can accept or decline.
-- Only the challenged team can create a counter proposal.
-- Only the challenger can accept or reject a counter proposal.
-- Rejecting a counter returns the challenge to pending with the original terms preserved.
-- Only the sender can cancel.
-- Duplicate pending challenges between the same two teams for the same proposed date are rejected.
-- Final acceptance creates exactly one scheduled `Match`.
-- The created match belongs to the challenger/host team for live-control authority, stores the challenged team as `registeredOpponentTeam`, and does not require Starting XI selection at creation time.
-- Both registered teams see the same generated fixture in their Match dashboards; each dashboard renders the other registered team as the opponent from that admin's perspective.
-- The challenger/host team remains the only live controller and can start, pause/resume by period, create events, undo events, manage streams, finish, cancel, or delete the match.
-- The registered opponent team can view the fixture, open a read-only live view, and prepare only its own lineup/formation for challenge-created fixtures.
-- Registered opponents cannot edit shared fixture details, opponent names, temporary opponent players, stream configuration, live events, result confirmation, cancellation, or deletion.
-- Non-registered/manual opponent fixtures continue using the original name-only opponent flow.
-- The created match stores `matchFormat` from the challenge squad size and cannot be converted to another format.
+- Only authenticated active team admins can create or edit their team's scheduled matches.
+- Registered opponents must be active, published, non-archived teams.
+- A team cannot select itself as the registered opponent.
+- Match format can be `5v5`, `7v7`, or `11v11`.
+- Scheduled kickoff must be in the future.
+- Manual/external opponent fixtures continue using the original name-only opponent flow.
+- Registered-opponent fixture details are edited by the host team.
+- Registered opponent lineups are saved as match snapshots and do not mutate the opponent team's permanent squad.
+- Temporary guest players in a registered-opponent lineup never create permanent `Player` records.
+- Duplicate scheduled-match protection checks the host team, registered opponent or normalized manual opponent name, and kickoff timestamp.
 - `5v5` fixtures require exactly 5 starters and allow `1-2-1`, `2-1-1`, or `1-1-2`.
 - `7v7` fixtures require exactly 7 starters and allow `2-3-1`, `3-2-1`, or `2-2-2`.
 - `11v11` fixtures require exactly 11 starters and keep the existing 11-a-side formation options.
@@ -1048,49 +1011,28 @@ Rules:
 - The live event dropdowns show current on-field options for player events and current on-field/current-bench groups for substitutions.
 - Backend validation repeats the same eligibility checks immediately before saving each event, so frontend filtering is not the security boundary.
 - Man of the Match is limited to starters and substitutes who appeared; unused substitutes and opponent players are rejected.
-- `TeamChallenge.createdMatch` and `Match.sourceChallenge` link the records.
-- `Match.sourceChallenge` has a unique sparse index; repeated acceptance returns the existing fixture instead of creating a duplicate.
-- Challenge history is sanitized and does not expose private account data or actor user IDs.
 - In-app notification retries use per-recipient dedupe keys so repeated requests do not create duplicate notifications.
 - Notifications expose only title, message, type, entity reference, action URL, read state, and timestamps; they never expose emails, phone numbers, Cloudinary IDs, or private account data.
-- Super admins can view challenges but have no mutation endpoint or dashboard controls.
-- Public users have no challenge APIs and no public challenge UI.
 
 Manual Phase 7A test checklist:
 
-1. Sign in as team admin A, open `/team/challenges`, search for a published active team B, and send a valid challenge.
-2. Confirm team A sees the challenge in Sent with `pending` status and a Cancel button.
-3. Sign in as team admin B and confirm the challenge appears in Received with Accept and Decline buttons.
-4. Accept a pending challenge as team B and confirm the challenge becomes `accepted`, a fixture is created, and View Fixture opens the normal match details route.
-5. Confirm team A sees the generated fixture in Matches as team A vs team B, and team B sees the same fixture in Matches as team B vs team A.
-6. Confirm only one `Match` document exists for the challenge and repeated acceptance does not create another fixture or duplicate notification.
-7. As team A, confirm live control, stream management, event creation, undo, result, cancel, and delete controls remain available according to match status.
-8. As team B, confirm the fixture and live view open, but live-control, stream, event, undo, cancel, and delete controls are not available.
-9. As team B, edit the fixture and confirm only team B's own lineup/formation can be saved; attempts to change venue, kickoff, opponent, or notes are rejected.
-10. Send another challenge, sign in as team B, and use Suggest Changes to submit a counter proposal.
-11. Sign in as team A and accept the counter; confirm the final fixture uses the counter venue/date/time and remains visible to both teams.
-12. Send another counter and reject it as team A; confirm the challenge returns to `pending`.
-13. Send another challenge and decline it as team B.
-14. Send another challenge and cancel it as team A.
-15. Open Challenge History on team-admin and super-admin pages and confirm timeline entries are chronological and public-safe.
-16. Open the generated fixture and confirm the Match Format field is visible and read-only.
-17. For `5v5`, select fewer than 5 starters and confirm save/start/live controls are blocked; then select exactly 5 and confirm the match can start.
-18. Repeat starter-count checks for `7v7` and `11v11`, and confirm incompatible formations are rejected.
-19. Start a live match and confirm goal, assist, card, penalty, and own-goal selectors show current on-field players only.
-20. Make a substitution and confirm the player out disappears from on-field event dropdowns while the player in becomes eligible.
-21. Add a red card and confirm that player disappears from future on-field event and substitution selectors.
-22. Undo the substitution and red card and confirm dropdown eligibility restores from the active timeline.
-23. Complete a match and confirm Man of the Match excludes unused substitutes but includes a substitute who entered.
-24. Open `/notifications`, click an unread notification, confirm it marks read and navigates by `actionUrl`, then use Mark all read.
-25. Confirm red dots appear on Challenges, Join Requests, and Notifications when unread workflow notifications exist and disappear after reading.
-26. Try a past counter date/time, invalid venue, protected fields, invalid match type, invalid squad size, self-team ID, unpublished team, archived team, cross-team challenge ID, registered-opponent detail edit, registered-opponent live mutation, bench scorer, bench assist, and unused-substitute MOTM; confirm safe errors.
-27. Sign in as super admin, open `/admin/challenges`, and confirm challenges and history are visible without mutation controls.
-28. Verify public pages expose no challenge create/list/status/history UI or APIs.
+1. Sign in as a team admin and open `/team/matches/new`.
+2. Create a manual/external opponent fixture and confirm the original temporary-player flow still works.
+3. Create a registered-opponent fixture, search another published team, fetch its active squad, select the required starters, and save.
+4. Confirm the form calls `/api/team/opponents` for registered opponent search and never calls removed challenge endpoints.
+5. Confirm removed challenge pages are not linked from dashboard navigation.
+6. Repeat starter-count checks for `5v5`, `7v7`, and `11v11`, and confirm incompatible formations are rejected.
+7. Start a live match and confirm goal, assist, card, penalty, and own-goal selectors show current on-field players only.
+8. Make a substitution and confirm the player out disappears from on-field event dropdowns while the player in becomes eligible.
+9. Add a red card and confirm that player disappears from future on-field event and substitution selectors.
+10. Undo the substitution and red card and confirm dropdown eligibility restores from the active timeline.
+11. Complete a match and confirm Man of the Match excludes unused substitutes but includes a substitute who entered.
+12. Open `/notifications`, click an unread notification, confirm it marks read and navigates by `actionUrl`, then use Mark all read.
+13. Confirm red dots appear on Join Requests and Notifications when unread workflow notifications exist and disappear after reading.
 
-Limitations intentionally deferred beyond Phase 7A.2:
+Limitations intentionally deferred:
 
-- Email, browser push, service-worker, or follow-team notifications.
-- Reactions, polls, viewer accounts, Phase 7B.2, Phase 7C, and Phase 8.
+- Email notifications and viewer accounts.
 
 ## Phase 7B.1 Public Live Engagement
 
@@ -1270,7 +1212,6 @@ Notification preferences:
 - Half-time
 - Full-time
 - Result published
-- Challenge-accepted is stored for future-safe compatibility, but public challenge details are not sent.
 
 Push trigger behavior:
 

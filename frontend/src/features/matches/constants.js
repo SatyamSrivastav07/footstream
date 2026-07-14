@@ -7,6 +7,7 @@ export const FORMAT_FORMATIONS = {
   '11v11': FORMATIONS,
 };
 export const FORMAT_STARTERS = { '5v5': 5, '7v7': 7, '11v11': 11 };
+export const MATCH_FORMATS = ['5v5', '7v7', '11v11'];
 export const TEAM_SIDES = ['home', 'away'];
 
 export const label = (value) => value ? value.charAt(0).toUpperCase() + value.slice(1).replace(/[-_]/g, ' ') : 'Not set';
@@ -23,7 +24,7 @@ export const toLocalInput = (value) => {
 };
 
 export const emptyMatch = Object.freeze({
-  opponentName: '', tournament: '', venue: '', matchType: 'friendly', teamSide: 'home',
-  scheduledAt: '', formation: '4-3-3', customFormation: '', notes: '', temporaryPlayers: [],
-  startingPlayerIds: [], substitutePlayerIds: [],
+  opponentMode: 'manual', registeredOpponentTeam: '', opponentName: '', tournament: '', venue: '', matchType: 'friendly', teamSide: 'home',
+  scheduledAt: '', matchFormat: '11v11', formation: '4-3-3', customFormation: '', notes: '', temporaryPlayers: [],
+  startingPlayerIds: [], substitutePlayerIds: [], opponentTemporaryPlayers: [], opponentStarterKeys: [], opponentSubstituteKeys: [],
 });
