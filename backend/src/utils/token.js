@@ -17,7 +17,7 @@ export const verifyToken = (token) =>
 export const authCookieOptions = () => ({
   httpOnly: true,
   secure: env.isProduction,
-  sameSite: env.isProduction ? 'strict' : 'lax',
+  sameSite: env.isProduction ? 'none' : 'lax',
   maxAge: env.cookieMaxAge,
   path: '/',
 });
@@ -25,7 +25,6 @@ export const authCookieOptions = () => ({
 export const clearAuthCookieOptions = () => ({
   httpOnly: true,
   secure: env.isProduction,
-  sameSite: env.isProduction ? 'strict' : 'lax',
+  sameSite: env.isProduction ? 'none' : 'lax',
   path: '/',
 });
-
