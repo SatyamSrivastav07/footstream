@@ -1,4 +1,4 @@
-import { body, param, query } from 'express-validator';
+import { body, header, param, query } from 'express-validator';
 
 const followerBody = body('followerSessionId').isUUID().withMessage('Follower session is invalid.');
 const teamSlug = param('teamSlug').isSlug().withMessage('Invalid team slug.');
@@ -7,6 +7,7 @@ const allowedPreferences = ['matchReminder', 'matchStarted', 'goal', 'halfTime',
 export const followStatusValidator = [
   teamSlug,
   query('followerSessionId').optional().isUUID().withMessage('Follower session is invalid.'),
+  header('x-follower-session-id').optional().isUUID().withMessage('Follower session is invalid.'),
 ];
 
 export const followActionValidator = [

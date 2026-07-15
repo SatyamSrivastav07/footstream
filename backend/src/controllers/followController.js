@@ -9,7 +9,7 @@ import {
 } from '../services/followService.js';
 import { publicVapidKey, sendManualMatchReminder } from '../services/pushService.js';
 
-const followerSessionId = (req) => req.body?.followerSessionId || req.query?.followerSessionId;
+const followerSessionId = (req) => req.body?.followerSessionId || req.query?.followerSessionId || req.get('x-follower-session-id');
 const ownedTeamId = (req) => req.user.team?._id || req.user.team;
 
 export const publicPushConfig = asyncHandler(async (_req, res) => {

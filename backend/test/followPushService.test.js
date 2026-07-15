@@ -104,9 +104,19 @@ test('private or archived teams cannot be followed and one browser may follow mu
 });
 
 test('follow status validator rejects malformed follower session cleanly', async () => {
-  const req = { params: { teamSlug: 'fc-kiet' }, query: { followerSessionId: 'not-a-uuid' } };
+  const req = { params: { teamSlug: 'fc-kiet' }, query: { followerSessionId: 'not-a-uuid' }, headers: {}, get: () => undefined };
   await Promise.all(followStatusValidator.map((validator) => validator.run(req)));
   assert.equal(validationResult(req).array()[0].msg, 'Follower session is invalid.');
+});
+
+test('follow status validator accepts query or header follower session ids for refresh recovery', async () => {
+  const queryReq = { params: { teamSlug: 'fc-kiet' }, query: { followerSessionId }, headers: {}, get: () => undefined };
+  await Promise.all(followStatusValidator.map((validator) => validator.run(queryReq)));
+  assert.equal(validationResult(queryReq).array().length, 0);
+
+  const headerReq = { params: { teamSlug: 'fc-kiet' }, query: {}, headers: { 'x-follower-session-id': followerSessionId }, get: (name) => headerReq.headers[name.toLowerCase()] };
+  await Promise.all(followStatusValidator.map((validator) => validator.run(headerReq)));
+  assert.equal(validationResult(headerReq).array().length, 0);
 });
 
 test('preferences update rejects unsupported fields and disables delivery preference', async () => {

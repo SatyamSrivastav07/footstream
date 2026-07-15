@@ -4,9 +4,10 @@ import api from '../../api/client.js';
 import { pushSupport, subscribeBrowserPush } from '../../utils/pushNotifications.js';
 
 const storageKey = 'footstream_follower_session';
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const getOrCreateFollowerSessionId = () => {
   let id = localStorage.getItem(storageKey);
-  if (!id) {
+  if (!uuidPattern.test(id || '')) {
     id = crypto.randomUUID();
     localStorage.setItem(storageKey, id);
   }
@@ -34,9 +35,19 @@ export default function FollowTeamPanel({ team, fallbackSlug = '' }) {
 
   useEffect(() => {
     setStatusLoading(true);
-    api.get(`/public/teams/${slug}/follow-status`, { params: { followerSessionId } })
-      .then((response) => setFollow(response.data.data.follow || response.data.data))
-      .catch((requestError) => setError(requestError.userMessage))
+    setError('');
+    api.get(`/public/teams/${slug}/follow-status`, {
+      params: { followerSessionId },
+      headers: { 'X-Follower-Session-Id': followerSessionId },
+    })
+      .then((response) => {
+        setFollow(response.data.data.follow || response.data.data);
+        setError('');
+      })
+      .catch((requestError) => {
+        setFollow(null);
+        setError(requestError.userMessage);
+      })
       .finally(() => setStatusLoading(false));
   }, [slug, followerSessionId]);
 
@@ -54,6 +65,17 @@ export default function FollowTeamPanel({ team, fallbackSlug = '' }) {
 
   const followTeam = () => updateFollow(() => api.post(`/public/teams/${slug}/follow`, { followerSessionId }));
   const unfollowTeam = () => updateFollow(() => api.delete(`/public/teams/${slug}/follow`, { data: { followerSessionId } }));
+  const retryStatus = () => {
+    setStatusLoading(true);
+    setError('');
+    api.get(`/public/teams/${slug}/follow-status`, {
+      params: { followerSessionId },
+      headers: { 'X-Follower-Session-Id': followerSessionId },
+    })
+      .then((response) => setFollow(response.data.data.follow || response.data.data))
+      .catch((requestError) => setError(requestError.userMessage))
+      .finally(() => setStatusLoading(false));
+  };
 
   const togglePreference = async (key) => {
     const preferences = { ...(follow?.preferences || {}), [key]: !(follow?.preferences?.[key] !== false) };
@@ -99,6 +121,8 @@ export default function FollowTeamPanel({ team, fallbackSlug = '' }) {
         </div>
         {statusLoading ? (
           <span className="status-badge status-neutral">Checking follow status...</span>
+        ) : error && !follow ? (
+          <button type="button" className="secondary-button" disabled={busy} onClick={retryStatus}>Retry status</button>
         ) : follow?.following || follow?.isFollowing ? (
           <div className="flex flex-wrap gap-2">
             <span className="status-badge status-active"><CheckCircle2 size={14} /> Following</span>
