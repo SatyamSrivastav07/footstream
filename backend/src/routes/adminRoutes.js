@@ -45,6 +45,25 @@ import {
   rejectTeamRegistrationValidator,
   teamRegistrationIdValidator,
 } from '../validators/teamRegistrationValidators.js';
+import {
+  adminApproveTournament,
+  adminArchiveTournament,
+  adminGetTournament,
+  adminListTournaments,
+  adminRejectTournament,
+  adminRequestChanges,
+  adminSuspendTournament,
+  adminTournamentReviewHistory,
+  adminUnsuspendTournament,
+} from '../controllers/tournamentAdminController.js';
+import {
+  requiredMessageValidator,
+  requiredReasonValidator,
+  reviewActionValidator,
+  tournamentIdValidator,
+  tournamentListValidator,
+} from '../validators/tournamentValidators.js';
+import { tournamentAdminReviewLimiter, tournamentApprovalLimiter } from '../middleware/rateLimiters.js';
 
 const router = Router();
 
@@ -62,6 +81,15 @@ router.get('/team-registration-requests', listTeamRegistrationValidator, validat
 router.get('/team-registration-requests/:requestId', teamRegistrationIdValidator, validate, getAdminTeamRegistrationRequest);
 router.patch('/team-registration-requests/:requestId/approve', approveTeamRegistrationValidator, validate, approveAdminTeamRegistrationRequest);
 router.patch('/team-registration-requests/:requestId/reject', rejectTeamRegistrationValidator, validate, rejectAdminTeamRegistrationRequest);
+router.get('/tournaments', tournamentListValidator, validate, adminListTournaments);
+router.get('/tournaments/:tournamentId', tournamentIdValidator, validate, adminGetTournament);
+router.get('/tournaments/:tournamentId/review-history', tournamentIdValidator, validate, adminTournamentReviewHistory);
+router.patch('/tournaments/:tournamentId/approve', tournamentApprovalLimiter, reviewActionValidator, validate, adminApproveTournament);
+router.patch('/tournaments/:tournamentId/reject', tournamentApprovalLimiter, requiredReasonValidator, validate, adminRejectTournament);
+router.patch('/tournaments/:tournamentId/request-changes', tournamentApprovalLimiter, requiredMessageValidator, validate, adminRequestChanges);
+router.patch('/tournaments/:tournamentId/suspend', tournamentAdminReviewLimiter, requiredReasonValidator, validate, adminSuspendTournament);
+router.patch('/tournaments/:tournamentId/unsuspend', tournamentAdminReviewLimiter, reviewActionValidator, validate, adminUnsuspendTournament);
+router.patch('/tournaments/:tournamentId/archive', tournamentAdminReviewLimiter, reviewActionValidator, validate, adminArchiveTournament);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);
 const validateMatch = validateWithStatus(400);

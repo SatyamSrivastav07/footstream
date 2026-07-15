@@ -212,43 +212,43 @@ This remains scalable through clean feature modules, useful MongoDB indexes, pag
 
 ```text
 footstream/
-├── backend/
-│   ├── src/
-│   │   ├── config/              # environment and database configuration
-│   │   ├── controllers/         # HTTP request/response handling
-│   │   ├── middleware/          # authentication, roles, errors, uploads
-│   │   ├── models/              # Mongoose schemas
-│   │   ├── routes/              # Express route definitions
-│   │   ├── services/            # match event, score, and statistics rules
-│   │   ├── sockets/             # Socket.IO setup added in Phase 4
-│   │   ├── utils/               # reusable small helpers
-│   │   ├── app.js               # Express application
-│   │   └── server.js            # HTTP server and database startup
-│   ├── scripts/                 # initial super-admin seed script
-│   ├── tests/
-│   ├── uploads/                 # ignored local development uploads
-│   ├── .env.example
-│   └── package.json
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   │   ├── api/                 # central Axios clients
-│   │   ├── assets/
-│   │   ├── components/          # shared UI components
-│   │   ├── context/             # authentication context
-│   │   ├── features/            # auth, teams, players, matches, live controls
-│   │   ├── hooks/
-│   │   ├── layouts/             # public and admin layouts
-│   │   ├── pages/               # route pages
-│   │   ├── routes/              # router and protected route logic
-│   │   ├── utils/
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── .env.example
-│   └── package.json
-├── .gitignore
-├── README.md
-└── PLAN.md
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ config/              # environment and database configuration
+â”‚   â”‚   â”œâ”€â”€ controllers/         # HTTP request/response handling
+â”‚   â”‚   â”œâ”€â”€ middleware/          # authentication, roles, errors, uploads
+â”‚   â”‚   â”œâ”€â”€ models/              # Mongoose schemas
+â”‚   â”‚   â”œâ”€â”€ routes/              # Express route definitions
+â”‚   â”‚   â”œâ”€â”€ services/            # match event, score, and statistics rules
+â”‚   â”‚   â”œâ”€â”€ sockets/             # Socket.IO setup added in Phase 4
+â”‚   â”‚   â”œâ”€â”€ utils/               # reusable small helpers
+â”‚   â”‚   â”œâ”€â”€ app.js               # Express application
+â”‚   â”‚   â””â”€â”€ server.js            # HTTP server and database startup
+â”‚   â”œâ”€â”€ scripts/                 # initial super-admin seed script
+â”‚   â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ uploads/                 # ignored local development uploads
+â”‚   â”œâ”€â”€ .env.example
+â”‚   â””â”€â”€ package.json
+â”œâ”€â”€ frontend/
+â”‚   â”œâ”€â”€ public/
+â”‚   â”œâ”€â”€ src/
+â”‚   â”‚   â”œâ”€â”€ api/                 # central Axios clients
+â”‚   â”‚   â”œâ”€â”€ assets/
+â”‚   â”‚   â”œâ”€â”€ components/          # shared UI components
+â”‚   â”‚   â”œâ”€â”€ context/             # authentication context
+â”‚   â”‚   â”œâ”€â”€ features/            # auth, teams, players, matches, live controls
+â”‚   â”‚   â”œâ”€â”€ hooks/
+â”‚   â”‚   â”œâ”€â”€ layouts/             # public and admin layouts
+â”‚   â”‚   â”œâ”€â”€ pages/               # route pages
+â”‚   â”‚   â”œâ”€â”€ routes/              # router and protected route logic
+â”‚   â”‚   â”œâ”€â”€ utils/
+â”‚   â”‚   â”œâ”€â”€ App.jsx
+â”‚   â”‚   â””â”€â”€ main.jsx
+â”‚   â”œâ”€â”€ .env.example
+â”‚   â””â”€â”€ package.json
+â”œâ”€â”€ .gitignore
+â”œâ”€â”€ README.md
+â””â”€â”€ PLAN.md
 ```
 
 The structure intentionally avoids workspaces, shared packages, infrastructure folders, workers, and separate services. Backend controllers should remain small; reusable match and statistics rules belong in services so they can be tested independently.
@@ -583,7 +583,7 @@ A feature is done when:
 
 Each phase should be usable and tested before starting the next one.
 
-### Phase 1 — Project setup, authentication, and administration
+### Phase 1 â€” Project setup, authentication, and administration
 
 #### Deliverables
 
@@ -606,7 +606,7 @@ Each phase should be usable and tested before starting the next one.
 - A team admin can log in but cannot access another team's data or super-admin pages.
 - There is no registration page or registration API.
 
-### Phase 2 — Permanent squad and player cards
+### Phase 2 â€” Permanent squad and player cards
 
 #### Deliverables
 
@@ -623,7 +623,7 @@ Each phase should be usable and tested before starting the next one.
 - Player validation and active jersey-number uniqueness work.
 - Archived players do not disappear from historical references.
 
-### Phase 3 — Match creation and squad selection
+### Phase 3 â€” Match creation and squad selection
 
 #### Deliverables
 
@@ -642,7 +642,7 @@ Each phase should be usable and tested before starting the next one.
 - Starting XI and substitutes contain valid, non-duplicated players from the assigned team.
 - Editing a player's card later does not corrupt the stored match lineup display.
 
-### Phase 4 — Live match control and real-time scoreboard
+### Phase 4 â€” Live match control and real-time scoreboard
 
 #### Deliverables
 
@@ -664,7 +664,7 @@ Each phase should be usable and tested before starting the next one.
 - Refreshing or reconnecting shows the authoritative database state.
 - Undo reverses only the latest active event and produces the correct score and timeline.
 
-### Phase 5 — Results, statistics, photos, and Man of the Match
+### Phase 5 â€” Results, statistics, photos, and Man of the Match
 
 #### Deliverables
 
@@ -682,7 +682,7 @@ Each phase should be usable and tested before starting the next one.
 - Photos and Man of the Match are attached to the correct match.
 - Statistics can be reproduced from completed match and event data.
 
-### Phase 6 — YouTube Live, public pages, and deployment
+### Phase 6 â€” YouTube Live, public pages, and deployment
 
 #### Deliverables
 
@@ -702,6 +702,143 @@ Each phase should be usable and tested before starting the next one.
 - A live match page shows the YouTube embed, live score, and event timeline.
 - The deployed admin workflows retain correct role/team restrictions.
 - Data and uploaded photos persist on the selected deployment setup.
+
+### Phase 8A Parts 1-2 â€” Tournament hosting architecture and database foundation
+
+#### Planning status
+
+Phase 8A Part 1 defines the tournament direction, shared constants, default configuration, transition maps, and pure helper contracts only.
+
+Phase 8A Part 2 adds the database foundation only: tournament Mongoose models, model-level validation, indexes, optional nullable Match tournament references, and safe serializer contracts. It must not introduce controllers, services, validators, APIs, routes, dashboard pages, public tournament pages, fixture generation, standings, brackets, awards, tournament match creation, or tournament statistics.
+
+The existing Match engine remains the single source of truth for all match runtime behavior. Tournaments are a future layer above matches, not a second match engine.
+
+```text
+Tournament
+  Ã¢â€ â€œ
+Tournament Participants
+  Ã¢â€ â€œ
+Tournament Squads
+  Ã¢â€ â€œ
+Tournament Fixtures
+  Ã¢â€ â€œ
+Existing Match Engine
+  Ã¢â€ â€œ
+Live Engine
+  Ã¢â€ â€œ
+Statistics
+  Ã¢â€ â€œ
+Results
+```
+
+#### Supported tournament scopes
+
+Phase 8 must support two tournament scopes:
+
+- **Inter College:** tournaments like RANN 2027 where participants may be registered FootStream teams or manual external teams.
+- **Intra College:** tournaments like KIET Premier League where departments/classes such as CSE, IT, ECE, MBA, Mechanical, and Civil exist only inside the tournament and do not become permanent teams.
+
+#### Host and approval model
+
+- Every tournament has one host.
+- The host is always a `teamAdmin` through the admin's assigned FootStream team.
+- The host creates, edits, configures, brands, manages participants, submits, and resubmits the tournament.
+- Other team admins remain read-only until later invitation flows are implemented.
+- Every tournament requires super-admin review before becoming public.
+- Planned approval states are `draft`, `approval_pending`, `changes_requested`, `approved`, `rejected`, and `suspended`.
+- Planned lifecycle states are `registration_open`, `registration_closed`, `fixtures_ready`, `ongoing`, `completed`, and `archived`.
+- Completed tournaments should remain in tournament history rather than being deleted.
+
+#### Tournament identity and configuration
+
+Tournament data foundation includes:
+
+- identity: name, short name, slug, series name, season label, edition number, scope, description, host team, creator;
+- branding: logo, cover, theme color, secondary color;
+- venue: primary venue, additional venues, city, state, country;
+- dates: registration open, registration deadline, start date, end date;
+- competition type: league, knockout, or group plus knockout;
+- match rules: players on field, minimum and maximum squad size, substitutes allowed, rolling substitutions, match duration, half duration, extra time, and penalties;
+- points: win points, draw points, and loss points;
+- placeholders for later parts: number of groups, teams per group, qualifiers per group, fixture mode, walkover rules, award configuration, and tiebreak priority.
+
+#### Participant foundation
+
+Tournament participants support:
+
+- `registered_team`: an existing FootStream team that reuses its current logo, branding, and players;
+- `external_team`: an external/manual team that exists only inside the tournament with name, optional logo, captain, and city;
+- `intra_team`: a tournament-only team for intra-college competitions that does not create a permanent FootStream team.
+
+Participant statuses are `invited`, `pending`, `accepted`, `confirmed`, `declined`, `withdrawn`, and `disqualified`.
+
+#### Tournament squad foundation
+
+Tournament squads should be separate from permanent team squads. Squad players may reference registered permanent players or tournament-only manual players. Intra-college allocation from the host team's registered player pool is deferred beyond Part 2.
+
+Permanent team statistics must not be changed by tournament matches. Future player statistics may add separate buckets for overall, normal matches, inter-college tournament, intra-college tournament, and tournament-wise totals.
+
+#### Notifications and public portal direction
+
+Future authenticated in-app notifications should cover:
+
+- host submits tournament -> super admins notified;
+- super admin approves, rejects, or requests changes -> host notified;
+- participant added or invited -> relevant team admin notified.
+
+No browser push notifications are part of Phase 8A Parts 1-2.
+
+Future public tournament pages should support upcoming, ongoing, and past tournaments. Initial details should focus on overview, rules, teams, and history. Groups, fixtures, standings, brackets, awards, and tournament statistics remain coming-soon areas until their own phases define them.
+
+#### Models added in Phase 8A Part 2
+
+- `Tournament`
+- `TournamentParticipant`
+- `TournamentReviewHistory`
+- `TournamentSquad`
+- `TournamentSquadPlayer`
+- `TournamentOfficial`
+
+#### Optional Match foundation fields added in Phase 8A Part 2
+
+- `tournamentCompetition`
+- `tournamentHomeParticipant`
+- `tournamentAwayParticipant`
+- `tournamentStage`
+- `tournamentRound`
+- `tournamentScope`
+- `tournamentFixtureNumber`
+
+These fields are nullable and optional, so old matches continue working without tournament metadata.
+
+#### Explicitly excluded from Phase 8A Parts 1-2
+
+- Tournament REST APIs.
+- Tournament services, controllers, validators, routes, and permissions.
+- Tournament frontend pages or dashboard navigation.
+- Fixture generation.
+- Groups, standings, brackets, awards, and tournament statistics.
+- Tournament match creation.
+- Tournament participant/squad CRUD workflows.
+- Any change to the existing Match, Live, Socket.IO, Statistics, Result, Streaming, Photo, or Notification runtime behavior.
+
+#### Foundation contracts added in Part 1
+
+Part 1 may add shared constant modules and pure helper functions for:
+
+- tournament scopes, approval statuses, lifecycle statuses, visibility, competition formats, match-format labels, participant types, participation statuses, squad statuses, player source types, statistic scopes, group modes, fixture modes, stages, tiebreak values, award identifiers, and notification type identifiers;
+- approval and lifecycle transition maps;
+- allowed participant types by tournament scope;
+- safe default tournament configuration;
+- host editability, super-admin reviewability, public visibility, tournament operational state, starter count, statistic scope classification, permanent-team creation contract, and permanent-player creation contract.
+
+These contracts must be unit tested and must not be connected to routes.
+
+#### Database foundation added in Part 2
+
+Part 2 adds production-oriented MongoDB/Mongoose schema contracts for tournament identity, host ownership, branding, location, dates, approval state, lifecycle state, visibility, match settings, points, group settings, walkover configuration, awards, tiebreak order, feature flags, participants, review history, squads, squad players, and officials.
+
+Part 2 also adds serializers for public, host, and admin views. Serializers must hide Cloudinary public IDs, audit IDs, and private internals.
 
 ## 16. Deployment Plan
 

@@ -47,6 +47,11 @@ export const publicFollowLimiter = makeLimiter({
   keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.body?.followerSessionId || req.query?.followerSessionId || 'anonymous'}`,
 });
 export const authenticatedMutationLimiter = makeLimiter({ limit: env.rateLimits.mutationMax });
+export const tournamentCreateLimiter = makeLimiter({ limit: env.rateLimits.tournamentMax });
+export const tournamentMutationLimiter = makeLimiter({ limit: env.rateLimits.tournamentMax });
+export const tournamentApprovalLimiter = makeLimiter({ limit: env.rateLimits.tournamentReviewMax });
+export const tournamentParticipantLimiter = makeLimiter({ limit: env.rateLimits.tournamentMax });
+export const tournamentAdminReviewLimiter = makeLimiter({ limit: env.rateLimits.tournamentReviewMax });
 export const publicChatPostLimiter = makeLimiter({
   windowMs: 60 * 1000,
   limit: env.rateLimits.chatMax,

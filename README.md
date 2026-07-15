@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, and Phase 7C**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, and notification preferences.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, and Phase 8A Parts 1-2 tournament foundation work**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, and the tournament database foundation.
 
-Deployment execution, email/SMS notifications, payments, AI features, tournaments, mobile apps, and Phase 8 functionality are intentionally not included.
+Deployment execution, email/SMS notifications, payments, AI features, runtime tournament APIs/UI, mobile apps, and later Phase 8 functionality are intentionally not included yet.
 
 ## Phase 1 Features
 
@@ -45,7 +45,7 @@ Deployment execution, email/SMS notifications, payments, AI features, tournament
 
 ## Phase 4 Features
 
-- Safe scheduled → first half → half-time → second half → completed transitions.
+- Safe scheduled â†’ first half â†’ half-time â†’ second half â†’ completed transitions.
 - Anchored match timer using persisted base seconds rather than database writes every second.
 - Append-only goals, assisted goals, cards, substitutions, penalties, and own goals.
 - Score recalculation from active scoring events after every event and undo.
@@ -387,11 +387,11 @@ Clients join and leave `match:<matchId>` rooms with:
 
 Server events:
 
-- `match:state` — complete sanitized current live state
-- `match:event-created` — created/updated event plus current state
-- `match:event-undone` — undone event plus corrected state
-- `match:transition` — state transition plus current state
-- `match:error` — safe room-join error only
+- `match:state` â€” complete sanitized current live state
+- `match:event-created` â€” created/updated event plus current state
+- `match:event-undone` â€” undone event plus corrected state
+- `match:transition` â€” state transition plus current state
+- `match:error` â€” safe room-join error only
 
 Clients automatically reconnect and refetch REST state after connection, preventing stale socket-only state.
 
@@ -638,7 +638,7 @@ Disabling playback preserves the managed configuration but the public endpoint r
 9. Cancel a match and verify playback is not public and reconfiguration is blocked; removal remains safe for existing configuration.
 10. Remove the stream and verify all stream fields are cleared.
 11. Sign in as super admin and verify the stream endpoint is read-only.
-12. Re-test live controls, Socket.IO, results, statistics, and photos to confirm Phase 1–5 behavior is unchanged.
+12. Re-test live controls, Socket.IO, results, statistics, and photos to confirm Phase 1â€“5 behavior is unchanged.
 
 ## Phase 6B Public Route Map
 
@@ -722,7 +722,7 @@ Super administrators can open `/admin/teams/:teamId/profile` from the team regis
 
 ## Manual Phase 6C Test Checklist
 
-1. Sign in as super admin, open a team’s public-profile editor, fill every optional field, publish it, and confirm the public link values persist after refresh.
+1. Sign in as super admin, open a teamâ€™s public-profile editor, fill every optional field, publish it, and confirm the public link values persist after refresh.
 2. Keep a second team private and archive another; verify neither appears at `/teams` and neither slug resolves through the public APIs.
 3. Test team-name and city filters with ordinary text and regex metacharacters, then verify pagination and alphabetical ordering.
 4. Open the published team overview and verify its cover/logo fallbacks, identity fields, public links, derived statistics, active-player leaders, next fixture, latest result, and six-photo preview.
@@ -742,10 +742,10 @@ Open `/search?q=kiet&type=all`. The public header also provides a compact deskto
 
 | Parameter | Rules |
 | --- | --- |
-| `q` | Required trimmed string, 2–100 characters |
+| `q` | Required trimmed string, 2â€“100 characters |
 | `type` | `all` (default), `teams`, `players`, or `matches` |
 | `page` | Positive integer; used by a specific result type |
-| `limit` | 1–30, default 10 per group/type |
+| `limit` | 1â€“30, default 10 per group/type |
 
 `type=all` returns `teams`, `players`, and `matches` groups with bounded items and totals. A specific type returns `items` plus `page`, `limit`, `total`, and `pages` metadata. Search input is regex-escaped and object/array queries, unsupported types, invalid pages, and excessive limits are rejected.
 
@@ -1295,5 +1295,223 @@ Manual Register Your Team checks:
 8. Submit another request and reject it with a safe reason; confirm public status shows only that safe reason.
 9. Sign in as a team admin and confirm admin team-registration request APIs are forbidden.
 10. Confirm player Join Team flow still works and is not mixed with Register Your Team.
+
+## Phase 8A Tournament Hosting Foundation
+
+Phase 8A Part 1 is an architecture, constants, and pure-contract foundation pass only. It prepares FootStream to become a tournament-hosting platform later, but it does not add tournament persistence models, services, controllers, validators, routes, UI screens, fixtures, standings, brackets, awards, or tournament statistics yet.
+
+Phase 8A Part 2 adds the backend database foundation only. It introduces Mongoose schemas, indexes, model-level validation, nullable Match tournament references, and safe serializer contracts.
+
+Phase 8A Part 3 adds backend tournament APIs, services, controllers, validators, authorization, approval workflow, participant management, public read APIs, notifications, audit history, and rate limiting. It still does not add frontend pages, squad CRUD, invitations UI, groups, fixture generation, tournament match creation, standings, knockout progression, tournament statistics, awards calculation, gallery, PDF/QR, referee accounts, payments, or the removed Challenge system.
+
+The tournament layer must sit above the existing Match engine:
+
+```text
+Tournament
+  -> Tournament Participants
+  -> Tournament Squads
+  -> Tournament Fixtures
+  -> Existing Match Engine
+  -> Live Engine
+  -> Statistics
+  -> Results
+```
+
+The existing Match engine remains the single source of truth for kickoff, live state, Socket.IO updates, timelines, events, YouTube streaming, photos, results, and existing statistics. Phase 8 must never create a second live-match engine.
+
+Supported tournament scopes planned for later parts:
+
+- **Inter College** tournaments, such as `RANN 2027`, where participants may be registered FootStream teams or manual external teams.
+- **Intra College** tournaments, such as `KIET Premier League`, where participants are tournament-only departments/classes like CSE, IT, ECE, MBA, Mechanical, or Civil. These are not permanent FootStream teams.
+
+Hosting and approval principles:
+
+- Every tournament has one host, and the host is always a team-admin account through its assigned FootStream team.
+- Only the host team admin can create, edit, configure, brand, manage participants, submit, and resubmit that tournament.
+- Other team admins are read-only until explicitly invited in later parts.
+- Every tournament requires super-admin approval before it becomes public.
+- Planned approval states: `draft`, `approval_pending`, `changes_requested`, `approved`, `rejected`, `suspended`.
+- Planned lifecycle states: `registration_open`, `registration_closed`, `fixtures_ready`, `ongoing`, `completed`, `archived`.
+- Completed tournaments should remain available through public tournament history and should not be deleted.
+
+Tournament identity and configuration foundation:
+
+- Identity: name, short name, slug, series name, season label, edition number, scope, description, host team, creator.
+- Branding: logo, cover, theme color, secondary color.
+- Venue: primary venue, additional venues, city, state, country.
+- Dates: registration open, registration deadline, start date, end date.
+- Competition: league, knockout, or group plus knockout.
+- Match rules: players on field, minimum/maximum squad size, substitutes allowed, rolling substitutions, match duration, half duration, extra time, penalties.
+- Points: win, draw, and loss points.
+- Future placeholders: groups, teams per group, qualifiers per group, fixture mode, walkover rules, awards, and tiebreak priorities.
+
+Participant types foundation:
+
+- `registered_team`: an existing FootStream team using its current logo, branding, and players.
+- `external_team`: an external/manual team that exists only inside the tournament, with name, optional logo, captain, and city.
+- `intra_team`: a tournament-only intra-college team that does not create a permanent FootStream team.
+
+Tournament squad foundation:
+
+- Tournament squads will be separate from permanent team squads.
+- Squad players may point to registered permanent players or tournament-only manual players.
+- Intra-college player allocation from the host team's registered player pool is intentionally deferred.
+- Team statistics from tournament matches must not mutate permanent team statistics. Future player statistics may gain separate buckets for overall, normal matches, inter-college tournament, intra-college tournament, and tournament-wise totals.
+
+Tournament backend workflow added in Phase 8A Part 3:
+
+- Team admins create hosted tournament drafts for their own assigned team only.
+- Drafts can be edited only while `draft` or `changes_requested`.
+- Drafts can be submitted for super-admin approval.
+- Super admins can approve, reject, request changes, suspend, unsuspend, and archive.
+- Hosts can publish only approved public tournaments that meet required public fields.
+- Hosts can unpublish without losing approval.
+- Public lists show only approved, public, published, non-archived tournaments.
+- Team-admin read-only tournament access includes hosted tournaments and tournaments where their team is a registered participant.
+
+Notifications added in Phase 8A Part 3:
+
+- Host submits tournament -> active super admins receive an in-app notification.
+- Super admin approves, rejects, requests changes, suspends, or unsuspends -> active host team admins receive an in-app notification.
+- Registered participant added, removed, or confirmed -> active participant team admins receive an in-app notification.
+- Tournament notification payloads use safe tournament/team names and action URLs only.
+- Browser push notifications are not part of Phase 8A Parts 1-3.
+
+Public portal direction:
+
+- Public tournament pages will eventually support upcoming, ongoing, and past tournaments.
+- Tournament details should include overview, rules, teams, and history first.
+- Groups, fixtures, standings, brackets, awards, and tournament statistics remain marked as coming soon until their own parts define and implement them.
+
+Models added in Phase 8A Part 2:
+
+- `Tournament`
+- `TournamentParticipant`
+- `TournamentReviewHistory`
+- `TournamentSquad`
+- `TournamentSquadPlayer`
+- `TournamentOfficial`
+
+Optional Match foundation fields added in Phase 8A Part 2:
+
+- `tournamentCompetition`
+- `tournamentHomeParticipant`
+- `tournamentAwayParticipant`
+- `tournamentStage`
+- `tournamentRound`
+- `tournamentScope`
+- `tournamentFixtureNumber`
+
+These fields are nullable and optional. Existing normal matches continue to work without tournament data.
+
+Safe serializer contracts added in Phase 8A Part 2:
+
+- Public tournament serializer exposes public-safe tournament identity, branding image URLs, locations, dates, visibility, match settings, and points settings.
+- Host tournament serializer adds review/status and operational configuration needed by the future host dashboard.
+- Admin tournament serializer adds host-team linkage for future super-admin oversight.
+- Participant and squad-player serializers hide Cloudinary public IDs, audit IDs, and private internals.
+
+Core database indexes added in Phase 8A Part 2:
+
+- Tournament unique slug.
+- Tournament approval status, host team, dates, scope, series/edition, published visibility, and archive indexes.
+- Participant duplicate protection by tournament plus registered team, normalized name, and slug.
+- Squad uniqueness by tournament plus participant.
+- Squad-player duplicate protection by squad plus registered player, normalized name, jersey, captain, and vice-captain.
+- Match optional tournament-reference lookup indexes.
+
+Team Admin tournament APIs added in Phase 8A Part 3:
+
+- `GET /api/team/hosted-tournaments`
+- `POST /api/team/hosted-tournaments`
+- `GET /api/team/hosted-tournaments/:tournamentId`
+- `PATCH /api/team/hosted-tournaments/:tournamentId`
+- `DELETE /api/team/hosted-tournaments/:tournamentId`
+- `POST /api/team/hosted-tournaments/:tournamentId/submit-for-approval`
+- `POST /api/team/hosted-tournaments/:tournamentId/resubmit`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/publish`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/unpublish`
+- `GET /api/team/hosted-tournaments/:tournamentId/review-history`
+- `GET /api/team/hosted-tournaments/:tournamentId/participants`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/registered`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/external`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/intra`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId/status`
+- `DELETE /api/team/hosted-tournaments/:tournamentId/participants/:participantId`
+- `GET /api/team/hosted-tournaments/:tournamentId/available-teams`
+- `GET /api/team/tournaments`
+- `GET /api/team/tournaments/:tournamentId`
+
+Super Admin tournament APIs added in Phase 8A Part 3:
+
+- `GET /api/admin/tournaments`
+- `GET /api/admin/tournaments/:tournamentId`
+- `GET /api/admin/tournaments/:tournamentId/review-history`
+- `PATCH /api/admin/tournaments/:tournamentId/approve`
+- `PATCH /api/admin/tournaments/:tournamentId/reject`
+- `PATCH /api/admin/tournaments/:tournamentId/request-changes`
+- `PATCH /api/admin/tournaments/:tournamentId/suspend`
+- `PATCH /api/admin/tournaments/:tournamentId/unsuspend`
+- `PATCH /api/admin/tournaments/:tournamentId/archive`
+
+Public tournament APIs added in Phase 8A Part 3:
+
+- `GET /api/public/tournaments`
+- `GET /api/public/tournaments/:slug`
+
+Participant behavior added in Phase 8A Part 3:
+
+- Inter-college tournaments accept registered FootStream teams and external/manual teams.
+- Intra-college tournaments accept intra-college manual teams only.
+- Registered participants snapshot safe team fields and notify active participant team admins.
+- External and intra participants never create permanent `Team` or `User` records.
+- Duplicate registered teams, duplicate normalized names, and duplicate slugs are blocked by service checks/model indexes.
+- Available-team search returns only public-safe team fields and excludes already-added teams plus the host team.
+
+Rate limiting added in Phase 8A Part 3:
+
+- `TOURNAMENT_RATE_LIMIT_MAX`
+- `TOURNAMENT_REVIEW_RATE_LIMIT_MAX`
+- Endpoint-specific tournament create, mutation, participant, approval, and admin-review limiters.
+
+Explicitly not implemented in Phase 8A Parts 1-3:
+
+- No tournament frontend pages or dashboard navigation.
+- No tournament squad CRUD.
+- No player allocation.
+- No invitations accept/decline UI.
+- No fixture generation.
+- No standings, groups, brackets, awards, or tournament statistics.
+- No tournament match creation.
+- No gallery, PDF, QR, referee accounts, payments, or old Challenge system.
+- No changes to the existing Match, Live, Statistics, Result, Streaming, Photo, or Notification runtime behavior.
+
+Foundation files added in Phase 8A Part 1:
+
+- `backend/src/constants/tournamentConstants.js` defines tournament enums, transition maps, default configuration, permission identifiers, and pure helper contracts.
+- `frontend/src/features/tournaments/constants.js` mirrors safe display labels and defaults only; it is not connected to any route or page.
+
+Pure helper contracts include participant type compatibility by scope, approval/lifecycle transition validation, public visibility checks, host editability checks, super-admin review checks, tournament starter counts, statistic scope classification, and contracts proving external/intra teams and manual players do not create permanent Team/Player records.
+
+Database files added in Phase 8A Part 2:
+
+- `backend/src/models/Tournament.js`
+- `backend/src/models/TournamentParticipant.js`
+- `backend/src/models/TournamentReviewHistory.js`
+- `backend/src/models/TournamentSquad.js`
+- `backend/src/models/TournamentSquadPlayer.js`
+- `backend/src/models/TournamentOfficial.js`
+- `backend/src/serializers/tournamentSerializers.js`
+
+Manual validation checklist for the database foundation:
+
+1. Run backend lint, syntax check, and tests.
+2. Confirm no `/api/tournaments` routes exist.
+3. Confirm no tournament dashboard/public pages are linked.
+4. Confirm old Match documents validate without tournament fields.
+5. Confirm serializers expose only `imageUrl` for tournament/participant/player images and never expose Cloudinary `publicId`.
+6. Confirm external and intra participants do not require or create permanent `Team` records.
+7. Confirm manual tournament squad players do not require or create permanent `Player` records.
 
 Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament management, native mobile apps, and custom video hosting are not included.

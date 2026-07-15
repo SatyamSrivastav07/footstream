@@ -74,7 +74,13 @@ import { configureStreamValidator, streamIdValidator, streamStatusValidator } fr
 import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejectTeamJoinRequest } from '../controllers/joinRequestController.js';
 import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
 import { body, param, query } from 'express-validator';
-import { authenticatedMutationLimiter, uploadLimiter } from '../middleware/rateLimiters.js';
+import {
+  authenticatedMutationLimiter,
+  tournamentCreateLimiter,
+  tournamentMutationLimiter,
+  tournamentParticipantLimiter,
+  uploadLimiter,
+} from '../middleware/rateLimiters.js';
 import {
   closeTeamPoll,
   deleteTeamAnnouncement,
@@ -89,12 +95,73 @@ import {
 } from '../controllers/engagementController.js';
 import { announcementValidator, chatMatchIdValidator, deleteChatValidator, pollBodyValidator, pollIdValidator, updatePollValidator } from '../validators/engagementValidators.js';
 import { postMatchReminder } from '../controllers/followController.js';
-
+import {
+  createHostedTournament,
+  deleteHosted,
+  getHosted,
+  getTeamTournament,
+  hostedReviewHistory,
+  listHosted,
+  listTeamTournaments,
+  publishHosted,
+  resubmitHosted,
+  submitHosted,
+  unpublishHosted,
+  updateHosted,
+} from '../controllers/tournamentController.js';
+import {
+  availableRegisteredTeams,
+  deleteParticipant,
+  getTournamentParticipants,
+  patchParticipant,
+  patchParticipantStatus,
+  postExternalParticipant,
+  postIntraParticipant,
+  postRegisteredParticipant,
+} from '../controllers/tournamentParticipantController.js';
+import {
+  createTournamentValidator,
+  tournamentIdValidator,
+  tournamentListValidator,
+  updateTournamentValidator,
+} from '../validators/tournamentValidators.js';
+import {
+  availableTeamsValidator,
+  manualParticipantValidator,
+  participantIdValidator,
+  participantListValidator,
+  participantStatusValidator,
+  registeredParticipantValidator,
+  updateParticipantValidator,
+} from '../validators/tournamentParticipantValidators.js';
 const router = Router();
+const validateMatch = validateWithStatus(400);
 
 router.use(protect, requireRole(USER_ROLES.TEAM_ADMIN));
 router.use((req, res, next) => ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? next() : authenticatedMutationLimiter(req, res, next));
 router.get('/current', getAssignedTeam);
+router.route('/hosted-tournaments')
+  .get(tournamentListValidator, validateMatch, listHosted)
+  .post(tournamentCreateLimiter, createTournamentValidator, validateMatch, createHostedTournament);
+router.get('/tournaments', tournamentListValidator, validateMatch, listTeamTournaments);
+router.get('/tournaments/:tournamentId', tournamentIdValidator, validateMatch, getTeamTournament);
+router.post('/hosted-tournaments/:tournamentId/submit-for-approval', tournamentMutationLimiter, tournamentIdValidator, validateMatch, submitHosted);
+router.post('/hosted-tournaments/:tournamentId/resubmit', tournamentMutationLimiter, tournamentIdValidator, validateMatch, resubmitHosted);
+router.patch('/hosted-tournaments/:tournamentId/publish', tournamentMutationLimiter, tournamentIdValidator, validateMatch, publishHosted);
+router.patch('/hosted-tournaments/:tournamentId/unpublish', tournamentMutationLimiter, tournamentIdValidator, validateMatch, unpublishHosted);
+router.get('/hosted-tournaments/:tournamentId/review-history', tournamentIdValidator, validateMatch, hostedReviewHistory);
+router.get('/hosted-tournaments/:tournamentId/participants', participantListValidator, validateMatch, getTournamentParticipants);
+router.post('/hosted-tournaments/:tournamentId/participants/registered', tournamentParticipantLimiter, registeredParticipantValidator, validateMatch, postRegisteredParticipant);
+router.post('/hosted-tournaments/:tournamentId/participants/external', tournamentParticipantLimiter, manualParticipantValidator, validateMatch, postExternalParticipant);
+router.post('/hosted-tournaments/:tournamentId/participants/intra', tournamentParticipantLimiter, manualParticipantValidator, validateMatch, postIntraParticipant);
+router.patch('/hosted-tournaments/:tournamentId/participants/:participantId', tournamentParticipantLimiter, updateParticipantValidator, validateMatch, patchParticipant);
+router.patch('/hosted-tournaments/:tournamentId/participants/:participantId/status', tournamentParticipantLimiter, participantStatusValidator, validateMatch, patchParticipantStatus);
+router.delete('/hosted-tournaments/:tournamentId/participants/:participantId', tournamentParticipantLimiter, participantIdValidator, validateMatch, deleteParticipant);
+router.get('/hosted-tournaments/:tournamentId/available-teams', availableTeamsValidator, validateMatch, availableRegisteredTeams);
+router.route('/hosted-tournaments/:tournamentId')
+  .get(tournamentIdValidator, validateMatch, getHosted)
+  .patch(tournamentMutationLimiter, updateTournamentValidator, validateMatch, updateHosted)
+  .delete(tournamentMutationLimiter, tournamentIdValidator, validateMatch, deleteHosted);
 router.put('/profile/logo', uploadLimiter, uploadTeamLogo, validateTeamImageSignature, uploadOwnLogo);
 router.delete('/profile/logo', removeOwnLogo);
 router.put('/profile/cover', uploadLimiter, uploadTeamCover, validateTeamImageSignature, uploadOwnCover);
@@ -114,7 +181,6 @@ router.route('/players/:playerId')
   .get(playerIdValidator, validate, getTeamPlayer)
   .patch(updatePlayerValidator, validate, updateTeamPlayer)
   .delete(playerIdValidator, validate, deleteTeamPlayer);
-const validateMatch = validateWithStatus(400);
 router.route('/matches')
   .get(listMatchesValidator, validateMatch, listTeamMatches)
   .post(createMatchValidator, validateMatch, createTeamMatch);

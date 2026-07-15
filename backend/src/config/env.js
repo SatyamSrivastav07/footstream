@@ -101,6 +101,8 @@ const env = Object.freeze({
     teamRegistrationMax: parsePositiveInteger('TEAM_REGISTRATION_RATE_LIMIT_MAX', 3 * (isDevelopment ? 3 : 1), { min: 1, max: 1_000 }),
     followMax: parsePositiveInteger('FOLLOW_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 5, max: 10_000 }),
     mutationMax: parsePositiveInteger('MUTATION_RATE_LIMIT_MAX', 300 * developmentMultiplier, { min: 10, max: 100_000 }),
+    tournamentMax: parsePositiveInteger('TOURNAMENT_RATE_LIMIT_MAX', 120 * developmentMultiplier, { min: 5, max: 10_000 }),
+    tournamentReviewMax: parsePositiveInteger('TOURNAMENT_REVIEW_RATE_LIMIT_MAX', 80 * developmentMultiplier, { min: 5, max: 10_000 }),
   },
   moderation: {
     blockedChatWords,

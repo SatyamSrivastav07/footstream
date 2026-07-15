@@ -150,6 +150,18 @@ const matchSchema = new mongoose.Schema(
     resultConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     stream: { type: streamSchema, default: null },
     sourceChallenge: { type: mongoose.Schema.Types.ObjectId, default: undefined },
+    tournamentCompetition: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', default: null },
+    tournamentHomeParticipant: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentParticipant', default: null },
+    tournamentAwayParticipant: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentParticipant', default: null },
+    tournamentStage: { type: String, trim: true, maxlength: 60, default: '' },
+    tournamentRound: { type: String, trim: true, maxlength: 80, default: '' },
+    tournamentScope: { type: String, trim: true, maxlength: 60, default: '' },
+    tournamentFixtureNumber: {
+      type: Number,
+      min: 1,
+      default: null,
+      validate: { validator: (value) => value === null || Number.isInteger(value), message: 'Tournament fixture number must be an integer.' },
+    },
   },
   { timestamps: true },
 );
@@ -183,6 +195,9 @@ matchSchema.index({ registeredOpponentTeam: 1, status: 1, scheduledAt: 1 });
 matchSchema.index({ status: 1, scheduledAt: 1, isActive: 1 });
 matchSchema.index({ 'opponent.name': 1, scheduledAt: 1 });
 matchSchema.index({ tournament: 1, status: 1, isActive: 1, scheduledAt: -1 });
+matchSchema.index({ tournamentCompetition: 1, scheduledAt: 1 }, { sparse: true });
+matchSchema.index({ tournamentHomeParticipant: 1, tournamentAwayParticipant: 1 }, { sparse: true });
+matchSchema.index({ tournamentScope: 1, tournamentStage: 1, scheduledAt: 1 });
 matchSchema.index({ 'stream.videoId': 1 }, { sparse: true });
 matchSchema.index(
   { sourceChallenge: 1 },
