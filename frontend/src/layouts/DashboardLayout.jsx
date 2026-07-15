@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
+import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Trophy, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
@@ -63,6 +63,9 @@ export default function DashboardLayout() {
               <NavLink to="/admin/team-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <ClipboardList size={18} /> Team Requests {unreadDot}
               </NavLink>
+              <NavLink to="/admin/tournaments" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Trophy size={18} /> Tournament Review
+              </NavLink>
             </>
           ) : (
             <NavLink to="/team/current" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
@@ -76,6 +79,9 @@ export default function DashboardLayout() {
               </NavLink>
               <NavLink to="/team/join-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserPlus size={18} /> Join Requests {unreadDot}
+              </NavLink>
+              <NavLink to="/team/tournaments" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Trophy size={18} /> Tournament
               </NavLink>
             </>
           )}

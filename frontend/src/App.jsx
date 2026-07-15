@@ -51,6 +51,14 @@ const PublicJoinRequestStatusPage = lazy(
 );
 const PublicTeamRegistrationPage = lazy(() => import("./pages/PublicTeamRegistrationPage.jsx"));
 const PublicTeamRegistrationStatusPage = lazy(() => import("./pages/PublicTeamRegistrationStatusPage.jsx"));
+const PublicTournamentsPage = lazy(() => import("./pages/PublicTournamentsPage.jsx"));
+const PublicTournamentDetailPage = lazy(() => import("./pages/PublicTournamentDetailPage.jsx"));
+const TeamTournamentsPage = lazy(() => import("./pages/TeamTournamentsPage.jsx"));
+const TournamentEditorPage = lazy(() => import("./pages/TournamentEditorPage.jsx"));
+const TeamTournamentDetailsPage = lazy(() => import("./pages/TeamTournamentDetailsPage.jsx"));
+const TournamentHistoryPage = lazy(() => import("./pages/TournamentHistoryPage.jsx"));
+const AdminTournamentsPage = lazy(() => import("./pages/AdminTournamentsPage.jsx"));
+const AdminTournamentReviewPage = lazy(() => import("./pages/AdminTournamentReviewPage.jsx"));
 
 const LazyPublic = ({ children }) => (
   <Suspense
@@ -65,6 +73,27 @@ const LazyPublic = ({ children }) => (
             <div className="loading-bar h-full rounded-full bg-lime-300" />
           </div>
           <span className="sr-only">Loading public page</span>
+        </div>
+      </div>
+    }
+  >
+    {children}
+  </Suspense>
+);
+
+const LazyDashboard = ({ children }) => (
+  <Suspense
+    fallback={
+      <div
+        className="grid min-h-80 place-items-center"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="text-center">
+          <div className="mx-auto h-1 w-40 overflow-hidden rounded-full bg-white/10">
+            <div className="loading-bar h-full rounded-full bg-lime-300" />
+          </div>
+          <span className="sr-only">Loading dashboard page</span>
         </div>
       </div>
     }
@@ -108,6 +137,22 @@ function App() {
           element={
             <LazyPublic>
               <TeamDirectoryPage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/tournaments"
+          element={
+            <LazyPublic>
+              <PublicTournamentsPage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/tournaments/:slug"
+          element={
+            <LazyPublic>
+              <PublicTournamentDetailPage />
             </LazyPublic>
           }
         />
@@ -256,6 +301,9 @@ function App() {
             />
             <Route path="/admin/team-requests" element={<AdminTeamRegistrationRequestsPage />} />
             <Route path="/admin/team-requests/:requestId" element={<AdminTeamRegistrationRequestDetailsPage />} />
+            <Route path="/admin/tournaments" element={<LazyDashboard><AdminTournamentsPage /></LazyDashboard>} />
+            <Route path="/admin/tournaments/:tournamentId" element={<LazyDashboard><AdminTournamentReviewPage /></LazyDashboard>} />
+            <Route path="/admin/tournaments/:tournamentId/history" element={<LazyDashboard><TournamentHistoryPage admin /></LazyDashboard>} />
             <Route
               path="/admin/teams/:teamId/squad"
               element={<AdminSquadViewPage />}
@@ -296,6 +344,12 @@ function App() {
             <Route path="/team/squad" element={<SquadManagementPage />} />
             <Route path="/team/join-requests" element={<TeamJoinRequestsPage />} />
             <Route path="/team/join-requests/:requestId" element={<TeamJoinRequestDetailsPage />} />
+            <Route path="/team/tournaments" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />
+            <Route path="/team/tournaments/filter/:filter" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />
+            <Route path="/team/tournaments/new" element={<LazyDashboard><TournamentEditorPage /></LazyDashboard>} />
+            <Route path="/team/tournaments/:tournamentId" element={<LazyDashboard><TeamTournamentDetailsPage /></LazyDashboard>} />
+            <Route path="/team/tournaments/:tournamentId/edit" element={<LazyDashboard><TournamentEditorPage /></LazyDashboard>} />
+            <Route path="/team/tournaments/:tournamentId/history" element={<LazyDashboard><TournamentHistoryPage /></LazyDashboard>} />
             <Route path="/team/matches" element={<TeamMatchesPage />} />
             <Route path="/team/matches/new" element={<MatchEditorPage />} />
             <Route

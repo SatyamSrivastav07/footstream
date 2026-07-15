@@ -22,6 +22,7 @@ const links = [
   ["/live", Radio, "Live"],
   ["/fixtures", CalendarDays, "Fixtures"],
   ["/results", Trophy, "Results"],
+  ["/tournaments", Trophy, "Tournament"],
   ["/teams", Users, "Teams"],
   ["/register-team", UserPlus, "Register Your Team"],
 ];

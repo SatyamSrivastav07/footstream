@@ -88,3 +88,43 @@ export const DEFAULT_TOURNAMENT_CONFIGURATION = Object.freeze({
   drawPoints: 1,
   lossPoints: 0,
 });
+
+export const TOURNAMENT_APPROVAL_STATUS_LABEL = Object.freeze({
+  [TOURNAMENT_APPROVAL_STATUS.DRAFT]: 'Draft',
+  [TOURNAMENT_APPROVAL_STATUS.APPROVAL_PENDING]: 'Pending approval',
+  [TOURNAMENT_APPROVAL_STATUS.CHANGES_REQUESTED]: 'Changes requested',
+  [TOURNAMENT_APPROVAL_STATUS.APPROVED]: 'Approved',
+  [TOURNAMENT_APPROVAL_STATUS.REJECTED]: 'Rejected',
+  [TOURNAMENT_APPROVAL_STATUS.SUSPENDED]: 'Suspended',
+});
+
+export const TOURNAMENT_LIFECYCLE_STATUS_LABEL = Object.freeze({
+  [TOURNAMENT_LIFECYCLE_STATUS.DRAFT]: 'Draft',
+  [TOURNAMENT_LIFECYCLE_STATUS.REGISTRATION_OPEN]: 'Registration open',
+  [TOURNAMENT_LIFECYCLE_STATUS.REGISTRATION_CLOSED]: 'Registration closed',
+  [TOURNAMENT_LIFECYCLE_STATUS.FIXTURES_READY]: 'Fixtures ready',
+  [TOURNAMENT_LIFECYCLE_STATUS.ONGOING]: 'Ongoing',
+  [TOURNAMENT_LIFECYCLE_STATUS.COMPLETED]: 'Completed',
+  [TOURNAMENT_LIFECYCLE_STATUS.ARCHIVED]: 'Archived',
+});
+
+export const TOURNAMENT_TIEBREAK_OPTIONS = Object.freeze([
+  'points',
+  'goal_difference',
+  'goals_scored',
+  'head_to_head',
+  'fair_play',
+  'manual_decision',
+]);
+
+export const TOURNAMENT_AWARD_OPTIONS = Object.freeze([
+  'champion',
+  'runner_up',
+  'golden_boot',
+  'golden_glove',
+  'player_of_tournament',
+  'fair_play_team',
+]);
+
+export const formatTournamentLabel = (value = '') =>
+  String(value).replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());

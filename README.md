@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, and Phase 8A Parts 1-2 tournament foundation work**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, and the tournament database foundation.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, and Phase 8A Parts 1-4 tournament foundation work**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, and the tournament frontend foundation.
 
-Deployment execution, email/SMS notifications, payments, AI features, runtime tournament APIs/UI, mobile apps, and later Phase 8 functionality are intentionally not included yet.
+Deployment execution, email/SMS notifications, payments, AI features, tournament fixture generation/matches/standings/statistics, mobile apps, and later Phase 8 functionality are intentionally not included yet.
 
 ## Phase 1 Features
 
@@ -1302,7 +1302,9 @@ Phase 8A Part 1 is an architecture, constants, and pure-contract foundation pass
 
 Phase 8A Part 2 adds the backend database foundation only. It introduces Mongoose schemas, indexes, model-level validation, nullable Match tournament references, and safe serializer contracts.
 
-Phase 8A Part 3 adds backend tournament APIs, services, controllers, validators, authorization, approval workflow, participant management, public read APIs, notifications, audit history, and rate limiting. It still does not add frontend pages, squad CRUD, invitations UI, groups, fixture generation, tournament match creation, standings, knockout progression, tournament statistics, awards calculation, gallery, PDF/QR, referee accounts, payments, or the removed Challenge system.
+Phase 8A Part 3 adds backend tournament APIs, services, controllers, validators, authorization, approval workflow, participant management, public read APIs, notifications, audit history, and rate limiting.
+
+Phase 8A Part 4 adds the frontend tournament foundation only. It wires team-admin tournament hosting pages, a create/edit wizard, participant management screens, super-admin review screens, public tournament directory/detail pages, reusable tournament UI components, frontend API helpers, dashboard navigation, public navigation, and regression tests. It still does not add tournament squad CRUD, player allocation, invitations UI, groups, fixture generation, tournament match creation, standings, knockout progression, tournament statistics, awards calculation, gallery, PDF/QR, referee accounts, payments, or the removed Challenge system.
 
 The tournament layer must sit above the existing Match engine:
 
@@ -1375,13 +1377,26 @@ Notifications added in Phase 8A Part 3:
 - Super admin approves, rejects, requests changes, suspends, or unsuspends -> active host team admins receive an in-app notification.
 - Registered participant added, removed, or confirmed -> active participant team admins receive an in-app notification.
 - Tournament notification payloads use safe tournament/team names and action URLs only.
-- Browser push notifications are not part of Phase 8A Parts 1-3.
+- Browser push notifications are not part of Phase 8A Parts 1-4.
 
 Public portal direction:
 
-- Public tournament pages will eventually support upcoming, ongoing, and past tournaments.
-- Tournament details should include overview, rules, teams, and history first.
+- Public tournament pages support a tournament directory and public tournament details for approved, public, published, non-archived tournaments.
+- Tournament details include overview, dates, venue, public-safe rules, and confirmed participants first.
 - Groups, fixtures, standings, brackets, awards, and tournament statistics remain marked as coming soon until their own parts define and implement them.
+
+Tournament frontend routes added in Phase 8A Part 4:
+
+- Team admin: `/team/tournaments`, `/team/tournaments/filter/:filter`, `/team/tournaments/new`, `/team/tournaments/:tournamentId`, `/team/tournaments/:tournamentId/edit`, `/team/tournaments/:tournamentId/history`.
+- Super admin: `/admin/tournaments`, `/admin/tournaments/:tournamentId`, `/admin/tournaments/:tournamentId/history`.
+- Public: `/tournaments`, `/tournaments/:slug`.
+
+Tournament frontend behavior added in Phase 8A Part 4:
+
+- Team admins can create hosted tournament drafts, edit allowed drafts, submit/resubmit, publish/unpublish, delete drafts, view review history, and manage participant records through the existing backend APIs.
+- Super admins can review tournament submissions, inspect safe tournament details, approve, reject, request changes, suspend, unsuspend, archive, and view review history.
+- Public visitors can browse public tournaments and open public tournament detail pages without signing in.
+- The UI intentionally displays groups, fixtures, standings, knockout, awards, and statistics as not available yet.
 
 Models added in Phase 8A Part 2:
 
@@ -1475,9 +1490,8 @@ Rate limiting added in Phase 8A Part 3:
 - `TOURNAMENT_REVIEW_RATE_LIMIT_MAX`
 - Endpoint-specific tournament create, mutation, participant, approval, and admin-review limiters.
 
-Explicitly not implemented in Phase 8A Parts 1-3:
+Explicitly not implemented in Phase 8A Parts 1-4:
 
-- No tournament frontend pages or dashboard navigation.
 - No tournament squad CRUD.
 - No player allocation.
 - No invitations accept/decline UI.
@@ -1490,7 +1504,7 @@ Explicitly not implemented in Phase 8A Parts 1-3:
 Foundation files added in Phase 8A Part 1:
 
 - `backend/src/constants/tournamentConstants.js` defines tournament enums, transition maps, default configuration, permission identifiers, and pure helper contracts.
-- `frontend/src/features/tournaments/constants.js` mirrors safe display labels and defaults only; it is not connected to any route or page.
+- `frontend/src/features/tournaments/constants.js` mirrors safe display labels, defaults, and frontend tournament options used by the Phase 8A Part 4 pages.
 
 Pure helper contracts include participant type compatibility by scope, approval/lifecycle transition validation, public visibility checks, host editability checks, super-admin review checks, tournament starter counts, statistic scope classification, and contracts proving external/intra teams and manual players do not create permanent Team/Player records.
 
@@ -1504,14 +1518,30 @@ Database files added in Phase 8A Part 2:
 - `backend/src/models/TournamentOfficial.js`
 - `backend/src/serializers/tournamentSerializers.js`
 
-Manual validation checklist for the database foundation:
+Frontend files added in Phase 8A Part 4:
 
-1. Run backend lint, syntax check, and tests.
-2. Confirm no `/api/tournaments` routes exist.
-3. Confirm no tournament dashboard/public pages are linked.
+- `frontend/src/features/tournaments/api.js`
+- `frontend/src/features/tournaments/TournamentUi.jsx`
+- `frontend/src/pages/TeamTournamentsPage.jsx`
+- `frontend/src/pages/TournamentEditorPage.jsx`
+- `frontend/src/pages/TeamTournamentDetailsPage.jsx`
+- `frontend/src/pages/TournamentHistoryPage.jsx`
+- `frontend/src/pages/AdminTournamentsPage.jsx`
+- `frontend/src/pages/AdminTournamentReviewPage.jsx`
+- `frontend/src/pages/PublicTournamentsPage.jsx`
+- `frontend/src/pages/PublicTournamentDetailPage.jsx`
+- `frontend/src/pages/TournamentPages.test.jsx`
+
+Manual validation checklist for the tournament foundation:
+
+1. Run backend lint, syntax check, and tests for the backend foundation.
+2. Run frontend lint, tests, and production build for the frontend foundation.
+3. Confirm `/team/tournaments`, `/admin/tournaments`, and `/tournaments` are linked from the correct dashboard/public navigation areas.
 4. Confirm old Match documents validate without tournament fields.
 5. Confirm serializers expose only `imageUrl` for tournament/participant/player images and never expose Cloudinary `publicId`.
 6. Confirm external and intra participants do not require or create permanent `Team` records.
 7. Confirm manual tournament squad players do not require or create permanent `Player` records.
+8. Confirm public tournament pages show only approved, public, published, non-archived tournaments.
+9. Confirm groups, fixtures, standings, brackets, awards, and tournament statistics remain unavailable until later Phase 8A work.
 
-Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament management, native mobile apps, and custom video hosting are not included.
+Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament fixtures/standings/statistics, native mobile apps, and custom video hosting are not included.
