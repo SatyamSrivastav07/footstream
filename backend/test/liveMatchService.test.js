@@ -267,6 +267,7 @@ test('super admin cannot use team-admin live mutations and public routes are rea
   const methods = publicRoutes.stack
     .filter((layer) => layer.route && ![
       '/teams/:teamSlug/join-requests',
+      '/team-registration-requests',
       '/join-requests/:requestCode/status',
       '/matches/:matchId/chat',
       '/matches/:matchId/reactions/:reactionType/toggle',

@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Building2, CalendarDays, History, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
+import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, LayoutDashboard, LogOut, Menu, ShieldCheck, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
@@ -59,6 +59,9 @@ export default function DashboardLayout() {
               </NavLink>
               <NavLink to="/admin/team-admins" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserCog size={18} /> Team admins
+              </NavLink>
+              <NavLink to="/admin/team-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <ClipboardList size={18} /> Team Requests {unreadDot}
               </NavLink>
             </>
           ) : (

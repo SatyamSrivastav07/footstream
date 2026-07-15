@@ -117,6 +117,19 @@ Deployment execution, email/SMS notifications, payments, AI features, tournament
 - Super admins can inspect join requests read-only for oversight.
 - Public search does not index or expose join requests.
 
+## Public Team Registration Requests
+
+- Public visitors can open `/register-team` to request FootStream access for a club/team without creating a user account.
+- The public form is separate from **Join Team**: Join Team is for players applying to an existing published team; Register Your Team is for team/club representatives requesting a new FootStream team workspace.
+- Requests collect team identity, representative contact details, optional message, and optional logo/cover uploads. They never ask for passwords, jersey numbers, player details, payment details, or admin-only fields.
+- Duplicate pending requests are blocked by normalized email, phone, or team name. Old rejected requests do not permanently block a new request, while already-created active teams return a safe conflict message.
+- Public applicants receive a private request code and can check `/team-registration-status/:requestCode`. Public status responses never expose representative email, phone, reviewer, created admin, internal IDs, moderation data, or Cloudinary public IDs.
+- Super admins review requests from `/admin/team-requests`, open details, approve by entering final team/admin account details, or reject with a safe reason.
+- Approval creates exactly one `Team` and one `teamAdmin` account linked to that team, then marks the request approved. If creation fails, the request remains pending and any partially created team/admin record is rolled back.
+- Rejection keeps submitted media for review/audit history and exposes only the safe rejection reason through the private status lookup.
+- New request submissions create authenticated in-app notifications for active super admins with a safe summary only: team name, city, and representative name.
+- Public submission uses its own limiter (`TEAM_REGISTRATION_RATE_LIMIT_MAX`, default 3/hour in production-style config). Status lookup uses the normal public read path and does not consume the submission bucket.
+
 ## Phase 7A Status
 
 The Team Challenge workflow was removed. Team admins now create matches directly from the Matches section using either a manual opponent or a registered FootStream opponent. There are no team-admin, super-admin, or public Challenge pages/routes.
@@ -259,6 +272,10 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/admin/teams/:teamId/players` | superAdmin | View a team's squad read-only |
 | `GET` | `/api/admin/teams/:teamId/join-requests` | superAdmin | Read-only join requests for one team |
 | `GET` | `/api/admin/join-requests/:requestId` | superAdmin | Read-only join request detail |
+| `GET` | `/api/admin/team-registration-requests` | superAdmin | List public team registration requests with status/search/page filters |
+| `GET` | `/api/admin/team-registration-requests/:requestId` | superAdmin | Review one public team registration request |
+| `PATCH` | `/api/admin/team-registration-requests/:requestId/approve` | superAdmin | Approve a pending request and create one Team plus one team-admin account |
+| `PATCH` | `/api/admin/team-registration-requests/:requestId/reject` | superAdmin | Reject a pending team registration request with a safe reason |
 | `GET` | `/api/admin/matches` | superAdmin | List all active matches with filters |
 | `GET` | `/api/admin/matches/:matchId` | superAdmin | View one match and lineup snapshots |
 | `GET` | `/api/admin/team-admins` | superAdmin | List team administrators |
@@ -304,8 +321,10 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/public/matches/:matchId/events` | Public | Active public event timeline |
 | `POST` | `/api/public/teams/:teamSlug/join-requests` | Public | Submit a public request to join a published team |
 | `GET` | `/api/public/join-requests/:requestCode/status` | Public | Check a join request by private request code |
+| `POST` | `/api/public/team-registration-requests` | Public | Submit a multipart Register Your Team request with optional `logo` and `cover` images |
+| `GET` | `/api/public/team-registration-requests/:requestCode/status` | Public | Check a team registration request by private request code |
 
-There is deliberately no registration API.
+There is deliberately no public user self-registration API. Public team-registration requests are review queues; they do not create accounts until a super admin approves them.
 
 The player list accepts `search`, `position`, `availabilityStatus`, and `isActive` query parameters. Team-admin endpoints never accept a team ID; the API always uses the team assigned to the authenticated account.
 
@@ -847,6 +866,7 @@ Required production environment:
 | `SEARCH_RATE_LIMIT_MAX` | Public search limiter ceiling |
 | `UPLOAD_RATE_LIMIT_MAX` | Upload mutation limiter ceiling |
 | `JOIN_REQUEST_RATE_LIMIT_MAX` | Public join-request submission limiter ceiling |
+| `TEAM_REGISTRATION_RATE_LIMIT_MAX` | Public Register Your Team submission limiter ceiling |
 | `MUTATION_RATE_LIMIT_MAX` | Authenticated non-GET mutation limiter ceiling |
 | `FOLLOW_RATE_LIMIT_MAX` | Public follow, preference, subscribe, and unsubscribe mutation limiter ceiling |
 | `CHAT_BLOCKED_WORDS` | Optional comma-separated blocked words rejected by public chat moderation |
@@ -1262,5 +1282,18 @@ Manual Phase 7C checks:
 8. As host team admin, send a scheduled-match reminder and confirm duplicate sends are skipped by delivery records.
 9. Start a match, add a goal, enter half-time, complete the match, and publish the result; confirm push dispatch is attempted only after each mutation succeeds.
 10. Confirm public APIs never expose follower session IDs, subscription endpoints, subscription keys, IPs, or delivery logs.
+
+Manual Register Your Team checks:
+
+1. Open `/register-team` anonymously from the public header, home hero, or teams directory CTA.
+2. Submit required team and representative fields with no images and confirm a private `FSTR-...` request code appears.
+3. Submit JPEG/PNG/WebP logo and cover images and confirm previews render before submission.
+4. Try duplicate pending email, phone, or team name and confirm a safe conflict message appears.
+5. Open `/team-registration-status/:requestCode` and confirm status is visible without email, phone, reviewer, created admin, or Cloudinary public IDs.
+6. Sign in as super admin, open `/admin/team-requests`, and confirm the request appears with a safe summary.
+7. Open request detail, approve with final team/admin credentials, and confirm one team and one team-admin account are created. The temporary password is not shown again after success.
+8. Submit another request and reject it with a safe reason; confirm public status shows only that safe reason.
+9. Sign in as a team admin and confirm admin team-registration request APIs are forbidden.
+10. Confirm player Join Team flow still works and is not mixed with Register Your Team.
 
 Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament management, native mobile apps, and custom video hosting are not included.

@@ -29,6 +29,8 @@ import AdminTeamProfileEditorPage from "./pages/AdminTeamProfileEditorPage.jsx";
 import TeamJoinRequestsPage from "./pages/TeamJoinRequestsPage.jsx";
 import TeamJoinRequestDetailsPage from "./pages/TeamJoinRequestDetailsPage.jsx";
 import NotificationsPage from "./pages/NotificationsPage.jsx";
+import AdminTeamRegistrationRequestsPage from "./pages/AdminTeamRegistrationRequestsPage.jsx";
+import AdminTeamRegistrationRequestDetailsPage from "./pages/AdminTeamRegistrationRequestDetailsPage.jsx";
 
 const PublicLivePage = lazy(() => import("./pages/PublicLivePage.jsx"));
 const PublicMatchPage = lazy(() => import("./pages/PublicMatchPage.jsx"));
@@ -47,6 +49,8 @@ const PublicJoinTeamPage = lazy(() => import("./pages/PublicJoinTeamPage.jsx"));
 const PublicJoinRequestStatusPage = lazy(
   () => import("./pages/PublicJoinRequestStatusPage.jsx"),
 );
+const PublicTeamRegistrationPage = lazy(() => import("./pages/PublicTeamRegistrationPage.jsx"));
+const PublicTeamRegistrationStatusPage = lazy(() => import("./pages/PublicTeamRegistrationStatusPage.jsx"));
 
 const LazyPublic = ({ children }) => (
   <Suspense
@@ -104,6 +108,22 @@ function App() {
           element={
             <LazyPublic>
               <TeamDirectoryPage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/register-team"
+          element={
+            <LazyPublic>
+              <PublicTeamRegistrationPage />
+            </LazyPublic>
+          }
+        />
+        <Route
+          path="/team-registration-status/:requestCode?"
+          element={
+            <LazyPublic>
+              <PublicTeamRegistrationStatusPage />
             </LazyPublic>
           }
         />
@@ -234,6 +254,8 @@ function App() {
               path="/admin/team-admins"
               element={<SuperAdminDashboard section="team-admins" />}
             />
+            <Route path="/admin/team-requests" element={<AdminTeamRegistrationRequestsPage />} />
+            <Route path="/admin/team-requests/:requestId" element={<AdminTeamRegistrationRequestDetailsPage />} />
             <Route
               path="/admin/teams/:teamId/squad"
               element={<AdminSquadViewPage />}

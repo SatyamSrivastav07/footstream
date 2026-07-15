@@ -33,6 +33,18 @@ import { streamIdValidator } from '../validators/streamValidators.js';
 import { uploadTeamCover, uploadTeamLogo, validateTeamImageSignature } from '../middleware/photoUpload.js';
 import { getAdminJoinRequest, listAdminTeamJoinRequests } from '../controllers/joinRequestController.js';
 import { joinRequestIdValidator, listJoinRequestsValidator } from '../validators/joinRequestValidators.js';
+import {
+  approveAdminTeamRegistrationRequest,
+  getAdminTeamRegistrationRequest,
+  listAdminTeamRegistrationRequests,
+  rejectAdminTeamRegistrationRequest,
+} from '../controllers/teamRegistrationController.js';
+import {
+  approveTeamRegistrationValidator,
+  listTeamRegistrationValidator,
+  rejectTeamRegistrationValidator,
+  teamRegistrationIdValidator,
+} from '../validators/teamRegistrationValidators.js';
 
 const router = Router();
 
@@ -46,6 +58,10 @@ router.delete('/teams/:teamId/cover', teamIdValidator, validate, removeTeamCover
 router.get('/teams/:teamId/players', teamIdValidator, validate, listPlayersForAdmin);
 router.get('/teams/:teamId/join-requests', teamIdValidator, listJoinRequestsValidator, validate, listAdminTeamJoinRequests);
 router.get('/join-requests/:requestId', joinRequestIdValidator, validate, getAdminJoinRequest);
+router.get('/team-registration-requests', listTeamRegistrationValidator, validate, listAdminTeamRegistrationRequests);
+router.get('/team-registration-requests/:requestId', teamRegistrationIdValidator, validate, getAdminTeamRegistrationRequest);
+router.patch('/team-registration-requests/:requestId/approve', approveTeamRegistrationValidator, validate, approveAdminTeamRegistrationRequest);
+router.patch('/team-registration-requests/:requestId/reject', rejectTeamRegistrationValidator, validate, rejectAdminTeamRegistrationRequest);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);
 const validateMatch = validateWithStatus(400);

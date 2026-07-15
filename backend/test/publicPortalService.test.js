@@ -360,6 +360,7 @@ test("general match hides inactive records and returns status-aware payload", as
 test("public portal routes remain read-only except approved guest engagement submissions", () =>
   assert.equal(isPublicReadOnlyRouteSet(publicRoutes, [
     "POST /teams/:teamSlug/join-requests",
+    "POST /team-registration-requests",
     "POST /matches/:matchId/chat",
     "POST /matches/:matchId/reactions/:reactionType/toggle",
     "POST /matches/:matchId/polls/:pollId/vote",

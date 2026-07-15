@@ -58,6 +58,14 @@ export const createNotificationForTeam = async ({
   return createNotificationForUsers({ recipients: users.map((user) => user._id), recipientTeam: teamId, ...notification });
 };
 
+export const createNotificationForSuperAdmins = async ({
+  userModel = User,
+  ...notification
+}) => {
+  const users = await userModel.find({ role: USER_ROLES.SUPER_ADMIN, isActive: true }).select('_id').lean();
+  return createNotificationForUsers({ recipients: users.map((user) => user._id), ...notification });
+};
+
 export const listNotifications = async ({ notificationModel = Notification, userId, query = {} }) => {
   const page = Math.max(Number(query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(query.limit) || 30, 1), 100);

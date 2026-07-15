@@ -17,7 +17,7 @@ import { requestCodeValidator, submitJoinRequestValidator } from '../validators/
 import { uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature } from '../middleware/photoUpload.js';
 import { getPublicChat, getPublicMatchAnnouncement, getPublicPolls, getPublicReactions, postPublicChat, togglePublicReaction, votePublicPoll } from '../controllers/engagementController.js';
 import { listChatValidator, postChatValidator, chatMatchIdValidator, reactionMatchValidator, toggleReactionValidator, votePollValidator } from '../validators/engagementValidators.js';
-import { joinRequestStatusLimiter, joinRequestSubmitLimiter, publicChatPostLimiter, publicFollowLimiter } from '../middleware/rateLimiters.js';
+import { joinRequestStatusLimiter, joinRequestSubmitLimiter, publicChatPostLimiter, publicFollowLimiter, teamRegistrationSubmitLimiter } from '../middleware/rateLimiters.js';
 import {
   deleteFollowTeam,
   deletePushSubscribe,
@@ -28,6 +28,9 @@ import {
   publicPushConfig,
 } from '../controllers/followController.js';
 import { followActionValidator, followPreferencesValidator, followStatusValidator, pushSubscribeValidator, pushUnsubscribeValidator } from '../validators/followValidators.js';
+import { publicTeamRegistrationStatus, submitPublicTeamRegistration } from '../controllers/teamRegistrationController.js';
+import { submitTeamRegistrationValidator, teamRegistrationCodeValidator } from '../validators/teamRegistrationValidators.js';
+import { uploadTeamRegistrationMedia, validateTeamRegistrationMediaSignatures } from '../middleware/photoUpload.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
@@ -38,6 +41,8 @@ router.get('/results', publicResultsValidator, validate, publicResults);
 router.get('/search', publicSearchValidator, validate, publicSearch);
 router.get('/teams', publicTeamsValidator, validate, publicTeams);
 router.get('/push/config', publicPushConfig);
+router.post('/team-registration-requests', teamRegistrationSubmitLimiter, uploadTeamRegistrationMedia, validateTeamRegistrationMediaSignatures, submitTeamRegistrationValidator, validate, submitPublicTeamRegistration);
+router.get('/team-registration-requests/:requestCode/status', teamRegistrationCodeValidator, validate, publicTeamRegistrationStatus);
 router.post('/push/subscribe', publicFollowLimiter, pushSubscribeValidator, validate, postPushSubscribe);
 router.delete('/push/unsubscribe', publicFollowLimiter, pushUnsubscribeValidator, validate, deletePushSubscribe);
 router.post('/teams/:teamSlug/join-requests', joinRequestSubmitLimiter, uploadJoinRequestPhoto, validateOptionalJoinRequestImageSignature, submitJoinRequestValidator, validate, submitPublicJoinRequest);

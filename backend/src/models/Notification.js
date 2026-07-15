@@ -12,6 +12,7 @@ export const NOTIFICATION_TYPES = Object.freeze([
   'join_request_received',
   'join_request_approved',
   'join_request_rejected',
+  'team_registration_received',
 ]);
 
 const notificationSchema = new mongoose.Schema({
@@ -20,7 +21,7 @@ const notificationSchema = new mongoose.Schema({
   type: { type: String, enum: NOTIFICATION_TYPES, required: true },
   title: { type: String, trim: true, maxlength: 160, required: true },
   message: { type: String, trim: true, maxlength: 500, required: true },
-  entityType: { type: String, enum: ['challenge', 'match', 'joinRequest'], required: true },
+  entityType: { type: String, enum: ['challenge', 'match', 'joinRequest', 'teamRegistrationRequest'], required: true },
   entityId: { type: mongoose.Schema.Types.ObjectId, required: true },
   actionUrl: { type: String, trim: true, maxlength: 300, required: true },
   dedupeKey: { type: String, trim: true, required: true },

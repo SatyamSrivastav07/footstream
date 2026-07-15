@@ -25,6 +25,13 @@ export const uploadTeamLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TEAM_L
 export const uploadTeamCover = singleImageUpload(5 * 1024 * 1024, 'INVALID_TEAM_COVER_TYPE');
 export const uploadPlayerPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_PLAYER_PHOTO_TYPE');
 export const uploadJoinRequestPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_JOIN_REQUEST_PHOTO_TYPE');
+export const uploadTeamRegistrationMedia = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 2 },
+  fileFilter: (_req, file, callback) => allowed.has(file.mimetype)
+    ? callback(null, true)
+    : callback(new AppError('Only JPEG, PNG, and WebP images are accepted.', 400, 'INVALID_TEAM_REGISTRATION_IMAGE_TYPE')),
+}).fields([{ name: 'logo', maxCount: 1 }, { name: 'cover', maxCount: 1 }]);
 
 const validSignature = (file) => {
   const bytes = file.buffer;
@@ -54,5 +61,14 @@ export const validatePlayerImageSignature = (req, _res, next) => {
 export const validateOptionalJoinRequestImageSignature = (req, _res, next) => {
   if (!req.file) return next();
   if (!validSignature(req.file)) return next(new AppError('The selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_JOIN_REQUEST_PHOTO_CONTENT'));
+  return next();
+};
+
+export const validateTeamRegistrationMediaSignatures = (req, _res, next) => {
+  const logo = req.files?.logo?.[0];
+  const cover = req.files?.cover?.[0];
+  if (logo && logo.size > 2 * 1024 * 1024) return next(new AppError('Team logo must be 2 MB or smaller.', 400, 'TEAM_REGISTRATION_LOGO_TOO_LARGE'));
+  if (cover && cover.size > 5 * 1024 * 1024) return next(new AppError('Team cover must be 5 MB or smaller.', 400, 'TEAM_REGISTRATION_COVER_TOO_LARGE'));
+  if ([logo, cover].filter(Boolean).some((file) => !validSignature(file))) return next(new AppError('A selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_TEAM_REGISTRATION_IMAGE_CONTENT'));
   return next();
 };

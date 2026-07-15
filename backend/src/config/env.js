@@ -98,6 +98,7 @@ const env = Object.freeze({
     searchMax: parsePositiveInteger('SEARCH_RATE_LIMIT_MAX', 120 * developmentMultiplier, { min: 10, max: 100_000 }),
     uploadMax: parsePositiveInteger('UPLOAD_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 1, max: 10_000 }),
     joinRequestMax: parsePositiveInteger('JOIN_REQUEST_RATE_LIMIT_MAX', 5 * (isDevelopment ? 3 : 1), { min: 1, max: 10_000 }),
+    teamRegistrationMax: parsePositiveInteger('TEAM_REGISTRATION_RATE_LIMIT_MAX', 3 * (isDevelopment ? 3 : 1), { min: 1, max: 1_000 }),
     followMax: parsePositiveInteger('FOLLOW_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 5, max: 10_000 }),
     mutationMax: parsePositiveInteger('MUTATION_RATE_LIMIT_MAX', 300 * developmentMultiplier, { min: 10, max: 100_000 }),
   },

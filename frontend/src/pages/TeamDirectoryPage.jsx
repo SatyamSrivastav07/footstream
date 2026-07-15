@@ -1,4 +1,4 @@
-import { MapPin, Search, ShieldCheck, Trophy } from "lucide-react";
+import { MapPin, Search, ShieldCheck, Trophy, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/client.js";
@@ -53,13 +53,16 @@ export default function TeamDirectoryPage() {
   };
   return (
     <>
-      <header>
+      <header className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
         <p className="eyebrow">FootStream clubs</p>
         <h1 className="page-title">Teams</h1>
         <p className="page-copy">
           Explore published teams, their squads, records, fixtures, results, and
           matchday stories.
         </p>
+        </div>
+        <Link to="/register-team" className="primary-button"><UserPlus size={16} /> Register Your Team</Link>
       </header>
       <form
         className="mt-7 grid gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:grid-cols-[1fr_1fr_auto]"
@@ -160,7 +163,7 @@ export default function TeamDirectoryPage() {
           !error && (
             <PublicEmpty
               title="No teams found"
-              message="No published teams match these filters."
+              message="No published teams match these filters. If you represent a club, use Register Your Team to request access."
             />
           )
         )}

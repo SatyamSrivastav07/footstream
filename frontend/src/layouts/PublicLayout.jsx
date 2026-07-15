@@ -7,6 +7,7 @@ import {
   Radio,
   Search,
   Trophy,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -22,6 +23,7 @@ const links = [
   ["/fixtures", CalendarDays, "Fixtures"],
   ["/results", Trophy, "Results"],
   ["/teams", Users, "Teams"],
+  ["/register-team", UserPlus, "Register Your Team"],
 ];
 
 export default function PublicLayout() {

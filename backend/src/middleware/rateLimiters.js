@@ -33,6 +33,10 @@ export const joinRequestSubmitLimiter = makeLimiter({
   windowMs: 60 * 60 * 1000,
   limit: env.rateLimits.joinRequestMax,
 });
+export const teamRegistrationSubmitLimiter = makeLimiter({
+  windowMs: 60 * 60 * 1000,
+  limit: env.rateLimits.teamRegistrationMax,
+});
 export const joinRequestStatusLimiter = makeLimiter({
   windowMs: 15 * 60 * 1000,
   limit: Math.max(60, env.rateLimits.publicReadMax),

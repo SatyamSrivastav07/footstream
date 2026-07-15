@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, Radio } from "lucide-react";
+import { ArrowRight, CalendarDays, Radio, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/client.js";
@@ -44,7 +44,11 @@ export default function PublicHomePage() {
             <Link to="/fixtures" className="secondary-button">
               <CalendarDays size={17} /> Browse fixtures
             </Link>
+            <Link to="/register-team" className="secondary-button">
+              <UserPlus size={17} /> Register Your Team
+            </Link>
           </div>
+          <p className="mt-4 text-sm text-emerald-100/40">Represent a club? Register Your Team requests platform access. Players should use Join Team on an existing team profile.</p>
         </div>
       </section>
       {error && (
