@@ -231,8 +231,20 @@ test('undo marks latest active event, preserves history, and rejects empty timel
 });
 
 test('live serializer contains no private users and derives current state', () => {
-  const state = serializeLiveState({ match: match({ team: { _id: teamId, name: 'FootStream FC', slug: 'footstream-fc' } }), events: [], now: new Date('2030-01-01T10:01:00Z') });
+  const state = serializeLiveState({
+    match: match({
+      team: { _id: teamId, name: 'FootStream FC', slug: 'footstream-fc' },
+      updatedAt: new Date('2030-01-01T10:00:30Z'),
+      lastEventSequence: 2,
+    }),
+    events: [{ _id: '65c000000000000000000001', sequence: 2, type: 'goal', scoringSide: 'team', isUndone: false }],
+    now: new Date('2030-01-01T10:01:00Z'),
+  });
   assert.equal(state.team.name, 'FootStream FC'); assert.equal(state.elapsedSeconds, 60); assert.equal('createdBy' in state, false); assert.equal('updatedBy' in state, false);
+  assert.equal(state.latestEventSequence, 2);
+  assert.equal(state.activeEventCount, 1);
+  assert.equal(state.updatedAt.toISOString(), '2030-01-01T10:00:30.000Z');
+  assert.match(state.revision, /^2:1:/);
 });
 
 test('direct client snapshots and protected event fields are rejected', async () => {

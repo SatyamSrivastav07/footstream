@@ -23,7 +23,7 @@ export const socketUrl =
 const api = axios.create({
   baseURL: apiBaseUrl,
   withCredentials: true,
-  timeout: 10_000,
+  timeout: 30_000,
   headers: {
     'Content-Type': 'application/json',
   },

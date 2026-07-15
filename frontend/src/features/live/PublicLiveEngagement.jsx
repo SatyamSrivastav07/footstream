@@ -1,9 +1,8 @@
 import { BarChart3, Megaphone, Send, SmilePlus, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
-import api from '../../api/client.js';
+import api, { socketUrl } from '../../api/client.js';
 
-const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
 const storageKey = 'footstream_guest_identity';
 const reactionStorageKey = (matchId) => `footstream_reactions_${matchId}`;
 const pollStorageKey = (matchId) => `footstream_poll_votes_${matchId}`;

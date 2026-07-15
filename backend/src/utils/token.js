@@ -16,15 +16,15 @@ export const verifyToken = (token) =>
 
 export const authCookieOptions = () => ({
   httpOnly: true,
-  secure: env.isProduction,
-  sameSite: env.isProduction ? 'none' : 'lax',
+  secure: env.cookieSecure,
+  sameSite: env.cookieSameSite,
   maxAge: env.cookieMaxAge,
   path: '/',
 });
 
 export const clearAuthCookieOptions = () => ({
   httpOnly: true,
-  secure: env.isProduction,
-  sameSite: env.isProduction ? 'none' : 'lax',
+  secure: env.cookieSecure,
+  sameSite: env.cookieSameSite,
   path: '/',
 });

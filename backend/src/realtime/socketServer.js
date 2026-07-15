@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import env from '../config/env.js';
 import Match from '../models/Match.js';
 import { setRealtimeServer } from './realtimeHub.js';
+import AppError from '../utils/AppError.js';
 
 export const isValidMatchRoomId = (matchId) => mongoose.isValidObjectId(matchId);
 
@@ -16,7 +17,14 @@ const emitViewerCount = (io, matchId) => {
 
 export const initializeSocketServer = (httpServer) => {
   const io = new Server(httpServer, {
-    cors: { origin: env.clientUrl, credentials: true, methods: ['GET', 'POST'] },
+    cors: {
+      origin: (origin, callback) => {
+        if (!origin || env.allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new AppError('Origin is not allowed by Socket.IO CORS.', 403, 'SOCKET_CORS_ORIGIN_BLOCKED'));
+      },
+      credentials: true,
+      methods: ['GET', 'POST'],
+    },
   });
 
   io.on('connection', (socket) => {

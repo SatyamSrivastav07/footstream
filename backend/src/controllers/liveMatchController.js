@@ -41,6 +41,7 @@ const liveBundle = async ({ matchId, teamId, includeUndone = true }) => {
 const broadcastState = async (matchId, eventName, extra = {}) => {
   const bundle = await liveBundle({ matchId });
   emitToMatch(matchId, 'match:state', bundle.state);
+  emitToMatch(matchId, 'match:live-state', bundle.state);
   emitToMatch(matchId, eventName, { state: bundle.state, ...extra });
   return bundle;
 };

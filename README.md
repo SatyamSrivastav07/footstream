@@ -834,6 +834,8 @@ Required production environment:
 | `JWT_EXPIRES_IN` | Session token lifetime |
 | `COOKIE_NAME` | Auth cookie name |
 | `COOKIE_MAX_AGE_MS` | Auth cookie lifetime |
+| `COOKIE_SECURE` | Set `true` for HTTPS deployments so cross-site admin cookies are stored and sent |
+| `COOKIE_SAMESITE` | Use `none` for separate HTTPS frontend/backend domains; use `lax` locally |
 | `CLIENT_URL` | Primary frontend origin |
 | `CORS_ORIGINS` | Comma-separated allowed frontend origins |
 | `TRUST_PROXY` | Production proxy trust setting, usually `1` on Render/Railway-style single proxy deployments and `false` locally |
@@ -859,6 +861,7 @@ Required production environment:
 | `SUPER_ADMIN_EMAIL` | Seed script email |
 | `SUPER_ADMIN_PASSWORD` | Seed script initial password |
 | `VITE_API_URL` | Frontend API base URL |
+| `VITE_SOCKET_URL` | Frontend Socket.IO backend origin; usually the API URL without `/api` |
 | `VITE_PUBLIC_APP_URL` | Frontend public canonical/share origin |
 
 Deployment checklist:

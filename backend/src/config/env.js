@@ -49,6 +49,17 @@ const allowedOrigins = parseOrigins(process.env.CORS_ORIGINS || clientUrl);
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
 const isDevelopment = !isProduction && !isTest;
+const parseBoolean = (name, fallback) => {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error(`${name} must be true or false`);
+};
+const cookieSecure = parseBoolean('COOKIE_SECURE', isProduction || clientUrl.startsWith('https://'));
+const cookieSameSite = (process.env.COOKIE_SAMESITE || (cookieSecure ? 'none' : 'lax')).toLowerCase();
+if (!['lax', 'strict', 'none'].includes(cookieSameSite)) throw new Error('COOKIE_SAMESITE must be lax, strict, or none');
+if (cookieSameSite === 'none' && !cookieSecure) throw new Error('COOKIE_SAMESITE=none requires COOKIE_SECURE=true');
 const defaultWindowMs = parsePositiveInteger('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000, { min: 1000, max: 24 * 60 * 60 * 1000 });
 const developmentMultiplier = isDevelopment ? 5 : 1;
 const blockedChatWords = (process.env.CHAT_BLOCKED_WORDS || '')
@@ -64,6 +75,8 @@ const env = Object.freeze({
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '8h',
   cookieName: process.env.COOKIE_NAME || 'footstream_token',
   cookieMaxAge: Number(process.env.COOKIE_MAX_AGE_MS) || 8 * 60 * 60 * 1000,
+  cookieSecure,
+  cookieSameSite,
   clientUrl,
   allowedOrigins,
   appVersion: process.env.npm_package_version || '1.0.0',

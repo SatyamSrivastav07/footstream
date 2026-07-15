@@ -1,9 +1,7 @@
 import { BarChart3, Megaphone, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
-import api from '../../api/client.js';
-
-const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+import api, { socketUrl } from '../../api/client.js';
 
 export default function TeamLiveEngagement({ matchId, viewerCount = 0 }) {
   const [announcement, setAnnouncement] = useState(null);

@@ -346,9 +346,13 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
   const scores = calculateScore(events, match.teamSide);
   const lineup = buildCurrentLineup(match, events);
   const team = match.team?.name ? { _id: match.team._id, name: match.team.name, slug: match.team.slug, logo: publicImage(match.team.logo).imageUrl } : { _id: match.team };
+  const activeEventCount = events.filter((event) => !event.isUndone).length;
+  const updatedAt = match.updatedAt || match.createdAt || null;
   return {
     matchId: match._id,
     team,
+    updatedAt,
+    revision: `${match.lastEventSequence || 0}:${activeEventCount}:${updatedAt ? new Date(updatedAt).getTime() : 0}`,
     matchFormat: match.matchFormat || '11v11',
     opponent: match.opponent,
     status: match.status,
@@ -372,5 +376,6 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
     currentBenchPlayers: lineup.bench,
     appearedPlayers: [...lineup.appeared],
     latestEventSequence: match.lastEventSequence,
+    activeEventCount,
   };
 };
