@@ -3,7 +3,10 @@ export const ACADEMIC_YEARS = ['1st Year', '2nd Year', '3rd Year', '4th Year', '
 export const PREFERRED_FEET = ['Left', 'Right', 'Both'];
 export const AVAILABILITY = ['available', 'injured', 'suspended', 'unavailable'];
 
-export const availabilityLabel = (value) => value.charAt(0).toUpperCase() + value.slice(1);
+export const availabilityLabel = (value = 'available') => {
+  const normalized = AVAILABILITY.includes(value) ? value : 'available';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 export const emptyPlayer = Object.freeze({
   name: '',

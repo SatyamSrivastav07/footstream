@@ -12,6 +12,7 @@ const badgeClass = {
 };
 
 export default function PlayerCard({ player, readOnly = false, statsPath, onEdit, onStatusChange, onDeactivate, onReactivate, onPhotoChange }) {
+  const availabilityStatus = AVAILABILITY.includes(player.availabilityStatus) ? player.availabilityStatus : 'available';
   return (
     <article className={`group overflow-hidden rounded-3xl border bg-white/[0.025] transition ${player.isActive ? 'border-white/[0.08] hover:-translate-y-0.5 hover:border-lime-300/20' : 'border-white/[0.05] opacity-65'}`}>
       <div className="relative aspect-[4/3] overflow-hidden">
@@ -30,7 +31,7 @@ export default function PlayerCard({ player, readOnly = false, statsPath, onEdit
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0"><h2 className="truncate font-display text-xl font-bold text-white">{player.name}</h2><p className="mt-1 text-xs text-emerald-100/45">{player.isActive ? 'Active squad member' : 'Inactive player'}</p></div>
-          <span className={`status-badge ${badgeClass[player.availabilityStatus]}`}>{availabilityLabel(player.availabilityStatus)}</span>
+          <span className={`status-badge ${badgeClass[availabilityStatus]}`}>{availabilityLabel(availabilityStatus)}</span>
         </div>
 
         <dl className="mt-5 grid grid-cols-3 gap-2 border-y border-white/[0.06] py-4 text-center">
@@ -44,7 +45,7 @@ export default function PlayerCard({ player, readOnly = false, statsPath, onEdit
           <div className="mt-4 space-y-3">
             <PlayerPhotoUploader player={player} onChanged={onPhotoChange} />
             <label className="block text-[10px] font-bold uppercase tracking-wider text-emerald-100/35">Availability
-              <select className="field-input mt-2 py-2.5" value={player.availabilityStatus} disabled={!player.isActive} onChange={(event) => onStatusChange(player, event.target.value)}>
+              <select className="field-input mt-2 py-2.5" value={availabilityStatus} disabled={!player.isActive} onChange={(event) => onStatusChange(player, event.target.value)}>
                 {AVAILABILITY.map((status) => <option key={status} value={status}>{availabilityLabel(status)}</option>)}
               </select>
             </label>

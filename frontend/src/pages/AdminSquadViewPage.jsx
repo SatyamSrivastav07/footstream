@@ -12,30 +12,43 @@ export default function AdminSquadViewPage() {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notFound, setNotFound] = useState(false);
 
   const loadSquad = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    setNotFound(false);
     try {
       const response = await api.get(`/admin/teams/${teamId}/players`);
-      setTeam(response.data.data.team || null);
-      setPlayers(Array.isArray(response.data.data.players) ? response.data.data.players : []);
+      const data = response.data?.data || {};
+      const nextTeam = data.team && typeof data.team === 'object' ? data.team : null;
+      setTeam(nextTeam);
+      setPlayers(Array.isArray(data.players) ? data.players : []);
+      setNotFound(!nextTeam);
       setError('');
-    } catch (requestError) { setError(requestError.userMessage); }
+    } catch (requestError) {
+      setTeam(null);
+      setPlayers([]);
+      setNotFound(requestError.response?.status === 404);
+      setError(requestError.userMessage || 'Unable to load this squad.');
+    }
     finally { setLoading(false); }
   }, [teamId]);
 
   useEffect(() => { loadSquad(); }, [loadSquad]);
-  const active = players.filter((player) => player.isActive);
+  const active = players.filter((player) => player?.isActive);
+  const title = team?.name || (notFound ? 'Team not found' : 'Team squad');
 
   return (
     <>
       <Link to="/admin" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 transition hover:text-lime-200"><ArrowLeft size={16} /> Back to control room</Link>
       <header className="mt-7 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-        <div><p className="eyebrow">Read-only squad view</p><h1 className="page-title"><TeamIdentity team={team} name={team?.name || 'Team squad'} logoClassName="size-12 rounded-2xl" /></h1><p className="page-copy">Review the permanent squad without changing team-admin player records.</p></div>
+        <div><p className="eyebrow">Read-only squad view</p><h1 className="page-title"><TeamIdentity team={team} name={title} logoClassName="size-12 rounded-2xl" /></h1><p className="page-copy">Review the permanent squad without changing team-admin player records.</p></div>
         <div className="flex gap-3"><span className="metric-card py-3"><UsersRound size={18} className="text-lime-200" /><strong>{players.length}</strong><span className="text-xs text-emerald-100/40">records</span></span><span className="metric-card py-3"><UserCheck size={18} className="text-emerald-200" /><strong>{active.length}</strong><span className="text-xs text-emerald-100/40">active</span></span></div>
       </header>
       {error && <div className="mt-7 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-300/20 bg-red-300/10 px-4 py-3 text-sm text-red-100" role="alert"><span>{error}</span><button type="button" className="secondary-button px-3 py-2 text-xs" onClick={loadSquad}>Retry</button></div>}
       <section className="mt-8">
-        {loading ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /></div> : players.length === 0 ? <EmptyState title="No players recorded" message="The assigned team administrator has not added permanent squad members yet." /> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{players.map((player) => <PlayerCard key={player._id} player={player} readOnly statsPath={`/admin/players/${player._id}/statistics`} />)}</div>}
+        {loading ? <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-label="Loading squad"><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /><div className="skeleton h-[25rem]" /></div> : error || notFound ? <EmptyState title={notFound ? 'Team not found' : 'Unable to load squad'} message={notFound ? 'This team may have been archived or removed.' : 'Use retry to request the squad again.'} /> : players.length === 0 ? <EmptyState title="No players recorded" message="The assigned team administrator has not added permanent squad members yet." /> : <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{players.map((player) => <PlayerCard key={player._id} player={player} readOnly statsPath={`/admin/players/${player._id}/statistics`} />)}</div>}
       </section>
     </>
   );

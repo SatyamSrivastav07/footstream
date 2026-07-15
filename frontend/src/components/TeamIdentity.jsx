@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
-export const teamLogoUrl = (team = {}) => {
+export const teamLogoUrl = (team) => {
+  if (!team || typeof team !== "object") return "";
   const logo = team.logo || team.logoUrl;
   if (typeof logo === "string") return logo;
-  return logo?.imageUrl || "";
+  return logo?.imageUrl || logo?.url || logo?.secure_url || "";
 };
 
 export default function TeamIdentity({
