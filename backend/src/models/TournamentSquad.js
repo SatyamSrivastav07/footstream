@@ -5,12 +5,16 @@ const tournamentSquadSchema = new mongoose.Schema(
   {
     tournament: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true },
     participant: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentParticipant', required: true },
+    registeredTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
     status: { type: String, enum: Object.values(TOURNAMENT_SQUAD_STATUS), default: TOURNAMENT_SQUAD_STATUS.DRAFT, required: true },
     captain: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentSquadPlayer', default: null },
     viceCaptain: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentSquadPlayer', default: null },
     submittedAt: { type: Date, default: null },
     approvedAt: { type: Date, default: null },
     lockedAt: { type: Date, default: null },
+    unlockedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    rejectionReason: { type: String, trim: true, maxlength: 1000, default: '' },
   },
   { timestamps: true },
 );
@@ -28,6 +32,7 @@ tournamentSquadSchema.index({ tournament: 1, status: 1 });
 tournamentSquadSchema.set('toJSON', {
   transform: (_document, returned) => {
     delete returned.__v;
+    delete returned.reviewedBy;
     return returned;
   },
 });

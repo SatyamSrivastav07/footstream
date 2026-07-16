@@ -33,6 +33,8 @@ import { submitTeamRegistrationValidator, teamRegistrationCodeValidator } from '
 import { uploadTeamRegistrationMedia, validateTeamRegistrationMediaSignatures } from '../middleware/photoUpload.js';
 import { publicTournamentDetail, publicTournaments } from '../controllers/tournamentController.js';
 import { publicTournamentSlugValidator, tournamentListValidator } from '../validators/tournamentValidators.js';
+import { publicParticipantSquad } from '../controllers/tournamentSquadController.js';
+import { publicTournamentSquadValidator } from '../validators/tournamentSquadValidators.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
@@ -43,6 +45,7 @@ router.get('/results', publicResultsValidator, validate, publicResults);
 router.get('/search', publicSearchValidator, validate, publicSearch);
 router.get('/teams', publicTeamsValidator, validate, publicTeams);
 router.get('/tournaments', tournamentListValidator, validate, publicTournaments);
+router.get('/tournaments/:slug/participants/:participantSlug/squad', publicTournamentSquadValidator, validate, publicParticipantSquad);
 router.get('/tournaments/:slug', publicTournamentSlugValidator, validate, publicTournamentDetail);
 router.get('/push/config', publicPushConfig);
 router.post('/team-registration-requests', teamRegistrationSubmitLimiter, uploadTeamRegistrationMedia, validateTeamRegistrationMediaSignatures, submitTeamRegistrationValidator, validate, submitPublicTeamRegistration);

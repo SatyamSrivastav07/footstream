@@ -11,6 +11,8 @@ import TournamentHistoryPage from './TournamentHistoryPage.jsx';
 import AdminTournamentsPage from './AdminTournamentsPage.jsx';
 import PublicTournamentsPage from './PublicTournamentsPage.jsx';
 import PublicTournamentDetailPage from './PublicTournamentDetailPage.jsx';
+import PublicTournamentSquadPage from './PublicTournamentSquadPage.jsx';
+import TeamTournamentSquadPage from './TeamTournamentSquadPage.jsx';
 import { TournamentCard, ReviewTimeline } from '../features/tournaments/TournamentUi.jsx';
 
 const tournament = {
@@ -45,6 +47,10 @@ const apiMocks = vi.hoisted(() => ({
   getHosted: vi.fn(),
   updateHosted: vi.fn(),
   history: vi.fn(),
+  squads: vi.fn(),
+  createSquad: vi.fn(),
+  squadHistory: vi.fn(),
+  eligiblePlayers: vi.fn(),
   participants: vi.fn(),
   availableTeams: vi.fn(),
   listAdmin: vi.fn(),
@@ -52,6 +58,7 @@ const apiMocks = vi.hoisted(() => ({
   adminHistory: vi.fn(),
   listPublic: vi.fn(),
   getPublic: vi.fn(),
+  getPublicSquad: vi.fn(),
 }));
 const apiClientMocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -112,13 +119,27 @@ test('Edit wizard exposes tournament logo and cover upload controls', async () =
 test('Participant UI renders registered search, participants, and review timeline', async () => {
   apiMocks.getHosted.mockReturnValue(response({ tournament }));
   apiMocks.participants.mockReturnValue(response({ participants: [{ id: 'p1', displayName: 'IMS FC', participantType: 'registered_team', status: 'pending', logo: { imageUrl: 'https://cdn.test/ims.png' } }] }));
+  apiMocks.squads.mockReturnValue(response({ squads: [{ participant: { id: 'p1', displayName: 'IMS FC' }, squad: { id: 's1', status: 'draft', playerCount: 3 } }] }));
   apiMocks.history.mockReturnValue(response({ history: [{ action: 'created', actorRole: 'teamAdmin', safeMessage: 'Created', createdAt: '2027-01-01T00:00:00Z' }] }));
   renderRoute('/team/tournaments/:tournamentId', <TeamTournamentDetailsPage />, '/team/tournaments/t1');
   await waitFor(() => assert.ok(screen.getByText('Participants')));
   assert.ok(screen.getByText('IMS FC'));
   assert.ok(screen.getByPlaceholderText(/Search public registered teams/i));
   assert.ok(screen.getByAltText('Logo preview'));
+  assert.ok(screen.getByText('Manage Squad'));
   assert.ok(screen.getAllByText('Created').length >= 1);
+});
+
+test('Team squad page renders registered selector and squad workflow actions', async () => {
+  apiMocks.getHosted.mockReturnValue(response({ tournament }));
+  apiMocks.createSquad.mockReturnValue(response({ squad: { id: 's1', status: 'draft', playerCount: 1, participant: { id: 'p1', displayName: 'IMS FC', participantType: 'registered_team' }, players: [{ id: 'sp1', name: 'Aman', position: 'GK', jersey: 1, goalkeeper: true, sourceType: 'registered_player' }] } }));
+  apiMocks.squadHistory.mockReturnValue(response({ history: [{ id: 'h1', action: 'squad_created', safeMessage: 'Created' }] }));
+  apiMocks.eligiblePlayers.mockReturnValue(response({ players: [{ id: 'pl1', name: 'Ravi', position: 'CM', jerseyNumber: 8 }] }));
+  renderRoute('/team/tournaments/:tournamentId/participants/:participantId/squad', <TeamTournamentSquadPage />, '/team/tournaments/t1/participants/p1/squad');
+  await waitFor(() => assert.ok(screen.getByText('IMS FC')));
+  assert.ok(screen.getByText('Eligible registered players'));
+  assert.ok(screen.getByText('Submit'));
+  assert.ok(screen.getByText('Aman'));
 });
 
 test('Review timeline page renders audit events safely', async () => {
@@ -138,10 +159,15 @@ test('Public directory and detail render only tournament overview and participan
   apiMocks.listPublic.mockReturnValue(response({ tournaments: [tournament] }));
   renderRoute('/tournaments', <PublicTournamentsPage />);
   await waitFor(() => assert.ok(screen.getByText('RANN Football')));
-  apiMocks.getPublic.mockReturnValue(response({ tournament: { ...tournament, participants: [{ id: 'p1', displayName: 'IMS FC', participantType: 'registered_team' }] } }));
+  apiMocks.getPublic.mockReturnValue(response({ tournament: { ...tournament, participants: [{ id: 'p1', slug: 'ims-fc', displayName: 'IMS FC', participantType: 'registered_team' }] } }));
   renderRoute('/tournaments/:slug', <PublicTournamentDetailPage />, '/tournaments/rann-football');
   await waitFor(() => assert.ok(screen.getByText('IMS FC')));
   assert.ok(screen.getByText(/Groups, fixtures, standings/i));
+  assert.ok(screen.getByText('View Squad'));
+  apiMocks.getPublicSquad.mockReturnValue(response({ participant: { id: 'p1', displayName: 'IMS FC' }, squad: { id: 's1', playerCount: 1, captain: { name: 'Aman' }, players: [{ id: 'sp1', name: 'Aman', position: 'GK', jersey: 1, goalkeeper: true, captain: true }] } }));
+  renderRoute('/tournaments/:slug/participants/:participantSlug/squad', <PublicTournamentSquadPage />, '/tournaments/rann-football/participants/ims-fc/squad');
+  await waitFor(() => assert.ok(screen.getAllByText('Aman').length >= 1));
+  assert.ok(screen.getByText('Goalkeeper'));
 });
 
 test('Tournament reusable card and timeline support action links and empty content', () => {

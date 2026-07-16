@@ -137,6 +137,10 @@ export const TOURNAMENT_NOTIFICATION_TYPE = Object.freeze({
   PARTICIPATION_CONFIRMED: 'tournament_participation_confirmed',
   INVITATION_ACCEPTED: 'tournament_invitation_accepted',
   INVITATION_DECLINED: 'tournament_invitation_declined',
+  SQUAD_SUBMITTED: 'tournament_squad_submitted',
+  SQUAD_APPROVED: 'tournament_squad_approved',
+  SQUAD_LOCKED: 'tournament_squad_locked',
+  SQUAD_UNLOCKED: 'tournament_squad_unlocked',
 });
 
 export const TOURNAMENT_SERIES_CONTRACT_FIELDS = Object.freeze([

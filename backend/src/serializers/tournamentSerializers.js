@@ -148,3 +148,46 @@ export const serializeTournamentSquadPlayerPublic = (playerDocument) => {
     goalkeeper: player.goalkeeper,
   });
 };
+
+export const serializeTournamentSquadPublic = (squadDocument, players = [], participantDocument = null) => {
+  const squad = asObject(squadDocument);
+  if (!squad) return null;
+  const captainId = idOf(squad.captain);
+  const viceCaptainId = idOf(squad.viceCaptain);
+  const safePlayers = players.map(serializeTournamentSquadPlayerPublic).filter(Boolean);
+  return removeEmpty({
+    id: idOf(squad._id),
+    participant: participantDocument ? serializeTournamentParticipantPublic(participantDocument) : idOf(squad.participant),
+    status: squad.status,
+    playerCount: safePlayers.length,
+    captain: safePlayers.find((player) => player.id === captainId || player.captain) || null,
+    viceCaptain: safePlayers.find((player) => player.id === viceCaptainId || player.viceCaptain) || null,
+    players: safePlayers,
+  });
+};
+
+export const serializeTournamentSquadHost = (squadDocument, players = [], participantDocument = null) => {
+  const squad = asObject(squadDocument);
+  if (!squad) return null;
+  return removeEmpty({
+    ...serializeTournamentSquadPublic(squad, players, participantDocument),
+    registeredTeam: idOf(squad.registeredTeam),
+    submittedAt: squad.submittedAt,
+    approvedAt: squad.approvedAt,
+    lockedAt: squad.lockedAt,
+    unlockedAt: squad.unlockedAt,
+    rejectionReason: squad.rejectionReason,
+  });
+};
+
+export const serializeTournamentSquadHistory = (historyDocument) => {
+  const item = asObject(historyDocument);
+  if (!item) return null;
+  return removeEmpty({
+    id: idOf(item._id),
+    action: item.action,
+    actorRole: item.actorRole,
+    safeMessage: item.safeMessage,
+    createdAt: item.createdAt,
+  });
+};

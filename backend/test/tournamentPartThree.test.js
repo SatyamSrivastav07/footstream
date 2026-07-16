@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { validationResult } from 'express-validator';
 import Notification, { NOTIFICATION_TYPES } from '../src/models/Notification.js';
 import { TOURNAMENT_REVIEW_ACTIONS } from '../src/models/TournamentReviewHistory.js';
+import { TOURNAMENT_SQUAD_HISTORY_ACTIONS } from '../src/models/TournamentSquadHistory.js';
 import {
   assertNoProtectedTournamentFields,
   ensureTournamentEditableByHost,
@@ -12,6 +13,8 @@ import {
 import { listTournamentsForAdmin, serializeHostReviewHistory } from '../src/services/tournamentReviewService.js';
 import { createTournamentValidator, requiredReasonValidator } from '../src/validators/tournamentValidators.js';
 import { registeredParticipantValidator } from '../src/validators/tournamentParticipantValidators.js';
+import { registeredSquadPlayerValidator } from '../src/validators/tournamentSquadValidators.js';
+import { serializeTournamentSquadPublic } from '../src/serializers/tournamentSerializers.js';
 const runValidators = async (validators, req) => {
   for (const validator of validators) await validator.run(req);
   return validationResult(req);
@@ -28,9 +31,14 @@ test('tournament notification and review-history contracts include Phase 8A Part
     'tournament_participation_added',
     'tournament_participation_removed',
     'tournament_participation_confirmed',
+    'tournament_squad_submitted',
+    'tournament_squad_approved',
+    'tournament_squad_locked',
+    'tournament_squad_unlocked',
   ].forEach((type) => assert.ok(NOTIFICATION_TYPES.includes(type)));
   assert.ok(Notification.schema.path('entityType').enumValues.includes('tournament'));
   assert.ok(Notification.schema.path('entityType').enumValues.includes('tournamentParticipant'));
+  assert.ok(Notification.schema.path('entityType').enumValues.includes('tournamentSquad'));
   [
     'created',
     'updated',
@@ -52,6 +60,45 @@ test('tournament notification and review-history contracts include Phase 8A Part
     'participant_branding_updated',
     'participant_branding_removed',
   ].forEach((action) => assert.ok(TOURNAMENT_REVIEW_ACTIONS.includes(action)));
+});
+
+test('tournament squad routes validators and serializers stay Phase 8B Part 1 scoped', async () => {
+  const teamRoutes = readFileSync(resolve('src/routes/teamRoutes.js'), 'utf8');
+  const adminRoutes = readFileSync(resolve('src/routes/adminRoutes.js'), 'utf8');
+  const publicRoutes = readFileSync(resolve('src/routes/publicRoutes.js'), 'utf8');
+  [
+    'squad_created',
+    'player_added',
+    'captain_changed',
+    'vice_captain_changed',
+    'squad_submitted',
+    'squad_approved',
+    'squad_locked',
+    'squad_unlocked',
+  ].forEach((action) => assert.ok(TOURNAMENT_SQUAD_HISTORY_ACTIONS.includes(action)));
+  assert.match(teamRoutes, /eligible-players/);
+  assert.match(teamRoutes, /squad\/players\/registered/);
+  assert.match(teamRoutes, /squad\/players\/manual/);
+  assert.match(teamRoutes, /squad\/captain/);
+  assert.match(adminRoutes, /participants\/:participantId\/squad/);
+  assert.match(publicRoutes, /participants\/:participantSlug\/squad/);
+  assert.doesNotMatch(teamRoutes, /playing-xi|fixtures\/generate|standings/i);
+
+  const invalid = await runValidators(registeredSquadPlayerValidator, {
+    params: { tournamentId: '650000000000000000000001', participantId: '650000000000000000000002' },
+    body: { playerId: '650000000000000000000003', statistics: { goals: 10 } },
+  });
+  assert.equal(invalid.isEmpty(), false);
+  assert.match(invalid.array()[0].msg, /Protected squad-player fields/);
+
+  const safe = serializeTournamentSquadPublic(
+    { _id: '650000000000000000000004', participant: '650000000000000000000002', status: 'locked', captain: '650000000000000000000005' },
+    [{ _id: '650000000000000000000005', name: 'Aman', position: 'GK', jersey: 1, photo: { imageUrl: 'https://cdn.test/a.png', publicId: 'secret' }, captain: true, goalkeeper: true, registeredPlayer: '650000000000000000000006' }],
+  );
+  assert.equal(safe.captain.name, 'Aman');
+  assert.equal(safe.players[0].photo.imageUrl, 'https://cdn.test/a.png');
+  assert.equal(safe.players[0].photo.publicId, undefined);
+  assert.equal(safe.players[0].registeredPlayer, undefined);
 });
 
 test('host editability and protected tournament fields are enforced by service helpers', () => {

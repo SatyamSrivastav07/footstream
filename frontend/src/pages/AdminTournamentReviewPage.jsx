@@ -9,6 +9,7 @@ export default function AdminTournamentReviewPage() {
   const { tournamentId } = useParams();
   const [tournament, setTournament] = useState(null);
   const [history, setHistory] = useState([]);
+  const [squadRows, setSquadRows] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -16,12 +17,14 @@ export default function AdminTournamentReviewPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [detail, timeline] = await Promise.all([
+      const [detail, timeline, squadsResponse] = await Promise.all([
         tournamentApi.getAdmin(tournamentId),
         tournamentApi.adminHistory(tournamentId),
+        tournamentApi.adminSquads(tournamentId),
       ]);
       setTournament(unwrapData(detail).tournament);
       setHistory(unwrapData(timeline).history || []);
+      setSquadRows(unwrapData(squadsResponse).squads || []);
       setError('');
     } catch (requestError) {
       setError(requestError.userMessage);
@@ -93,7 +96,14 @@ export default function AdminTournamentReviewPage() {
       <section className="mt-7 grid gap-5 lg:grid-cols-2">
         <Panel title="Overview"><p>{tournament.description || 'No description.'}</p><p>{formatTournamentLabel(tournament.scope)} · {formatTournamentLabel(tournament.competitionFormat)} · {tournament.matchFormat}</p></Panel>
         <Panel title="Rules"><p>{tournament.playersOnField} players · Squad {tournament.minimumSquad}-{tournament.maximumSquad}</p><p>Points {tournament.winPoints}/{tournament.drawPoints}/{tournament.lossPoints}</p></Panel>
-        <Panel title="Participants"><p>{tournament.participants?.length || 0} confirmed participants shown when public.</p></Panel>
+        <Panel title="Squads">
+          {squadRows.length === 0 ? <p>No participant squads yet.</p> : squadRows.map((row) => (
+            <Link key={row.participant.id} className="block rounded-2xl border border-white/10 p-3 hover:border-lime-300/30" to={`/admin/tournaments/${tournament.id}/participants/${row.participant.id}/squad`}>
+              <span className="font-bold text-white">{row.participant.displayName}</span>
+              <span className="ml-2 text-sm text-white/45">{row.squad ? `${formatTournamentLabel(row.squad.status)} · ${row.squad.playerCount} players · Captain ${row.squad.captain?.name || 'not set'}` : 'No squad'}</span>
+            </Link>
+          ))}
+        </Panel>
         <Panel title="Timeline"><ReviewTimeline history={history} /></Panel>
       </section>
     </>

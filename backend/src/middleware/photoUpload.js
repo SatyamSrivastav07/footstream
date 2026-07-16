@@ -28,6 +28,7 @@ export const uploadJoinRequestPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALI
 export const uploadTournamentLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TOURNAMENT_LOGO_TYPE', 'logo');
 export const uploadTournamentCover = singleImageUpload(5 * 1024 * 1024, 'INVALID_TOURNAMENT_COVER_TYPE', 'cover');
 export const uploadTournamentParticipantLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TOURNAMENT_PARTICIPANT_LOGO_TYPE', 'logo');
+export const uploadTournamentSquadPlayerPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_TOURNAMENT_SQUAD_PLAYER_PHOTO_TYPE', 'image');
 export const uploadTeamRegistrationMedia = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 2 },

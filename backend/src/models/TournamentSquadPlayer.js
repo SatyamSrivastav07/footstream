@@ -47,6 +47,8 @@ const tournamentSquadPlayerSchema = new mongoose.Schema(
     captain: { type: Boolean, default: false },
     viceCaptain: { type: Boolean, default: false },
     goalkeeper: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
+    addedAt: { type: Date, default: Date.now },
   },
   { timestamps: true },
 );

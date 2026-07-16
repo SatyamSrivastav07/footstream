@@ -11,6 +11,7 @@ export default function TeamTournamentDetailsPage() {
   const { tournamentId } = useParams();
   const [tournament, setTournament] = useState(null);
   const [participants, setParticipants] = useState([]);
+  const [squadRows, setSquadRows] = useState([]);
   const [available, setAvailable] = useState([]);
   const [history, setHistory] = useState([]);
   const [tab, setTab] = useState('registered');
@@ -22,13 +23,15 @@ export default function TeamTournamentDetailsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [detail, participantResponse, historyResponse] = await Promise.all([
+      const [detail, participantResponse, squadsResponse, historyResponse] = await Promise.all([
         tournamentApi.getHosted(tournamentId),
         tournamentApi.participants(tournamentId),
+        tournamentApi.squads(tournamentId),
         tournamentApi.history(tournamentId),
       ]);
       setTournament(unwrapData(detail).tournament);
       setParticipants(unwrapData(participantResponse).participants || []);
+      setSquadRows(unwrapData(squadsResponse).squads || []);
       setHistory(unwrapData(historyResponse).history || []);
       setError('');
     } catch (requestError) {
@@ -75,6 +78,7 @@ export default function TeamTournamentDetailsPage() {
   if (!tournament) return <EmptyState title="Tournament not found" message="This tournament could not be loaded." />;
 
   const brandingLocked = !['draft', 'changes_requested'].includes(tournament.approvalStatus);
+  const squadFor = (participantId) => squadRows.find((row) => row.participant?.id === participantId)?.squad;
 
   return (
     <>
@@ -143,7 +147,9 @@ export default function TeamTournamentDetailsPage() {
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           {participants.length === 0 ? (
             <EmptyState title="No participants" message="Add registered, external, or intra teams." />
-          ) : participants.map((participant) => (
+          ) : participants.map((participant) => {
+            const squad = squadFor(participant.id);
+            return (
             <article key={participant.id} className="rounded-2xl border border-white/10 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -154,6 +160,11 @@ export default function TeamTournamentDetailsPage() {
                   </div>
                 </div>
                 {!brandingLocked && <button type="button" className="icon-button" onClick={() => remove(participant.id)} aria-label={`Remove ${participant.displayName}`}><Trash2 size={16} /></button>}
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <StatusBadge tone={squad?.status === 'locked' ? 'lime' : 'neutral'}>{squad ? formatTournamentLabel(squad.status) : 'No Squad'}</StatusBadge>
+                <span className="text-sm text-white/45">{squad?.playerCount || 0}/{tournament.maximumSquad} players</span>
+                <Link className="secondary-button" to={`/team/tournaments/${tournamentId}/participants/${participant.id}/squad`}>Manage Squad</Link>
               </div>
               <div className="mt-4">
                 <TeamBrandingUploader
@@ -167,7 +178,8 @@ export default function TeamTournamentDetailsPage() {
                 />
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       </section>
 

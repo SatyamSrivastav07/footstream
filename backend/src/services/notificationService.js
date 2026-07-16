@@ -10,6 +10,10 @@ const tournamentHostedTypes = new Set([
   'tournament_rejected',
   'tournament_suspended',
   'tournament_unsuspended',
+  'tournament_squad_submitted',
+  'tournament_squad_approved',
+  'tournament_squad_locked',
+  'tournament_squad_unlocked',
 ]);
 const tournamentParticipantTypes = new Set([
   'tournament_participation_added',

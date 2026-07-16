@@ -1,6 +1,6 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, and the Phase 8A.5 tournament hardening pass**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, and tournament production-readiness polish.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, Phase 8A.5, and Phase 8B Part 1 tournament squad registration**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, tournament production-readiness polish, and tournament squad registration/allocation/locking.
 
 Deployment execution, email/SMS notifications, payments, AI features, tournament fixture generation/matches/standings/statistics, mobile apps, and later Phase 8 functionality are intentionally not included yet.
 
@@ -1593,5 +1593,123 @@ Manual validation checklist for the tournament foundation:
 13. Open `/admin/tournaments` and verify Pending, Approved, Changes Requested, Rejected, Suspended, and Archived tabs send the correct queue filters.
 14. Open tournament review pages for pending, approved, suspended, rejected, and archived records and confirm only valid actions are visible.
 15. Confirm locked tournament edit/detail pages show read-only controls and retry/error states instead of allowing blocked mutations.
+
+## Phase 8B Part 1 Tournament Squad Registration
+
+Phase 8B Part 1 adds tournament squad registration only. It lets the host team admin create one tournament squad per confirmed participant, allocate players, choose captain and vice captain, validate squad readiness, and lock squads before later match/fixture phases.
+
+Still deferred:
+
+- No tournament playing XI.
+- No matchday substitutes or bench selection.
+- No formations.
+- No group creation.
+- No fixture generation.
+- No tournament match creation.
+- No standings, qualification, knockout progression, tournament statistics, or awards.
+- No gallery, PDF/QR, referee accounts, payments, tickets, sponsors, or old Challenge system.
+
+Squad source behavior:
+
+- **Registered inter-college participant:** players are selected only from that registered FootStream team's active permanent player pool. The tournament squad stores a historical snapshot of name, position, jersey, and safe photo URL. Permanent player records are not mutated.
+- **External inter-college participant:** players are entered manually inside the tournament squad. Manual players never create permanent `Player` records.
+- **Intra-college participant:** players are selected from the host organizer team's active permanent player pool. A host-team player can be allocated to only one active intra participant squad inside the same tournament.
+
+Squad status workflow:
+
+```text
+draft -> submitted -> approved -> locked
+```
+
+Hosts perform the Phase 8B Part 1 workflow. Super admins and registered participant team admins are read-only in this phase.
+
+Squad validation:
+
+- Draft squads may be incomplete.
+- Submitted, approved, and locked squads must satisfy tournament `minimumSquad` and `maximumSquad`.
+- Exactly one captain is required before submission.
+- Vice captain is optional, but cannot be the same player as captain.
+- At least one goalkeeper is required before submission.
+- Every active squad player must have a unique tournament-scoped jersey number before submission.
+- Locked squads reject player, captain, vice-captain, jersey, and photo mutations.
+
+Manual tournament-player photos:
+
+- Accepted formats: JPEG, PNG, WebP.
+- Maximum size: 3 MB.
+- Stored under `footstream/tournaments/<tournamentId>/squads/<squadId>/players/<squadPlayerId>`.
+- Uploads are tournament-scoped and never delete permanent player photos.
+- Replacement uploads save the database first, then delete the old Cloudinary asset; failed saves clean the newly uploaded asset.
+
+Squad audit history:
+
+- New model: `TournamentSquadHistory`.
+- Actions include squad creation, player add/remove/update, captain changes, submission, approval, lock, unlock, and rejection.
+- Public responses never expose actor user IDs or internal metadata.
+
+Team Admin squad APIs:
+
+- `GET /api/team/hosted-tournaments/:tournamentId/squads`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad`
+- `GET /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/submit`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/approve`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/lock`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/unlock`
+- `GET /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/history`
+- `GET /api/team/hosted-tournaments/:tournamentId/participants/:participantId/eligible-players`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/players/registered`
+- `POST /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/players/manual`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/players/:squadPlayerId`
+- `DELETE /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/players/:squadPlayerId`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/captain`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/vice-captain`
+- `PUT /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/players/:squadPlayerId/photo`
+- `DELETE /api/team/hosted-tournaments/:tournamentId/participants/:participantId/squad/players/:squadPlayerId/photo`
+- `GET /api/team/tournaments/:tournamentId/my-squad`
+
+Super Admin read-only squad APIs:
+
+- `GET /api/admin/tournaments/:tournamentId/squads`
+- `GET /api/admin/tournaments/:tournamentId/participants/:participantId/squad`
+- `GET /api/admin/tournaments/:tournamentId/participants/:participantId/squad/history`
+
+Public squad API:
+
+- `GET /api/public/tournaments/:slug/participants/:participantSlug/squad`
+
+Public exposure rules:
+
+- Public squads are visible only for approved, public, published, non-archived tournaments.
+- Public squads require confirmed participants.
+- Only approved or locked squads expose player cards.
+- Public squad player responses expose safe snapshot fields only: name, position, jersey, safe image URL, captain, vice captain, and goalkeeper indicators.
+- Public responses never expose Cloudinary `publicId`, actor IDs, registered-player internal references, review metadata, emails, phone numbers, or account data.
+
+Notifications:
+
+- `tournament_squad_submitted`
+- `tournament_squad_approved`
+- `tournament_squad_locked`
+- `tournament_squad_unlocked`
+
+Notifications are in-app only and use safe action URLs pointing to the squad page. Browser push is not part of this phase.
+
+Manual Phase 8B Part 1 checks:
+
+1. Create a registered tournament participant, open **Manage Squad**, and verify only that registered team's active players appear.
+2. Add registered players and confirm snapshots show name, position, jersey, and safe photo.
+3. Create an external participant and add manual players without creating permanent Player records.
+4. Create an intra tournament and confirm the same host-team player cannot be allocated to two intra participant squads.
+5. Set captain and vice captain; confirm the previous captain/vice flag is cleared.
+6. Try submitting without captain, goalkeeper, minimum size, or jersey numbers and confirm safe validation errors.
+7. Submit, approve, and lock a valid squad.
+8. Confirm locked squads reject add/remove/photo/captain/jersey changes.
+9. Unlock before fixtures exist and confirm edits are possible again.
+10. Open Super Admin tournament review and verify squad links are read-only.
+11. Open a public tournament participant squad and verify approved/locked squads show public-safe cards.
+12. Confirm public pages show “Squad not announced yet” for draft/submitted squads.
+13. Confirm no Playing XI, fixtures, groups, standings, tournament matches, statistics, awards, or Challenge routes were added.
 
 Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament fixtures/standings/statistics, native mobile apps, and custom video hosting are not included.

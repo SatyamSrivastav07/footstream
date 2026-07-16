@@ -57,12 +57,18 @@ import {
   adminUnsuspendTournament,
 } from '../controllers/tournamentAdminController.js';
 import {
+  adminParticipantSquad,
+  adminParticipantSquadHistory,
+  adminTournamentSquads,
+} from '../controllers/tournamentSquadController.js';
+import {
   requiredMessageValidator,
   requiredReasonValidator,
   reviewActionValidator,
   tournamentIdValidator,
   tournamentListValidator,
 } from '../validators/tournamentValidators.js';
+import { squadParamsValidator, squadListValidator } from '../validators/tournamentSquadValidators.js';
 import { tournamentAdminReviewLimiter, tournamentApprovalLimiter } from '../middleware/rateLimiters.js';
 
 const router = Router();
@@ -84,6 +90,9 @@ router.patch('/team-registration-requests/:requestId/reject', rejectTeamRegistra
 router.get('/tournaments', tournamentListValidator, validate, adminListTournaments);
 router.get('/tournaments/:tournamentId', tournamentIdValidator, validate, adminGetTournament);
 router.get('/tournaments/:tournamentId/review-history', tournamentIdValidator, validate, adminTournamentReviewHistory);
+router.get('/tournaments/:tournamentId/squads', squadListValidator, validate, adminTournamentSquads);
+router.get('/tournaments/:tournamentId/participants/:participantId/squad', squadParamsValidator, validate, adminParticipantSquad);
+router.get('/tournaments/:tournamentId/participants/:participantId/squad/history', squadParamsValidator, validate, adminParticipantSquadHistory);
 router.patch('/tournaments/:tournamentId/approve', tournamentApprovalLimiter, reviewActionValidator, validate, adminApproveTournament);
 router.patch('/tournaments/:tournamentId/reject', tournamentApprovalLimiter, requiredReasonValidator, validate, adminRejectTournament);
 router.patch('/tournaments/:tournamentId/request-changes', tournamentApprovalLimiter, requiredMessageValidator, validate, adminRequestChanges);
