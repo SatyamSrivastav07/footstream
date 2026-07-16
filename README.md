@@ -1,6 +1,6 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, and Phase 8A Parts 1-4 tournament foundation work**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, and the tournament frontend foundation.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, and the Phase 8A.5 tournament hardening pass**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, and tournament production-readiness polish.
 
 Deployment execution, email/SMS notifications, payments, AI features, tournament fixture generation/matches/standings/statistics, mobile apps, and later Phase 8 functionality are intentionally not included yet.
 
@@ -1306,6 +1306,10 @@ Phase 8A Part 3 adds backend tournament APIs, services, controllers, validators,
 
 Phase 8A Part 4 adds the frontend tournament foundation only. It wires team-admin tournament hosting pages, a create/edit wizard, participant management screens, super-admin review screens, public tournament directory/detail pages, reusable tournament UI components, frontend API helpers, dashboard navigation, public navigation, and regression tests. It still does not add tournament squad CRUD, player allocation, invitations UI, groups, fixture generation, tournament match creation, standings, knockout progression, tournament statistics, awards calculation, gallery, PDF/QR, referee accounts, payments, or the removed Challenge system.
 
+Phase 8A Part 5 completes the production-ready tournament foundation stabilization. It adds tournament logo/cover uploads, tournament-scoped participant logo uploads, Cloudinary cleanup safety, audit history for branding changes, frontend upload controls, notification category red dots, route-safe tournament notification URLs, UI hardening, and full-stack regression coverage. It still does not add squads, player allocation, invitations workflow, groups, fixtures, standings, tournament matches, statistics, awards, gallery, PDF/QR, referee accounts, payments, sponsors, or the removed Challenge system.
+
+Phase 8A.5 is a production-hardening pass over the completed tournament foundation. It verifies route contracts, approval/action gating, read-only states, admin queue filters, locked tournament UX, retry/error states, accessibility labels, deployment-readiness documentation, stale Challenge-copy cleanup, and regression coverage. It does not add any Phase 8B tournament features.
+
 The tournament layer must sit above the existing Match engine:
 
 ```text
@@ -1398,6 +1402,34 @@ Tournament frontend behavior added in Phase 8A Part 4:
 - Public visitors can browse public tournaments and open public tournament detail pages without signing in.
 - The UI intentionally displays groups, fixtures, standings, knockout, awards, and statistics as not available yet.
 
+Tournament branding behavior added in Phase 8A Part 5:
+
+- Host team admins can upload/remove tournament logos and covers while the tournament is `draft` or `changes_requested`.
+- Host team admins can upload/remove tournament-scoped participant logos while the tournament is editable.
+- Uploads accept JPEG, PNG, and WebP only. Tournament logos and participant logos are limited to 2 MB; tournament covers are limited to 5 MB.
+- Branding uploads use Cloudinary folders under `footstream/tournaments/<tournamentId>/...`.
+- New assets are uploaded before database updates; old assets are deleted only after the database save succeeds; failed saves clean up newly uploaded assets.
+- Participant logo changes affect only the tournament participant snapshot and never mutate permanent registered-team branding.
+- Public serializers expose only safe image URLs and never expose Cloudinary `publicId` values.
+- Super admins remain read-only for branding mutation; audited correction routes are not part of Phase 8A.
+
+Notification red-dot behavior added in Phase 8A Part 5:
+
+- `/api/notifications/unread-count` still returns total unread count and now also returns category counts.
+- Super-admin **Team Requests** and **Tournament Review** dots are driven by unread notification types for those categories.
+- Team-admin **Join Requests** and **Tournament** dots are driven by unread join-request, hosted-tournament, and participant-tournament notification types.
+- Tournament notification action URLs navigate to the existing frontend tournament routes.
+
+Production hardening added in Phase 8A.5:
+
+- Super-admin tournament queue tabs use explicit API filters, including an archived-only queue.
+- Super-admin review actions are status-aware: pending tournaments expose approve/request-changes/reject; approved tournaments expose suspend/archive; suspended tournaments expose unsuspend/archive; archived tournaments are read-only.
+- Team-admin tournament edit and participant-management screens disable mutation controls when a tournament is locked by approval status.
+- Tournament review/list pages include safer loading, retry, empty, and error states instead of silent failures.
+- Tournament controls include clearer labels, status messaging, and keyboard-friendly buttons/tabs.
+- Legacy generated-fixture duplicate errors no longer direct users to the removed Challenge UI.
+- Route and forbidden-feature scans confirm Phase 8B functionality remains deferred.
+
 Models added in Phase 8A Part 2:
 
 - `Tournament`
@@ -1435,7 +1467,7 @@ Core database indexes added in Phase 8A Part 2:
 - Squad-player duplicate protection by squad plus registered player, normalized name, jersey, captain, and vice-captain.
 - Match optional tournament-reference lookup indexes.
 
-Team Admin tournament APIs added in Phase 8A Part 3:
+Team Admin tournament APIs added in Phase 8A Parts 3 and 5:
 
 - `GET /api/team/hosted-tournaments`
 - `POST /api/team/hosted-tournaments`
@@ -1446,6 +1478,10 @@ Team Admin tournament APIs added in Phase 8A Part 3:
 - `POST /api/team/hosted-tournaments/:tournamentId/resubmit`
 - `PATCH /api/team/hosted-tournaments/:tournamentId/publish`
 - `PATCH /api/team/hosted-tournaments/:tournamentId/unpublish`
+- `PUT /api/team/hosted-tournaments/:tournamentId/logo`
+- `DELETE /api/team/hosted-tournaments/:tournamentId/logo`
+- `PUT /api/team/hosted-tournaments/:tournamentId/cover`
+- `DELETE /api/team/hosted-tournaments/:tournamentId/cover`
 - `GET /api/team/hosted-tournaments/:tournamentId/review-history`
 - `GET /api/team/hosted-tournaments/:tournamentId/participants`
 - `POST /api/team/hosted-tournaments/:tournamentId/participants/registered`
@@ -1453,6 +1489,8 @@ Team Admin tournament APIs added in Phase 8A Part 3:
 - `POST /api/team/hosted-tournaments/:tournamentId/participants/intra`
 - `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId`
 - `PATCH /api/team/hosted-tournaments/:tournamentId/participants/:participantId/status`
+- `PUT /api/team/hosted-tournaments/:tournamentId/participants/:participantId/logo`
+- `DELETE /api/team/hosted-tournaments/:tournamentId/participants/:participantId/logo`
 - `DELETE /api/team/hosted-tournaments/:tournamentId/participants/:participantId`
 - `GET /api/team/hosted-tournaments/:tournamentId/available-teams`
 - `GET /api/team/tournaments`
@@ -1490,7 +1528,7 @@ Rate limiting added in Phase 8A Part 3:
 - `TOURNAMENT_REVIEW_RATE_LIMIT_MAX`
 - Endpoint-specific tournament create, mutation, participant, approval, and admin-review limiters.
 
-Explicitly not implemented in Phase 8A Parts 1-4:
+Explicitly not implemented in Phase 8A Parts 1-5:
 
 - No tournament squad CRUD.
 - No player allocation.
@@ -1532,6 +1570,12 @@ Frontend files added in Phase 8A Part 4:
 - `frontend/src/pages/PublicTournamentDetailPage.jsx`
 - `frontend/src/pages/TournamentPages.test.jsx`
 
+Backend files added in Phase 8A Part 5:
+
+- `backend/src/services/tournamentBrandingService.js`
+- `backend/src/controllers/tournamentBrandingController.js`
+- `backend/test/tournamentBrandingService.test.js`
+
 Manual validation checklist for the tournament foundation:
 
 1. Run backend lint, syntax check, and tests for the backend foundation.
@@ -1543,5 +1587,11 @@ Manual validation checklist for the tournament foundation:
 7. Confirm manual tournament squad players do not require or create permanent `Player` records.
 8. Confirm public tournament pages show only approved, public, published, non-archived tournaments.
 9. Confirm groups, fixtures, standings, brackets, awards, and tournament statistics remain unavailable until later Phase 8A work.
+10. Upload and remove tournament logo, tournament cover, and participant logo from an editable hosted tournament.
+11. Confirm locked tournaments reject branding mutation.
+12. Confirm dashboard red dots appear only on the relevant notification categories.
+13. Open `/admin/tournaments` and verify Pending, Approved, Changes Requested, Rejected, Suspended, and Archived tabs send the correct queue filters.
+14. Open tournament review pages for pending, approved, suspended, rejected, and archived records and confirm only valid actions are visible.
+15. Confirm locked tournament edit/detail pages show read-only controls and retry/error states instead of allowing blocked mutations.
 
 Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament fixtures/standings/statistics, native mobile apps, and custom video hosting are not included.

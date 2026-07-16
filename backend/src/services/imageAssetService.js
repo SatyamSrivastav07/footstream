@@ -44,7 +44,7 @@ export const replaceImageAsset = async ({
   return publicImage(nextImage);
 };
 
-export const removeImageAsset = async ({ document, field, storage, deleteFailureCode, deleteFailureMessage }) => {
+export const removeImageAsset = async ({ document, field, storage, deleteFailureCode, deleteFailureMessage, emptyValue = '' }) => {
   const current = privateImage(document[field]);
   if (current?.publicId) {
     const result = await storage.destroy(current.publicId);
@@ -52,7 +52,7 @@ export const removeImageAsset = async ({ document, field, storage, deleteFailure
       throw new AppError(deleteFailureMessage, 502, deleteFailureCode);
     }
   }
-  document[field] = '';
+  document[field] = emptyValue;
   await document.save();
   return publicImage(document[field]);
 };

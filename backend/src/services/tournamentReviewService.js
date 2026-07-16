@@ -57,6 +57,7 @@ export const listTournamentsForAdmin = async ({ tournamentModel = Tournament, qu
   const { page, limit } = pageParams(query);
   const filter = {};
   if (query.approvalStatus) filter.approvalStatus = query.approvalStatus;
+  if (query.archived !== undefined) filter.isArchived = query.archived === true || query.archived === 'true';
   if (query.scope) filter.scope = query.scope;
   if (query.search) {
     const safe = query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

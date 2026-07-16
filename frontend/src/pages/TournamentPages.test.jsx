@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, test, vi } from 'vitest';
+import DashboardLayout from '../layouts/DashboardLayout.jsx';
 import TeamTournamentsPage from './TeamTournamentsPage.jsx';
 import TournamentEditorPage from './TournamentEditorPage.jsx';
 import TeamTournamentDetailsPage from './TeamTournamentDetailsPage.jsx';
@@ -52,15 +53,33 @@ const apiMocks = vi.hoisted(() => ({
   listPublic: vi.fn(),
   getPublic: vi.fn(),
 }));
+const apiClientMocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+}));
+const authMock = vi.hoisted(() => ({
+  value: {
+    user: { name: 'Super Admin', email: 'admin@footstream.test', role: 'superAdmin' },
+    logout: vi.fn(),
+  },
+}));
 
 vi.mock('../features/tournaments/api.js', () => ({
   tournamentApi: apiMocks,
   unwrapData: (response) => response.data.data,
 }));
+vi.mock('../api/client.js', () => ({ default: apiClientMocks }));
+vi.mock('../context/AuthContext.jsx', () => ({ useAuth: () => authMock.value }));
 
 afterEach(() => {
   cleanup();
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
+  Object.values(apiClientMocks).forEach((mock) => mock.mockReset());
+  authMock.value = {
+    user: { name: 'Super Admin', email: 'admin@footstream.test', role: 'superAdmin' },
+    logout: vi.fn(),
+  };
 });
 
 const response = (data) => Promise.resolve({ data: { data } });
@@ -81,14 +100,24 @@ test('Create wizard exposes required tournament steps and fields', () => {
   assert.ok(screen.getByLabelText(/Tournament Name/i));
 });
 
+test('Edit wizard exposes tournament logo and cover upload controls', async () => {
+  apiMocks.getHosted.mockReturnValue(response({ tournament: { ...tournament, logo: { imageUrl: 'https://cdn.test/logo.png' }, coverImage: { imageUrl: 'https://cdn.test/cover.png' } } }));
+  renderRoute('/team/tournaments/:tournamentId/edit', <TournamentEditorPage />, '/team/tournaments/t1/edit');
+  await waitFor(() => assert.ok(screen.getByText('Edit Tournament')));
+  assert.ok(screen.getByLabelText('Tournament branding uploads'));
+  assert.ok(screen.getByAltText('Logo preview'));
+  assert.ok(screen.getByAltText('Cover preview'));
+});
+
 test('Participant UI renders registered search, participants, and review timeline', async () => {
   apiMocks.getHosted.mockReturnValue(response({ tournament }));
-  apiMocks.participants.mockReturnValue(response({ participants: [{ id: 'p1', displayName: 'IMS FC', participantType: 'registered_team', status: 'pending' }] }));
+  apiMocks.participants.mockReturnValue(response({ participants: [{ id: 'p1', displayName: 'IMS FC', participantType: 'registered_team', status: 'pending', logo: { imageUrl: 'https://cdn.test/ims.png' } }] }));
   apiMocks.history.mockReturnValue(response({ history: [{ action: 'created', actorRole: 'teamAdmin', safeMessage: 'Created', createdAt: '2027-01-01T00:00:00Z' }] }));
   renderRoute('/team/tournaments/:tournamentId', <TeamTournamentDetailsPage />, '/team/tournaments/t1');
   await waitFor(() => assert.ok(screen.getByText('Participants')));
   assert.ok(screen.getByText('IMS FC'));
   assert.ok(screen.getByPlaceholderText(/Search public registered teams/i));
+  assert.ok(screen.getByAltText('Logo preview'));
   assert.ok(screen.getAllByText('Created').length >= 1);
 });
 
@@ -119,4 +148,11 @@ test('Tournament reusable card and timeline support action links and empty conte
   render(<MemoryRouter><TournamentCard tournament={tournament} basePath="/team/tournaments" /><ReviewTimeline history={[]} /></MemoryRouter>);
   assert.ok(screen.getByText('View'));
   assert.ok(screen.getByText('No review history'));
+});
+
+test('Dashboard tournament red dot uses notification category counts', async () => {
+  apiClientMocks.get.mockResolvedValue({ data: { data: { count: 3, categories: { tournamentReview: 1, teamRequests: 0, joinRequests: 0 } } } });
+  render(<MemoryRouter initialEntries={['/admin/tournaments']}><Routes><Route element={<DashboardLayout />}><Route path="/admin/tournaments" element={<div>Queue</div>} /></Route></Routes></MemoryRouter>);
+  await waitFor(() => assert.ok(screen.getByLabelText('1 unread notifications')));
+  assert.ok(screen.getByText('Tournament Review'));
 });

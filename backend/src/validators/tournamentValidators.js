@@ -112,6 +112,7 @@ export const tournamentListValidator = [
   query('from').optional().isISO8601().withMessage('From date is invalid.').toDate(),
   query('to').optional().isISO8601().withMessage('To date is invalid.').toDate(),
   query('past').optional().isBoolean().withMessage('Past must be true or false.'),
+  query('archived').optional().isBoolean().withMessage('Archived must be true or false.'),
   query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive.').toInt(),
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be 1 to 100.').toInt(),
 ];

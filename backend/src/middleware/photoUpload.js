@@ -13,18 +13,21 @@ const upload = multer({
 
 export const uploadMatchPhotos = upload.array('photos', 10);
 
-const singleImageUpload = (maxBytes, code) => multer({
+const singleImageUpload = (maxBytes, code, fieldName = 'image') => multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: maxBytes, files: 1 },
   fileFilter: (_req, file, callback) => allowed.has(file.mimetype)
     ? callback(null, true)
     : callback(new AppError('Only JPEG, PNG, and WebP images are accepted.', 400, code)),
-}).single('image');
+}).single(fieldName);
 
 export const uploadTeamLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TEAM_LOGO_TYPE');
 export const uploadTeamCover = singleImageUpload(5 * 1024 * 1024, 'INVALID_TEAM_COVER_TYPE');
 export const uploadPlayerPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_PLAYER_PHOTO_TYPE');
 export const uploadJoinRequestPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_JOIN_REQUEST_PHOTO_TYPE');
+export const uploadTournamentLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TOURNAMENT_LOGO_TYPE', 'logo');
+export const uploadTournamentCover = singleImageUpload(5 * 1024 * 1024, 'INVALID_TOURNAMENT_COVER_TYPE', 'cover');
+export const uploadTournamentParticipantLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TOURNAMENT_PARTICIPANT_LOGO_TYPE', 'logo');
 export const uploadTeamRegistrationMedia = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 2 },
@@ -55,6 +58,12 @@ export const validateTeamImageSignature = (req, _res, next) => {
 export const validatePlayerImageSignature = (req, _res, next) => {
   if (!req.file) return next(new AppError('Select a player photo to upload.', 400, 'PLAYER_PHOTO_REQUIRED'));
   if (!validSignature(req.file)) return next(new AppError('The selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_PLAYER_PHOTO_CONTENT'));
+  return next();
+};
+
+export const validateTournamentBrandingSignature = (req, _res, next) => {
+  if (!req.file) return next(new AppError('Select an image to upload.', 400, 'TOURNAMENT_IMAGE_REQUIRED'));
+  if (!validSignature(req.file)) return next(new AppError('The selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_TOURNAMENT_IMAGE_CONTENT'));
   return next();
 };
 

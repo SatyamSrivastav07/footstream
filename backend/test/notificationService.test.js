@@ -60,6 +60,7 @@ const createMemoryNotificationModel = (seed = []) => {
         && (filter.isRead === undefined || notification.isRead === filter.isRead)
       ));
       const chain = {
+        select: () => chain,
         sort: () => chain,
         skip: () => chain,
         limit: () => chain,
@@ -126,8 +127,27 @@ test('notification list and unread count are scoped to the authenticated user', 
   const count = await unreadCount({ notificationModel, userId: ids.userA });
   assert.equal(result.notifications.length, 1);
   assert.equal(count.count, 1);
+  assert.equal(count.categories.tournaments, 0);
   assert.equal('recipientUser' in result.notifications[0], false);
   assert.equal('dedupeKey' in result.notifications[0], false);
+});
+
+test('unread count returns route-safe notification category counts', async () => {
+  const notificationModel = createMemoryNotificationModel([
+    baseNotification({ _id: '66d000000000000000000010', type: 'tournament_approval_submitted', entityType: 'tournament' }),
+    baseNotification({ _id: '66d000000000000000000011', type: 'tournament_changes_requested', entityType: 'tournament' }),
+    baseNotification({ _id: '66d000000000000000000012', type: 'tournament_participation_added', entityType: 'tournamentParticipant' }),
+    baseNotification({ _id: '66d000000000000000000013', type: 'join_request_received', entityType: 'joinRequest' }),
+    baseNotification({ _id: '66d000000000000000000014', type: 'team_registration_received', entityType: 'teamRegistrationRequest', isRead: true }),
+  ]);
+  const count = await unreadCount({ notificationModel, userId: ids.userA });
+  assert.equal(count.count, 4);
+  assert.equal(count.categories.tournamentReview, 1);
+  assert.equal(count.categories.hostedTournaments, 1);
+  assert.equal(count.categories.myTournaments, 1);
+  assert.equal(count.categories.tournaments, 3);
+  assert.equal(count.categories.joinRequests, 1);
+  assert.equal(count.categories.teamRequests, 0);
 });
 
 test('mark read and mark all read only affect own notifications', async () => {

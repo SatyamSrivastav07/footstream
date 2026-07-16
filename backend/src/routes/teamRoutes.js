@@ -67,7 +67,19 @@ import {
   deleteTeamPhoto, getPlayerStats, getTeamHistory, getTeamLeaderboards, getTeamPhotos,
   getTeamResult, getTeamStatistics, patchTeamPhoto, patchTeamResult, postTeamPhotos,
 } from '../controllers/phaseFiveController.js';
-import { uploadMatchPhotos, uploadPlayerPhoto, uploadTeamCover, uploadTeamLogo, validatePhotoSignatures, validatePlayerImageSignature, validateTeamImageSignature } from '../middleware/photoUpload.js';
+import {
+  uploadMatchPhotos,
+  uploadPlayerPhoto,
+  uploadTeamCover,
+  uploadTeamLogo,
+  uploadTournamentCover,
+  uploadTournamentLogo,
+  uploadTournamentParticipantLogo,
+  validatePhotoSignatures,
+  validatePlayerImageSignature,
+  validateTeamImageSignature,
+  validateTournamentBrandingSignature,
+} from '../middleware/photoUpload.js';
 import { photoMutationValidator, photoUploadValidator, playerStatsValidator, resultIdValidator, teamStatsValidator, updateResultValidator } from '../validators/phaseFiveValidators.js';
 import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStream } from '../controllers/streamController.js';
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
@@ -120,6 +132,14 @@ import {
   postRegisteredParticipant,
 } from '../controllers/tournamentParticipantController.js';
 import {
+  deleteParticipantLogo,
+  deleteTournamentCover,
+  deleteTournamentLogo,
+  putParticipantLogo,
+  putTournamentCover,
+  putTournamentLogo,
+} from '../controllers/tournamentBrandingController.js';
+import {
   createTournamentValidator,
   tournamentIdValidator,
   tournamentListValidator,
@@ -149,11 +169,17 @@ router.post('/hosted-tournaments/:tournamentId/submit-for-approval', tournamentM
 router.post('/hosted-tournaments/:tournamentId/resubmit', tournamentMutationLimiter, tournamentIdValidator, validateMatch, resubmitHosted);
 router.patch('/hosted-tournaments/:tournamentId/publish', tournamentMutationLimiter, tournamentIdValidator, validateMatch, publishHosted);
 router.patch('/hosted-tournaments/:tournamentId/unpublish', tournamentMutationLimiter, tournamentIdValidator, validateMatch, unpublishHosted);
+router.put('/hosted-tournaments/:tournamentId/logo', uploadLimiter, tournamentIdValidator, validateMatch, uploadTournamentLogo, validateTournamentBrandingSignature, putTournamentLogo);
+router.delete('/hosted-tournaments/:tournamentId/logo', tournamentMutationLimiter, tournamentIdValidator, validateMatch, deleteTournamentLogo);
+router.put('/hosted-tournaments/:tournamentId/cover', uploadLimiter, tournamentIdValidator, validateMatch, uploadTournamentCover, validateTournamentBrandingSignature, putTournamentCover);
+router.delete('/hosted-tournaments/:tournamentId/cover', tournamentMutationLimiter, tournamentIdValidator, validateMatch, deleteTournamentCover);
 router.get('/hosted-tournaments/:tournamentId/review-history', tournamentIdValidator, validateMatch, hostedReviewHistory);
 router.get('/hosted-tournaments/:tournamentId/participants', participantListValidator, validateMatch, getTournamentParticipants);
 router.post('/hosted-tournaments/:tournamentId/participants/registered', tournamentParticipantLimiter, registeredParticipantValidator, validateMatch, postRegisteredParticipant);
 router.post('/hosted-tournaments/:tournamentId/participants/external', tournamentParticipantLimiter, manualParticipantValidator, validateMatch, postExternalParticipant);
 router.post('/hosted-tournaments/:tournamentId/participants/intra', tournamentParticipantLimiter, manualParticipantValidator, validateMatch, postIntraParticipant);
+router.put('/hosted-tournaments/:tournamentId/participants/:participantId/logo', uploadLimiter, participantIdValidator, validateMatch, uploadTournamentParticipantLogo, validateTournamentBrandingSignature, putParticipantLogo);
+router.delete('/hosted-tournaments/:tournamentId/participants/:participantId/logo', tournamentMutationLimiter, participantIdValidator, validateMatch, deleteParticipantLogo);
 router.patch('/hosted-tournaments/:tournamentId/participants/:participantId', tournamentParticipantLimiter, updateParticipantValidator, validateMatch, patchParticipant);
 router.patch('/hosted-tournaments/:tournamentId/participants/:participantId/status', tournamentParticipantLimiter, participantStatusValidator, validateMatch, patchParticipantStatus);
 router.delete('/hosted-tournaments/:tournamentId/participants/:participantId', tournamentParticipantLimiter, participantIdValidator, validateMatch, deleteParticipant);

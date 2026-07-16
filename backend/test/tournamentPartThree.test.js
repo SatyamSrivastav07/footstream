@@ -9,7 +9,7 @@ import {
   assertNoProtectedTournamentFields,
   ensureTournamentEditableByHost,
 } from '../src/services/tournamentService.js';
-import { serializeHostReviewHistory } from '../src/services/tournamentReviewService.js';
+import { listTournamentsForAdmin, serializeHostReviewHistory } from '../src/services/tournamentReviewService.js';
 import { createTournamentValidator, requiredReasonValidator } from '../src/validators/tournamentValidators.js';
 import { registeredParticipantValidator } from '../src/validators/tournamentParticipantValidators.js';
 const runValidators = async (validators, req) => {
@@ -47,6 +47,10 @@ test('tournament notification and review-history contracts include Phase 8A Part
     'participant_added',
     'participant_removed',
     'participant_status_changed',
+    'branding_updated',
+    'branding_removed',
+    'participant_branding_updated',
+    'participant_branding_removed',
   ].forEach((action) => assert.ok(TOURNAMENT_REVIEW_ACTIONS.includes(action)));
 });
 
@@ -102,6 +106,9 @@ test('tournament routes are registered without frontend or challenge restoration
   const publicRoutes = readFileSync(resolve('src/routes/publicRoutes.js'), 'utf8');
   assert.match(teamRoutes, /hosted-tournaments/);
   assert.match(teamRoutes, /participants\/registered/);
+  assert.match(teamRoutes, /hosted-tournaments\/:tournamentId\/logo/);
+  assert.match(teamRoutes, /hosted-tournaments\/:tournamentId\/cover/);
+  assert.match(teamRoutes, /participants\/:participantId\/logo/);
   assert.match(teamRoutes, /\/tournaments\/:tournamentId/);
   assert.match(adminRoutes, /\/tournaments\/:tournamentId\/approve/);
   assert.match(adminRoutes, /\/tournaments\/:tournamentId\/archive/);
@@ -123,4 +130,24 @@ test('host review history serializer is safe for team admins', () => {
   });
   assert.deepEqual(Object.keys(payload).sort(), ['action', 'actorRole', 'createdAt', 'nextStatus', 'previousStatus', 'safeMessage']);
   assert.equal(payload.safeMessage, 'Please add venue details.');
+});
+
+test('admin tournament list supports an explicit archived queue filter', async () => {
+  let capturedFilter;
+  const tournamentModel = {
+    find: (filter) => {
+      capturedFilter = filter;
+      const chain = {
+        sort: () => chain,
+        skip: () => chain,
+        limit: () => chain,
+        lean: async () => [],
+      };
+      return chain;
+    },
+    countDocuments: async () => 0,
+  };
+  const result = await listTournamentsForAdmin({ tournamentModel, query: { archived: 'true' } });
+  assert.deepEqual(capturedFilter, { isArchived: true });
+  assert.equal(result.tournaments.length, 0);
 });

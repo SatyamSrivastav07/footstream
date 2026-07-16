@@ -10,14 +10,17 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadCategories, setUnreadCategories] = useState({});
   const home = user.role === 'superAdmin' ? '/admin' : '/team';
 
   const loadUnread = useCallback(async () => {
     try {
       const response = await api.get('/notifications/unread-count');
       setUnreadCount(response.data.data.count);
+      setUnreadCategories(response.data.data.categories || {});
     } catch {
       setUnreadCount(0);
+      setUnreadCategories({});
     }
   }, []);
 
@@ -27,7 +30,12 @@ export default function DashboardLayout() {
     return () => window.removeEventListener('footstream:notifications-changed', loadUnread);
   }, [loadUnread]);
 
-  const unreadDot = unreadCount > 0 ? <span className="ml-auto size-2 rounded-full bg-red-400" aria-label={`${unreadCount} unread notifications`} /> : null;
+  const dot = (count) => count > 0 ? <span className="ml-auto size-2 rounded-full bg-red-400" aria-label={`${count} unread notifications`} /> : null;
+  const unreadDot = dot(unreadCount);
+  const teamRequestDot = dot(unreadCategories.teamRequests || 0);
+  const joinRequestDot = dot(unreadCategories.joinRequests || 0);
+  const tournamentReviewDot = dot(unreadCategories.tournamentReview || 0);
+  const tournamentDot = dot((unreadCategories.hostedTournaments || 0) + (unreadCategories.myTournaments || 0));
 
   const handleLogout = async () => {
     await logout();
@@ -61,10 +69,10 @@ export default function DashboardLayout() {
                 <UserCog size={18} /> Team admins
               </NavLink>
               <NavLink to="/admin/team-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <ClipboardList size={18} /> Team Requests {unreadDot}
+                <ClipboardList size={18} /> Team Requests {teamRequestDot}
               </NavLink>
               <NavLink to="/admin/tournaments" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <Trophy size={18} /> Tournament Review
+                <Trophy size={18} /> Tournament Review {tournamentReviewDot}
               </NavLink>
             </>
           ) : (
@@ -78,10 +86,10 @@ export default function DashboardLayout() {
                 <UsersRound size={18} /> Squad
               </NavLink>
               <NavLink to="/team/join-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <UserPlus size={18} /> Join Requests {unreadDot}
+                <UserPlus size={18} /> Join Requests {joinRequestDot}
               </NavLink>
               <NavLink to="/team/tournaments" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <Trophy size={18} /> Tournament
+                <Trophy size={18} /> Tournament {tournamentDot}
               </NavLink>
             </>
           )}

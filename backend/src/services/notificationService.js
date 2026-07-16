@@ -3,6 +3,39 @@ import User, { USER_ROLES } from '../models/User.js';
 import AppError from '../utils/AppError.js';
 
 const idString = (value) => String(value?._id || value || '');
+const tournamentReviewTypes = new Set(['tournament_approval_submitted']);
+const tournamentHostedTypes = new Set([
+  'tournament_changes_requested',
+  'tournament_approved',
+  'tournament_rejected',
+  'tournament_suspended',
+  'tournament_unsuspended',
+]);
+const tournamentParticipantTypes = new Set([
+  'tournament_participation_added',
+  'tournament_participation_removed',
+  'tournament_participation_confirmed',
+]);
+
+const categoryCounts = (notifications = []) => {
+  const categories = {
+    joinRequests: 0,
+    teamRequests: 0,
+    tournamentReview: 0,
+    hostedTournaments: 0,
+    myTournaments: 0,
+    tournaments: 0,
+  };
+  notifications.forEach((notification) => {
+    if (notification.type === 'join_request_received') categories.joinRequests += 1;
+    if (notification.type === 'team_registration_received') categories.teamRequests += 1;
+    if (tournamentReviewTypes.has(notification.type)) categories.tournamentReview += 1;
+    if (tournamentHostedTypes.has(notification.type)) categories.hostedTournaments += 1;
+    if (tournamentParticipantTypes.has(notification.type)) categories.myTournaments += 1;
+  });
+  categories.tournaments = categories.tournamentReview + categories.hostedTournaments + categories.myTournaments;
+  return categories;
+};
 
 export const serializeNotification = (notification) => ({
   _id: notification._id,
@@ -78,9 +111,14 @@ export const listNotifications = async ({ notificationModel = Notification, user
   return { notifications: notifications.map(serializeNotification), pagination: { page, limit, total, pages: Math.ceil(total / limit) } };
 };
 
-export const unreadCount = async ({ notificationModel = Notification, userId }) => ({
-  count: await notificationModel.countDocuments({ recipientUser: userId, isRead: false }),
-});
+export const unreadCount = async ({ notificationModel = Notification, userId }) => {
+  const filter = { recipientUser: userId, isRead: false };
+  const count = await notificationModel.countDocuments(filter);
+  const query = notificationModel.find(filter);
+  const selected = typeof query.select === 'function' ? query.select('type') : query;
+  const unread = await (typeof selected.lean === 'function' ? selected.lean() : selected);
+  return { count, categories: categoryCounts(unread) };
+};
 
 export const markNotificationRead = async ({ notificationModel = Notification, userId, notificationId, now = new Date() }) => {
   const notification = await notificationModel.findOne({ _id: notificationId, recipientUser: userId });

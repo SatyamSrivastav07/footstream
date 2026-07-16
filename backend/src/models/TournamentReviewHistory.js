@@ -17,6 +17,10 @@ export const TOURNAMENT_REVIEW_ACTIONS = Object.freeze([
   'participant_added',
   'participant_removed',
   'participant_status_changed',
+  'branding_updated',
+  'branding_removed',
+  'participant_branding_updated',
+  'participant_branding_removed',
 ]);
 
 const tournamentReviewHistorySchema = new mongoose.Schema(

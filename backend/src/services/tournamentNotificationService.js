@@ -25,7 +25,7 @@ export const notifyTournamentHostTeam = async ({ tournament, type, title, messag
     message,
     entityType: 'tournament',
     entityId: tournament._id,
-    actionUrl: `/team/hosted-tournaments/${tournament._id}`,
+    actionUrl: `/team/tournaments/${tournament._id}`,
     dedupeKey: `tournament:${tournament._id}:${dedupeKeySuffix}`,
   });
 };
