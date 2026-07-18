@@ -1,8 +1,9 @@
-import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Trophy, UserCog, UserPlus, UsersRound, X } from 'lucide-react';
+import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Trophy, UserCog, UserPlus, UsersRound, X, ClipboardCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import Brand from '../components/Brand.jsx';
+import { TOURNAMENTS_ENABLED } from '../config/features.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function DashboardLayout() {
@@ -36,6 +37,8 @@ export default function DashboardLayout() {
   const joinRequestDot = dot(unreadCategories.joinRequests || 0);
   const tournamentReviewDot = dot(unreadCategories.tournamentReview || 0);
   const tournamentDot = dot((unreadCategories.hostedTournaments || 0) + (unreadCategories.myTournaments || 0));
+  const adminTournamentPath = TOURNAMENTS_ENABLED ? '/admin/tournaments' : '/tournaments-coming-soon';
+  const teamTournamentPath = TOURNAMENTS_ENABLED ? '/team/tournaments' : '/tournaments-coming-soon';
 
   const handleLogout = async () => {
     await logout();
@@ -63,15 +66,15 @@ export default function DashboardLayout() {
           {user.role === 'superAdmin' ? (
             <>
               <NavLink to="/admin/teams" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <Building2 size={18} /> Teams
+                <Building2 size={18} /> All Teams
               </NavLink>
               <NavLink to="/admin/team-admins" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserCog size={18} /> Team admins
               </NavLink>
-              <NavLink to="/admin/team-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
-                <ClipboardList size={18} /> Team Requests {teamRequestDot}
+              <NavLink to="/admin/teams/pending" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <ClipboardList size={18} /> Pending Teams {teamRequestDot}
               </NavLink>
-              <NavLink to="/admin/tournaments" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+              <NavLink to={adminTournamentPath} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <Trophy size={18} /> Tournament Review {tournamentReviewDot}
               </NavLink>
             </>
@@ -85,10 +88,13 @@ export default function DashboardLayout() {
               <NavLink to="/team/squad" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UsersRound size={18} /> Squad
               </NavLink>
+              <NavLink to="/team/squad/tactical-board" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <ClipboardCheck size={18} /> Tactical Board
+              </NavLink>
               <NavLink to="/team/join-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserPlus size={18} /> Join Requests {joinRequestDot}
               </NavLink>
-              <NavLink to="/team/tournaments" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+              <NavLink to={teamTournamentPath} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <Trophy size={18} /> Tournament {tournamentDot}
               </NavLink>
             </>

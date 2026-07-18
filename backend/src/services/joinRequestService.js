@@ -160,7 +160,7 @@ export const listJoinRequestsForTeam = async ({ requestModel = TeamJoinRequest, 
   const limit = Math.min(50, Number(query.limit) || 12);
   const filter = buildListFilter(teamId, query);
   const [requests, total, counts] = await Promise.all([
-    requestModel.find(filter).sort({ status: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    requestModel.find(filter).sort({ createdAt: -1, _id: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     requestModel.countDocuments(filter),
     requestModel.aggregate([{ $match: { team: teamId, isActive: true } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
   ]);

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export const TEAM_REGISTRATION_STATUSES = Object.freeze(['pending', 'approved', 'rejected']);
+export const TEAM_REGISTRATION_STATUSES = Object.freeze(['pending', 'approved', 'changesRequested', 'rejected']);
 
 const imageSchema = new mongoose.Schema({
   imageUrl: { type: String, trim: true, default: '' },
@@ -38,6 +38,9 @@ const teamRegistrationRequestSchema = new mongoose.Schema({
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   reviewedAt: { type: Date, default: null },
   rejectionReason: { type: String, trim: true, maxlength: 300, default: '' },
+  changeRequestMessage: { type: String, trim: true, maxlength: 1000, default: '' },
+  changesRequestedAt: { type: Date, default: null },
+  changesRequestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   createdTeam: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
   createdAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   submittedAt: { type: Date, default: Date.now },

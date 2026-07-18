@@ -1,6 +1,7 @@
 import { ArrowRightLeft, CircleDot, Goal, RotateCcw, ShieldAlert, Trophy, Undo2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '../../api/client.js';
+import FootballPitchLineup from '../../components/FootballPitchLineup.jsx';
 import TeamIdentity from '../../components/TeamIdentity.jsx';
 import PlayerAvatar from '../squad/PlayerAvatar.jsx';
 import { formatLocalDateTime, label } from '../matches/constants.js';
@@ -68,6 +69,7 @@ export default function LiveMatchView({ matchId, mode = 'public', onViewerCount 
   const requiredStarters = formatStarters[matchFormat] || 11;
   const lineupIncomplete = state.startingXI.length !== requiredStarters;
   const lineupWarning = `Complete your ${matchFormat} lineup before starting the match.`;
+  const liveFormation = state.formation === 'custom' ? state.customFormation : state.formation;
 
   return <>
     {mode === 'public' && <LiveEventOverlay notification={notifications.active} onDismiss={notifications.dismiss} />}
@@ -81,6 +83,19 @@ export default function LiveMatchView({ matchId, mode = 'public', onViewerCount 
     </section>
 
       {editable && <section className="panel mt-6"><div className="panel-heading"><div><p className="eyebrow">Match operations</p><h2 className="panel-title">Event controls</h2></div><span className="count-pill">REST secured</span></div>{lineupIncomplete && <p className="mb-4 rounded-xl bg-amber-300/10 p-3 text-sm text-amber-100">{lineupWarning}</p>}<div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">{actions.map(([key, Icon, text]) => { const unavailable = lineupIncomplete || state.status !== 'live' || saving || (key === 'undo' && !events.some((event) => !event.isUndone)) || (key === 'assist' && !events.some((event) => event.type === 'goal' && event.scoringSide === 'team' && !event.isUndone && !event.assistPlayer)) || (key === 'substitution' && state.currentLineup.bench.length === 0); return <button key={key} type="button" disabled={unavailable} onClick={() => { setError(''); setAction(key); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-black/10 p-3 text-center text-xs font-bold text-white/65 transition hover:border-lime-300/20 hover:bg-lime-300/[0.055] hover:text-white disabled:opacity-30"><Icon size={21} className="text-lime-200" />{text}</button>; })}</div></section>}
+
+    {liveFormation && <section className="panel mt-6">
+      <div className="panel-heading"><div><p className="eyebrow">Live formation</p><h2 className="panel-title">Current tactical shape</h2></div><span className="count-pill">{liveFormation}</span></div>
+      <FootballPitchLineup
+        formation={state.formation}
+        customFormation={state.customFormation}
+        starters={state.currentLineup.onField.map((player) => ({ ...player, id: player.player, jersey: player.jerseyNumber }))}
+        goalkeeper={state.currentLineup.onField.find((player) => String(player.position || '').toUpperCase() === 'GK')}
+        captain={state.currentLineup.onField.find((player) => player.isCaptain)}
+        editable={false}
+        compact
+      />
+    </section>}
 
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
       <section className="panel"><div className="panel-heading"><div><p className="eyebrow">Live feed</p><h2 className="panel-title">Event timeline</h2></div><span className="count-pill">{events.filter((event) => !event.isUndone).length} active</span></div><EventTimeline events={events} /></section>

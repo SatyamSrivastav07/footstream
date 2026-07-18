@@ -7,6 +7,7 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard.jsx";
 import TeamAdminDashboard from "./pages/TeamAdminDashboard.jsx";
 import UnauthorizedPage from "./pages/UnauthorizedPage.jsx";
 import SquadManagementPage from "./pages/SquadManagementPage.jsx";
+import TacticalBoardPage from "./pages/TacticalBoardPage.jsx";
 import AdminSquadViewPage from "./pages/AdminSquadViewPage.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 import RoleRoute from "./routes/RoleRoute.jsx";
@@ -22,15 +23,21 @@ import StatisticsPage from "./pages/StatisticsPage.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
 import PlayerStatisticsPage from "./pages/PlayerStatisticsPage.jsx";
 import MatchResultPage from "./pages/MatchResultPage.jsx";
+import DirectResultPage from "./pages/DirectResultPage.jsx";
 import PublicLayout from "./layouts/PublicLayout.jsx";
 import PublicHomePage from "./pages/PublicHomePage.jsx";
 import PublicDirectoryPage from "./pages/PublicDirectoryPage.jsx";
 import AdminTeamProfileEditorPage from "./pages/AdminTeamProfileEditorPage.jsx";
+import AdminTeamsPage from "./pages/AdminTeamsPage.jsx";
+import AdminPendingTeamsPage from "./pages/AdminPendingTeamsPage.jsx";
+import AdminTeamDetailPage from "./pages/AdminTeamDetailPage.jsx";
 import TeamJoinRequestsPage from "./pages/TeamJoinRequestsPage.jsx";
 import TeamJoinRequestDetailsPage from "./pages/TeamJoinRequestDetailsPage.jsx";
 import NotificationsPage from "./pages/NotificationsPage.jsx";
 import AdminTeamRegistrationRequestsPage from "./pages/AdminTeamRegistrationRequestsPage.jsx";
 import AdminTeamRegistrationRequestDetailsPage from "./pages/AdminTeamRegistrationRequestDetailsPage.jsx";
+import { TOURNAMENTS_ENABLED } from "./config/features.js";
+import TournamentComingSoonPage from "./pages/TournamentComingSoonPage.jsx";
 
 const PublicLivePage = lazy(() => import("./pages/PublicLivePage.jsx"));
 const PublicMatchPage = lazy(() => import("./pages/PublicMatchPage.jsx"));
@@ -62,6 +69,9 @@ const AdminTournamentReviewPage = lazy(() => import("./pages/AdminTournamentRevi
 const TeamTournamentSquadPage = lazy(() => import("./pages/TeamTournamentSquadPage.jsx"));
 const AdminTournamentSquadPage = lazy(() => import("./pages/AdminTournamentSquadPage.jsx"));
 const PublicTournamentSquadPage = lazy(() => import("./pages/PublicTournamentSquadPage.jsx"));
+const TeamTournamentLineupsPage = lazy(() => import("./pages/TeamTournamentLineupsPage.jsx"));
+const TeamTournamentLineupEditorPage = lazy(() => import("./pages/TeamTournamentLineupEditorPage.jsx"));
+const AdminTournamentLineupPage = lazy(() => import("./pages/AdminTournamentLineupPage.jsx"));
 
 const LazyPublic = ({ children }) => (
   <Suspense
@@ -144,29 +154,42 @@ function App() {
           }
         />
         <Route
-          path="/tournaments"
-          element={
-            <LazyPublic>
-              <PublicTournamentsPage />
-            </LazyPublic>
-          }
+          path="/tournaments-coming-soon"
+          element={<TournamentComingSoonPage />}
         />
-        <Route
-          path="/tournaments/:slug"
-          element={
-            <LazyPublic>
-              <PublicTournamentDetailPage />
-            </LazyPublic>
-          }
-        />
-        <Route
-          path="/tournaments/:slug/participants/:participantSlug/squad"
-          element={
-            <LazyPublic>
-              <PublicTournamentSquadPage />
-            </LazyPublic>
-          }
-        />
+        {TOURNAMENTS_ENABLED ? (
+          <>
+            <Route
+              path="/tournaments"
+              element={
+                <LazyPublic>
+                  <PublicTournamentsPage />
+                </LazyPublic>
+              }
+            />
+            <Route
+              path="/tournaments/:slug"
+              element={
+                <LazyPublic>
+                  <PublicTournamentDetailPage />
+                </LazyPublic>
+              }
+            />
+            <Route
+              path="/tournaments/:slug/participants/:participantSlug/squad"
+              element={
+                <LazyPublic>
+                  <PublicTournamentSquadPage />
+                </LazyPublic>
+              }
+            />
+          </>
+        ) : (
+          <Route
+            path="/tournaments/*"
+            element={<Navigate to="/tournaments-coming-soon" replace />}
+          />
+        )}
         <Route
           path="/register-team"
           element={
@@ -304,18 +327,27 @@ function App() {
             <Route path="/admin" element={<SuperAdminDashboard />} />
             <Route
               path="/admin/teams"
-              element={<SuperAdminDashboard section="teams" />}
+              element={<AdminTeamsPage />}
             />
+            <Route path="/admin/teams/pending" element={<AdminPendingTeamsPage />} />
+            <Route path="/admin/teams/:teamId" element={<AdminTeamDetailPage />} />
             <Route
               path="/admin/team-admins"
               element={<SuperAdminDashboard section="team-admins" />}
             />
             <Route path="/admin/team-requests" element={<AdminTeamRegistrationRequestsPage />} />
             <Route path="/admin/team-requests/:requestId" element={<AdminTeamRegistrationRequestDetailsPage />} />
-            <Route path="/admin/tournaments" element={<LazyDashboard><AdminTournamentsPage /></LazyDashboard>} />
-            <Route path="/admin/tournaments/:tournamentId" element={<LazyDashboard><AdminTournamentReviewPage /></LazyDashboard>} />
-            <Route path="/admin/tournaments/:tournamentId/history" element={<LazyDashboard><TournamentHistoryPage admin /></LazyDashboard>} />
-            <Route path="/admin/tournaments/:tournamentId/participants/:participantId/squad" element={<LazyDashboard><AdminTournamentSquadPage /></LazyDashboard>} />
+            {TOURNAMENTS_ENABLED ? (
+              <>
+                <Route path="/admin/tournaments" element={<LazyDashboard><AdminTournamentsPage /></LazyDashboard>} />
+                <Route path="/admin/tournaments/:tournamentId" element={<LazyDashboard><AdminTournamentReviewPage /></LazyDashboard>} />
+                <Route path="/admin/tournaments/:tournamentId/history" element={<LazyDashboard><TournamentHistoryPage admin /></LazyDashboard>} />
+                <Route path="/admin/tournaments/:tournamentId/lineups/:lineupId" element={<LazyDashboard><AdminTournamentLineupPage /></LazyDashboard>} />
+                <Route path="/admin/tournaments/:tournamentId/participants/:participantId/squad" element={<LazyDashboard><AdminTournamentSquadPage /></LazyDashboard>} />
+              </>
+            ) : (
+              <Route path="/admin/tournaments/*" element={<Navigate to="/tournaments-coming-soon" replace />} />
+            )}
             <Route
               path="/admin/teams/:teamId/squad"
               element={<AdminSquadViewPage />}
@@ -338,6 +370,10 @@ function App() {
               element={<MatchResultPage audience="admin" />}
             />
             <Route
+              path="/admin/matches/:matchId/direct-result"
+              element={<DirectResultPage audience="admin" />}
+            />
+            <Route
               path="/admin/teams/:teamId/statistics"
               element={<StatisticsPage audience="admin" />}
             />
@@ -354,15 +390,25 @@ function App() {
             <Route path="/team" element={<TeamAdminDashboard />} />
             <Route path="/team/current" element={<TeamAdminDashboard />} />
             <Route path="/team/squad" element={<SquadManagementPage />} />
+            <Route path="/team/squad/tactical-board" element={<TacticalBoardPage />} />
             <Route path="/team/join-requests" element={<TeamJoinRequestsPage />} />
             <Route path="/team/join-requests/:requestId" element={<TeamJoinRequestDetailsPage />} />
-            <Route path="/team/tournaments" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />
-            <Route path="/team/tournaments/filter/:filter" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />
-            <Route path="/team/tournaments/new" element={<LazyDashboard><TournamentEditorPage /></LazyDashboard>} />
-            <Route path="/team/tournaments/:tournamentId" element={<LazyDashboard><TeamTournamentDetailsPage /></LazyDashboard>} />
-            <Route path="/team/tournaments/:tournamentId/edit" element={<LazyDashboard><TournamentEditorPage /></LazyDashboard>} />
-            <Route path="/team/tournaments/:tournamentId/history" element={<LazyDashboard><TournamentHistoryPage /></LazyDashboard>} />
-            <Route path="/team/tournaments/:tournamentId/participants/:participantId/squad" element={<LazyDashboard><TeamTournamentSquadPage /></LazyDashboard>} />
+            {TOURNAMENTS_ENABLED ? (
+              <>
+                <Route path="/team/tournaments" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/filter/:filter" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/new" element={<LazyDashboard><TournamentEditorPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId" element={<LazyDashboard><TeamTournamentDetailsPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId/edit" element={<LazyDashboard><TournamentEditorPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId/history" element={<LazyDashboard><TournamentHistoryPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId/lineups" element={<LazyDashboard><TeamTournamentLineupsPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId/lineups/new" element={<LazyDashboard><TeamTournamentLineupsPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId/lineups/:lineupId" element={<LazyDashboard><TeamTournamentLineupEditorPage /></LazyDashboard>} />
+                <Route path="/team/tournaments/:tournamentId/participants/:participantId/squad" element={<LazyDashboard><TeamTournamentSquadPage /></LazyDashboard>} />
+              </>
+            ) : (
+              <Route path="/team/tournaments/*" element={<Navigate to="/tournaments-coming-soon" replace />} />
+            )}
             <Route path="/team/matches" element={<TeamMatchesPage />} />
             <Route path="/team/matches/new" element={<MatchEditorPage />} />
             <Route
@@ -380,6 +426,10 @@ function App() {
             <Route
               path="/team/matches/:matchId/result"
               element={<MatchResultPage audience="team" />}
+            />
+            <Route
+              path="/team/matches/:matchId/direct-result"
+              element={<DirectResultPage audience="team" />}
             />
             <Route
               path="/team/statistics"

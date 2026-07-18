@@ -56,6 +56,7 @@ export const serializePublicMatchCard = (match, now = new Date()) => {
     team: safeTeam(match.team),
     opponent: { name: match.opponent?.name || "" },
     status: match.status,
+    matchMode: match.matchMode || "stream",
     currentPeriod: match.currentPeriod,
     teamSide: match.teamSide,
     scheduledAt: match.scheduledAt,

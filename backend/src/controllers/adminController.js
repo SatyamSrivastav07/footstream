@@ -17,7 +17,7 @@ const uniqueSlug = async (name) => {
 };
 
 export const createTeam = asyncHandler(async (req, res) => {
-  const { name, description = '', location = '', shortName = '', city = '', coach = '', homeGround = '', founded = null, socialLinks = {}, isPublished = false, acceptingJoinRequests = true } = req.body;
+  const { name, description = '', location = '', shortName = '', city = '', coach = '', homeGround = '', organization = '', teamType = '', founded = null, socialLinks = {}, isPublished = false, acceptingJoinRequests = true } = req.body;
   const team = await Team.create({
     name,
     slug: await uniqueSlug(name),
@@ -27,10 +27,15 @@ export const createTeam = asyncHandler(async (req, res) => {
     city,
     coach,
     homeGround,
+    organization,
+    teamType,
     founded,
     socialLinks,
     isPublished,
     acceptingJoinRequests,
+    status: 'approved',
+    approvedAt: new Date(),
+    approvedBy: req.user._id,
     createdBy: req.user._id,
   });
 

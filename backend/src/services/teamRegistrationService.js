@@ -39,6 +39,8 @@ const safeRequest = (request, { admin = false } = {}) => ({
   submittedAt: request.submittedAt || request.createdAt,
   reviewedAt: request.reviewedAt,
   rejectionReason: request.status === 'rejected' ? request.rejectionReason : undefined,
+  changeRequestMessage: request.status === 'changesRequested' ? request.changeRequestMessage : undefined,
+  changesRequestedAt: request.changesRequestedAt,
   createdTeam: admin && request.createdTeam ? idString(request.createdTeam) : undefined,
   createdAdmin: admin && request.createdAdmin ? idString(request.createdAdmin) : undefined,
   createdAt: admin ? request.createdAt : undefined,
@@ -66,7 +68,7 @@ export const submitTeamRegistrationRequest = async ({
   const approvedTeam = await teamModel.exists({ name: { $regex: `^${normalizedTeamName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }, isArchived: false });
   if (approvedTeam) throw new AppError('A team with this name already exists on FootStream.', 409, 'TEAM_ALREADY_EXISTS');
   const duplicate = await requestModel.exists({
-    status: 'pending',
+    status: { $in: ['pending', 'changesRequested'] },
     $or: [{ email }, { phone }, { normalizedTeamName }],
   });
   if (duplicate) throw new AppError('A pending team registration request already exists for this team, email, or phone.', 409, 'TEAM_REGISTRATION_DUPLICATE');
@@ -154,7 +156,7 @@ export const approveTeamRegistrationRequest = async ({
 }) => {
   const request = await requestModel.findById(requestId);
   if (!request) throw new AppError('Team registration request not found.', 404, 'TEAM_REGISTRATION_NOT_FOUND');
-  if (request.status !== 'pending') throw new AppError('Only pending team registration requests can be approved.', 409, 'TEAM_REGISTRATION_NOT_PENDING');
+  if (!['pending', 'changesRequested'].includes(request.status)) throw new AppError('Only pending or changes-requested team registration requests can be approved.', 409, 'TEAM_REGISTRATION_NOT_PENDING');
   const slug = slugify(input.slug || input.teamName || request.teamName);
   if (!slug) throw new AppError('Enter a valid team slug.', 400, 'TEAM_SLUG_REQUIRED');
   if (await teamModel.exists({ slug })) throw new AppError('Team slug already exists.', 409, 'TEAM_SLUG_EXISTS');
@@ -174,8 +176,11 @@ export const approveTeamRegistrationRequest = async ({
       socialLinks: { instagram: request.instagramUrl, website: request.websiteUrl },
       logo: request.logo || '',
       coverPhoto: request.cover || '',
-      isPublished: false,
+      isPublished: true,
       acceptingJoinRequests: true,
+      status: 'approved',
+      approvedAt: new Date(),
+      approvedBy: reviewerId,
       createdBy: reviewerId,
     });
     admin = await userModel.create({
@@ -208,6 +213,20 @@ export const rejectTeamRegistrationRequest = async ({ requestModel = TeamRegistr
   request.reviewedBy = reviewerId;
   request.reviewedAt = new Date();
   request.rejectionReason = clean(rejectionReason);
+  await request.save();
+  return safeRequest(request.toObject(), { admin: true });
+};
+
+export const requestTeamRegistrationChanges = async ({ requestModel = TeamRegistrationRequest, requestId, reviewerId, message }) => {
+  const request = await requestModel.findById(requestId);
+  if (!request) throw new AppError('Team registration request not found.', 404, 'TEAM_REGISTRATION_NOT_FOUND');
+  if (request.status !== 'pending') throw new AppError('Only pending team registration requests can receive change requests.', 409, 'TEAM_REGISTRATION_NOT_PENDING');
+  request.status = 'changesRequested';
+  request.reviewedBy = reviewerId;
+  request.reviewedAt = new Date();
+  request.changesRequestedBy = reviewerId;
+  request.changesRequestedAt = new Date();
+  request.changeRequestMessage = clean(message);
   await request.save();
   return safeRequest(request.toObject(), { admin: true });
 };

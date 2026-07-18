@@ -14,7 +14,9 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import Brand from "../components/Brand.jsx";
+import PublicFooter from "../components/PublicFooter.jsx";
 import PublicHeaderSearch from "../components/PublicHeaderSearch.jsx";
+import { TOURNAMENTS_ENABLED } from "../config/features.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 const links = [
@@ -22,7 +24,7 @@ const links = [
   ["/live", Radio, "Live"],
   ["/fixtures", CalendarDays, "Fixtures"],
   ["/results", Trophy, "Results"],
-  ["/tournaments", Trophy, "Tournament"],
+  [TOURNAMENTS_ENABLED ? "/tournaments" : "/tournaments-coming-soon", Trophy, "Tournament"],
   ["/teams", Users, "Teams"],
   ["/register-team", UserPlus, "Register Your Team"],
 ];
@@ -39,6 +41,7 @@ export default function PublicLayout() {
       ? "/admin"
       : "/team"
     : "/login";
+
   useEffect(() => {
     setOpen(false);
     window.scrollTo({ top: 0, behavior: "auto" });
@@ -46,6 +49,7 @@ export default function PublicLayout() {
       mainRef.current?.focus({ preventScroll: true }),
     );
   }, [pathname]);
+
   useEffect(() => {
     if (!open) return undefined;
     window.requestAnimationFrame(() => firstMenuItemRef.current?.focus());
@@ -58,6 +62,7 @@ export default function PublicLayout() {
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [open]);
+
   return (
     <div className="min-h-screen bg-[#07110d] text-white">
       <a className="skip-link" href="#public-main">
@@ -87,7 +92,13 @@ export default function PublicLayout() {
           </nav>
           <div className="flex items-center gap-2">
             <PublicHeaderSearch />
-            <NavLink to="/search" className="icon-button hidden lg:grid xl:hidden" aria-label="Search FootStream"><Search size={17} /></NavLink>
+            <NavLink
+              to="/search"
+              className="icon-button hidden lg:grid xl:hidden"
+              aria-label="Search FootStream"
+            >
+              <Search size={17} />
+            </NavLink>
             <Link
               className="secondary-button hidden sm:inline-flex"
               to={destination}
@@ -153,12 +164,7 @@ export default function PublicLayout() {
       >
         <Outlet />
       </main>
-      <footer className="border-t border-white/[0.07] bg-[#08140f]">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-5 py-8 text-sm text-emerald-100/40 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p>FootStream · Football live, fixtures, and results.</p>
-          <p>Public viewing requires no account.</p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

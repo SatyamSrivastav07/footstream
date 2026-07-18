@@ -3,14 +3,27 @@ import {
   createTeam,
   createTeamAdmin,
   getTeamAdmins,
-  getTeams,
   removeTeamCover,
   removeTeamLogo,
   setTeamAdminStatus,
-  updateTeam,
   uploadTeamCover as uploadTeamCoverController,
   uploadTeamLogo as uploadTeamLogoController,
 } from '../controllers/adminController.js';
+import {
+  approveTeamForAdmin,
+  archiveTeamForAdmin,
+  getTeamForAdmin,
+  listAssignableAdminsForAdmin,
+  listPendingTeamsForAdmin,
+  listTeamsForAdmin,
+  patchTeamAdminForAdmin,
+  patchTeamForAdmin,
+  patchTeamStatusForAdmin,
+  reactivateTeamForAdmin,
+  rejectTeamForAdmin,
+  requestTeamChangesForAdmin,
+  suspendTeamForAdmin,
+} from '../controllers/adminTeamController.js';
 import { listPlayersForAdmin } from '../controllers/playerController.js';
 import { protect, requireRole } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
@@ -19,7 +32,6 @@ import {
   createTeamAdminValidator,
   createTeamValidator,
   statusValidator,
-  updateTeamValidator,
 } from '../validators/adminValidators.js';
 import { teamIdValidator } from '../validators/playerValidators.js';
 import { getAdminMatch, listAdminMatches } from '../controllers/matchController.js';
@@ -30,6 +42,8 @@ import { getAdminPlayerStats, getAnyPhotos, getAnyResult, getTeamHistory, getTea
 import { playerStatsValidator, resultIdValidator, teamStatsValidator } from '../validators/phaseFiveValidators.js';
 import { readAdminStream } from '../controllers/streamController.js';
 import { streamIdValidator } from '../validators/streamValidators.js';
+import { getAdminDirectResult, putAdminDirectResult } from '../controllers/directResultController.js';
+import { directResultIdValidator, directResultValidator } from '../validators/directResultValidators.js';
 import { uploadTeamCover, uploadTeamLogo, validateTeamImageSignature } from '../middleware/photoUpload.js';
 import { getAdminJoinRequest, listAdminTeamJoinRequests } from '../controllers/joinRequestController.js';
 import { joinRequestIdValidator, listJoinRequestsValidator } from '../validators/joinRequestValidators.js';
@@ -38,13 +52,26 @@ import {
   getAdminTeamRegistrationRequest,
   listAdminTeamRegistrationRequests,
   rejectAdminTeamRegistrationRequest,
+  requestChangesAdminTeamRegistrationRequest,
 } from '../controllers/teamRegistrationController.js';
 import {
   approveTeamRegistrationValidator,
   listTeamRegistrationValidator,
   rejectTeamRegistrationValidator,
+  requestChangesTeamRegistrationValidator,
   teamRegistrationIdValidator,
 } from '../validators/teamRegistrationValidators.js';
+import {
+  adminTeamIdValidator,
+  adminTeamListValidator,
+  adminTeamOptionalReasonValidator,
+  adminTeamReasonValidator,
+  adminTeamStatusValidator,
+  adminTeamUpdateValidator,
+  assignTeamAdminValidator,
+  assignableAdminsValidator,
+  pendingTeamListValidator,
+} from '../validators/adminTeamValidators.js';
 import {
   adminApproveTournament,
   adminArchiveTournament,
@@ -62,6 +89,11 @@ import {
   adminTournamentSquads,
 } from '../controllers/tournamentSquadController.js';
 import {
+  adminLineup,
+  adminLineupHistory,
+  adminLineups,
+} from '../controllers/tournamentLineupController.js';
+import {
   requiredMessageValidator,
   requiredReasonValidator,
   reviewActionValidator,
@@ -69,13 +101,25 @@ import {
   tournamentListValidator,
 } from '../validators/tournamentValidators.js';
 import { squadParamsValidator, squadListValidator } from '../validators/tournamentSquadValidators.js';
+import { lineupListValidator, lineupParamsValidator } from '../validators/tournamentLineupValidators.js';
 import { tournamentAdminReviewLimiter, tournamentApprovalLimiter } from '../middleware/rateLimiters.js';
 
 const router = Router();
 
 router.use(protect, requireRole(USER_ROLES.SUPER_ADMIN));
-router.route('/teams').get(getTeams).post(createTeamValidator, validate, createTeam);
-router.patch('/teams/:teamId', updateTeamValidator, validate, updateTeam);
+router.route('/teams').get(adminTeamListValidator, validate, listTeamsForAdmin).post(createTeamValidator, validate, createTeam);
+router.get('/teams/pending', pendingTeamListValidator, validate, listPendingTeamsForAdmin);
+router.get('/teams/:teamId', adminTeamIdValidator, validate, getTeamForAdmin);
+router.patch('/teams/:teamId', adminTeamUpdateValidator, validate, patchTeamForAdmin);
+router.patch('/teams/:teamId/status', adminTeamStatusValidator, validate, patchTeamStatusForAdmin);
+router.post('/teams/:teamId/approve', adminTeamOptionalReasonValidator, validate, approveTeamForAdmin);
+router.post('/teams/:teamId/reject', adminTeamReasonValidator, validate, rejectTeamForAdmin);
+router.post('/teams/:teamId/request-changes', adminTeamReasonValidator, validate, requestTeamChangesForAdmin);
+router.post('/teams/:teamId/suspend', adminTeamReasonValidator, validate, suspendTeamForAdmin);
+router.post('/teams/:teamId/reactivate', adminTeamOptionalReasonValidator, validate, reactivateTeamForAdmin);
+router.post('/teams/:teamId/archive', adminTeamOptionalReasonValidator, validate, archiveTeamForAdmin);
+router.patch('/teams/:teamId/team-admin', assignTeamAdminValidator, validate, patchTeamAdminForAdmin);
+router.get('/team-admins/assignable', assignableAdminsValidator, validate, listAssignableAdminsForAdmin);
 router.put('/teams/:teamId/logo', teamIdValidator, validate, uploadTeamLogo, validateTeamImageSignature, uploadTeamLogoController);
 router.delete('/teams/:teamId/logo', teamIdValidator, validate, removeTeamLogo);
 router.put('/teams/:teamId/cover', teamIdValidator, validate, uploadTeamCover, validateTeamImageSignature, uploadTeamCoverController);
@@ -87,10 +131,14 @@ router.get('/team-registration-requests', listTeamRegistrationValidator, validat
 router.get('/team-registration-requests/:requestId', teamRegistrationIdValidator, validate, getAdminTeamRegistrationRequest);
 router.patch('/team-registration-requests/:requestId/approve', approveTeamRegistrationValidator, validate, approveAdminTeamRegistrationRequest);
 router.patch('/team-registration-requests/:requestId/reject', rejectTeamRegistrationValidator, validate, rejectAdminTeamRegistrationRequest);
+router.patch('/team-registration-requests/:requestId/request-changes', requestChangesTeamRegistrationValidator, validate, requestChangesAdminTeamRegistrationRequest);
 router.get('/tournaments', tournamentListValidator, validate, adminListTournaments);
 router.get('/tournaments/:tournamentId', tournamentIdValidator, validate, adminGetTournament);
 router.get('/tournaments/:tournamentId/review-history', tournamentIdValidator, validate, adminTournamentReviewHistory);
 router.get('/tournaments/:tournamentId/squads', squadListValidator, validate, adminTournamentSquads);
+router.get('/tournaments/:tournamentId/lineups', lineupListValidator, validate, adminLineups);
+router.get('/tournaments/:tournamentId/lineups/:lineupId', lineupParamsValidator, validate, adminLineup);
+router.get('/tournaments/:tournamentId/lineups/:lineupId/history', lineupParamsValidator, validate, adminLineupHistory);
 router.get('/tournaments/:tournamentId/participants/:participantId/squad', squadParamsValidator, validate, adminParticipantSquad);
 router.get('/tournaments/:tournamentId/participants/:participantId/squad/history', squadParamsValidator, validate, adminParticipantSquadHistory);
 router.patch('/tournaments/:tournamentId/approve', tournamentApprovalLimiter, reviewActionValidator, validate, adminApproveTournament);
@@ -108,6 +156,10 @@ router.get('/matches/:matchId/live-state', matchIdValidator, validateMatch, getA
 router.get('/matches/:matchId/events', matchIdValidator, validateMatch, getAdminEvents);
 router.get('/matches/:matchId/stream', streamIdValidator, validateMatch, readAdminStream);
 router.get('/matches/:matchId/result', resultIdValidator, validateMatch, getAnyResult);
+router.route('/matches/:matchId/direct-result')
+  .get(directResultIdValidator, validateMatch, getAdminDirectResult)
+  .post(directResultValidator, validateMatch, putAdminDirectResult)
+  .patch(directResultValidator, validateMatch, putAdminDirectResult);
 router.get('/matches/:matchId/photos', resultIdValidator, validateMatch, getAnyPhotos);
 router.get('/teams/:teamId/statistics', teamStatsValidator, validateMatch, getTeamStatistics);
 router.get('/teams/:teamId/leaderboards', teamStatsValidator, validateMatch, getTeamLeaderboards);

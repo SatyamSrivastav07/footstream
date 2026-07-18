@@ -1,4 +1,4 @@
-import { ArrowLeft, Bell, Pencil, Radio, Trophy } from 'lucide-react';
+import { ArrowLeft, Bell, ClipboardCheck, Pencil, Radio, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api/client.js';
@@ -19,6 +19,7 @@ export default function TeamMatchDetailsPage() {
   const canEdit = match.permissions?.canEditDetails !== false || match.permissions?.canEditLineup !== false;
   const canControlLive = match.permissions?.canControlLive !== false;
   const canManageStream = match.permissions?.canManageStream !== false;
+  const isDirectMatch = match.matchMode === 'direct';
   const resultPath = match.permissions?.canManage === false ? `/matches/${match._id}/result` : `/team/matches/${match._id}/result`;
   const sendReminder = async () => {
     setReminderBusy(true); setReminderNotice('');
@@ -31,5 +32,5 @@ export default function TeamMatchDetailsPage() {
       setReminderBusy(false);
     }
   };
-  return <><div className="mb-7 flex flex-wrap items-center justify-between gap-3"><Link to="/team/matches" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 hover:text-lime-200"><ArrowLeft size={16} /> Back to matches</Link><div className="flex gap-2">{match.status === 'scheduled' && canControlLive && <button type="button" className="secondary-button" disabled={reminderBusy} onClick={sendReminder}><Bell size={16} /> Send reminder</button>}{match.status === 'scheduled' && canEdit && <Link to={`/team/matches/${match._id}/edit`} className="secondary-button"><Pencil size={16} /> Edit match</Link>}{match.status === 'completed' && <Link to={resultPath} className="primary-button"><Trophy size={16} /> Result</Link>}{['scheduled', 'live', 'half_time'].includes(match.status) && <Link to={`/team/matches/${match._id}/live`} className={canControlLive ? 'primary-button' : 'secondary-button'}><Radio size={16} /> {canControlLive ? 'Live control' : 'Live view'}</Link>}</div></div>{reminderNotice && <div className="mb-5 rounded-xl border border-lime-300/20 bg-lime-300/10 p-3 text-sm text-lime-100">{reminderNotice}</div>}<MatchDetails match={match} fallbackTeamName={user.team?.name} />{canManageStream && <MatchStreamManager matchId={match._id} matchStatus={match.status} />}</>;
+  return <><div className="mb-7 flex flex-wrap items-center justify-between gap-3"><Link to="/team/matches" className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-100/50 hover:text-lime-200"><ArrowLeft size={16} /> Back to matches</Link><div className="flex gap-2">{match.status === 'scheduled' && canControlLive && !isDirectMatch && <button type="button" className="secondary-button" disabled={reminderBusy} onClick={sendReminder}><Bell size={16} /> Send reminder</button>}{match.status === 'scheduled' && canEdit && <Link to={`/team/matches/${match._id}/edit`} className="secondary-button"><Pencil size={16} /> Edit match</Link>}{isDirectMatch && ['scheduled', 'completed'].includes(match.status) && match.permissions?.canManage !== false && <Link to={`/team/matches/${match._id}/direct-result`} className="primary-button"><ClipboardCheck size={16} /> {match.status === 'completed' ? 'Edit direct result' : 'Input result'}</Link>}{match.status === 'completed' && <Link to={resultPath} className="primary-button"><Trophy size={16} /> Result</Link>}{!isDirectMatch && ['scheduled', 'live', 'half_time'].includes(match.status) && <Link to={`/team/matches/${match._id}/live`} className={canControlLive ? 'primary-button' : 'secondary-button'}><Radio size={16} /> {canControlLive ? 'Live control' : 'Live view'}</Link>}</div></div>{reminderNotice && <div className="mb-5 rounded-xl border border-lime-300/20 bg-lime-300/10 p-3 text-sm text-lime-100">{reminderNotice}</div>}<MatchDetails match={match} fallbackTeamName={user.team?.name} />{canManageStream && !isDirectMatch && <MatchStreamManager matchId={match._id} matchStatus={match.status} />}</>;
 }

@@ -13,6 +13,12 @@ const compactSnapshotSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   jerseyNumber: { type: Number, default: null },
   position: { type: String, required: true },
+  slotId: { type: String, trim: true, maxlength: 20, default: '' },
+  lineIndex: { type: Number, min: 0, max: 8, default: null },
+  positionIndex: { type: Number, min: 0, max: 20, default: null },
+  roleLabel: { type: String, trim: true, maxlength: 40, default: '' },
+  x: { type: Number, min: 0, max: 1, default: null },
+  y: { type: Number, min: 0, max: 1, default: null },
 }, { _id: false });
 
 const ownGoalBySchema = new mongoose.Schema({

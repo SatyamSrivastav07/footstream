@@ -32,7 +32,10 @@ export const findCompletedMatch = async ({ matchModel = Match, matchId, teamId }
   if (teamId) filter.team = teamId;
   const match = await matchModel.findOne(filter);
   if (!match) throw new AppError('Completed match not found.', 404, 'COMPLETED_MATCH_NOT_FOUND');
-  if (typeof match.populate === 'function') await match.populate('team', 'name slug logo');
+  if (typeof match.populate === 'function') {
+    await match.populate('team', 'name slug logo');
+    await match.populate('registeredOpponentTeam', 'name slug logo');
+  }
   return match;
 };
 

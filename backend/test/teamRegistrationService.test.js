@@ -6,12 +6,14 @@ import {
   approveTeamRegistrationRequest,
   getPublicTeamRegistrationStatus,
   rejectTeamRegistrationRequest,
+  requestTeamRegistrationChanges,
   submitTeamRegistrationRequest,
 } from '../src/services/teamRegistrationService.js';
 import { validateTeamRegistrationMediaSignatures } from '../src/middleware/photoUpload.js';
 import {
   approveTeamRegistrationValidator,
   rejectTeamRegistrationValidator,
+  requestChangesTeamRegistrationValidator,
   submitTeamRegistrationValidator,
 } from '../src/validators/teamRegistrationValidators.js';
 
@@ -274,5 +276,26 @@ test('rejection requires safe reason and marks only pending requests', async () 
     requestId,
     reviewerId,
     rejectionReason: 'Already reviewed.',
+  }), (error) => error.code === 'TEAM_REGISTRATION_NOT_PENDING');
+});
+
+test('request changes marks pending registration without creating team records', async () => {
+  const validationErrors = await runValidators(requestChangesTeamRegistrationValidator, { message: 'no' });
+  assert.ok(validationErrors.some((error) => error.path === 'message'));
+  const request = requestDocument();
+  const data = await requestTeamRegistrationChanges({
+    requestModel: requestModel({ found: request }),
+    requestId,
+    reviewerId,
+    message: 'Please upload a clearer team logo.',
+  });
+  assert.equal(data.status, 'changesRequested');
+  assert.equal(data.changeRequestMessage, 'Please upload a clearer team logo.');
+  assert.equal(request.createdTeam, undefined);
+  await assert.rejects(requestTeamRegistrationChanges({
+    requestModel: requestModel({ found: requestDocument({ status: 'approved' }) }),
+    requestId,
+    reviewerId,
+    message: 'Already reviewed.',
   }), (error) => error.code === 'TEAM_REGISTRATION_NOT_PENDING');
 });

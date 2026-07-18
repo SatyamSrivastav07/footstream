@@ -5,6 +5,7 @@ import { validationResult } from "express-validator";
 import {
   approveJoinRequest,
   getJoinRequestStatus,
+  listJoinRequestsForTeam,
   normalizePhone,
   publicStatusResponse,
   rejectJoinRequest,
@@ -204,4 +205,39 @@ test("rejection saves reason, creates no player, and cleans applicant photo", as
 
 test("phone normalization keeps a public-safe canonical duplicate key", () => {
   assert.equal(normalizePhone("+91 (98765) 43210"), "+919876543210");
+});
+
+test("all-status join requests are newest first so newer pending applications stay on page one", async () => {
+  const rows = [
+    requestDocument({ _id: "pending-new-1", status: "pending", createdAt: new Date("2031-01-03") }),
+    requestDocument({ _id: "pending-new-2", status: "pending", createdAt: new Date("2031-01-02") }),
+    requestDocument({ _id: "pending-new-3", status: "pending", createdAt: new Date("2031-01-01") }),
+    ...Array.from({ length: 19 }, (_, index) => requestDocument({ _id: `approved-${index}`, status: "approved", createdAt: new Date(`2030-12-${String(20 - index).padStart(2, "0")}`) })),
+  ];
+  let sortSpec = null;
+  const model = {
+    find: () => ({
+      sort: (spec) => {
+        sortSpec = spec;
+        return {
+          skip: () => ({
+            limit: (limit) => ({
+              lean: async () => [...rows]
+                .sort((a, b) => b.createdAt - a.createdAt || String(b._id).localeCompare(String(a._id)))
+                .slice(0, limit),
+            }),
+          }),
+        };
+      },
+    }),
+    countDocuments: async () => rows.length,
+    aggregate: async () => [
+      { _id: "pending", count: 3 },
+      { _id: "approved", count: 19 },
+    ],
+  };
+  const data = await listJoinRequestsForTeam({ requestModel: model, teamId: "team1", query: { page: 1, limit: 20 } });
+  assert.deepEqual(sortSpec, { createdAt: -1, _id: -1 });
+  assert.equal(data.requests.filter((request) => request.status === "pending").length, 3);
+  assert.equal(data.pagination.total, 22);
 });

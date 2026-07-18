@@ -72,9 +72,24 @@ export const TOURNAMENT_SQUAD_STATUS = Object.freeze({
   REJECTED: 'rejected',
 });
 
+export const TOURNAMENT_LINEUP_STATUS = Object.freeze({
+  DRAFT: 'draft',
+  SUBMITTED: 'submitted',
+  LOCKED: 'locked',
+});
+
 export const TOURNAMENT_PLAYER_SOURCE_TYPE = Object.freeze({
   REGISTERED_PLAYER: 'registered_player',
   MANUAL_PLAYER: 'manual_player',
+});
+
+export const TOURNAMENT_FORMATION_PRESETS = Object.freeze({
+  5: Object.freeze(['1-2-1', '1-1-2', '2-1-1']),
+  6: Object.freeze(['2-2-1', '2-1-2', '1-3-1']),
+  7: Object.freeze(['2-3-1', '3-2-1', '2-2-2']),
+  8: Object.freeze(['3-3-1', '2-3-2', '3-2-2']),
+  9: Object.freeze(['3-3-2', '3-2-3', '2-3-3']),
+  11: Object.freeze(['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '3-4-3']),
 });
 
 export const MATCH_STATISTIC_SCOPE = Object.freeze({
@@ -268,6 +283,14 @@ export const starterCountForTournament = ({ matchFormatLabel, playersOnField } =
     return isValidPlayersOnField(playersOnField) ? playersOnField : null;
   }
   return MATCH_FORMAT_PLAYERS_ON_FIELD[matchFormatLabel] || null;
+};
+
+export const startersForMatchFormat = (matchFormatLabel, playersOnField) =>
+  starterCountForTournament({ matchFormatLabel, playersOnField });
+
+export const outfieldPlayersForMatchFormat = (matchFormatLabel, playersOnField) => {
+  const starters = startersForMatchFormat(matchFormatLabel, playersOnField);
+  return starters ? starters - 1 : null;
 };
 
 export const validateApprovalTransition = (fromStatus, toStatus) =>

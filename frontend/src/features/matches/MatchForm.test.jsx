@@ -40,9 +40,15 @@ test('match form renders registered opponent mode with opponent lineup controls'
     />,
   );
   assert.match(html, /Registered Team/);
+  assert.match(html, /Stream Match/);
+  assert.match(html, /Direct Input Result/);
   assert.match(html, /Match Format/);
+  assert.match(html, /How do you want to manage this match/);
+  assert.match(html, /Stream Match/);
   assert.match(html, /Search registered opponent/);
   assert.match(html, /Registered opponent lineup/);
+  assert.match(html, /Formation pitch/);
+  assert.match(html, /Substitutions inherit this slot during live display/);
   assert.match(html, /Add temporary player/);
   assert.match(html, /Opponent starters/);
   assert.doesNotMatch(html, /Search Registered Team/);

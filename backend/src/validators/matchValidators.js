@@ -1,10 +1,10 @@
 import { body, param, query } from 'express-validator';
-import { MATCH_FORMATS, MATCH_FORMATIONS, MATCH_STATUSES, MATCH_TYPES, TEAM_SIDES } from '../models/Match.js';
+import { MATCH_FORMATS, MATCH_FORMATIONS, MATCH_MODES, MATCH_STATUSES, MATCH_TYPES, TEAM_SIDES } from '../models/Match.js';
 
 const editable = [
   'opponent', 'tournament', 'venue', 'matchType', 'teamSide', 'scheduledAt', 'formation',
   'customFormation', 'startingPlayerIds', 'substitutePlayerIds', 'notes', 'opponentMode',
-  'registeredOpponentTeam', 'opponentLineup', 'matchFormat',
+  'registeredOpponentTeam', 'opponentLineup', 'matchFormat', 'lineupPlacements', 'matchMode',
 ];
 
 const rejectUnknown = (allowed) => body().custom((value) => {
@@ -57,6 +57,7 @@ const matchFields = (required) => [
   body('opponentLineup.*.*.jerseyNumber').optional({ nullable: true }).isInt({ min: 1, max: 99 }).withMessage('Temporary opponent jersey number must be 1 to 99.').toInt(),
   body('tournament').optional().isString().withMessage('Tournament must be text.').trim().isLength({ max: 160 }).withMessage('Tournament is too long.'),
   required ? body('matchFormat').optional().isIn(MATCH_FORMATS).withMessage('Select a valid match format.') : body('matchFormat').optional().isIn(MATCH_FORMATS).withMessage('Select a valid match format.'),
+  body('matchMode').optional().isIn(MATCH_MODES).withMessage('Choose Stream Match or Direct Input Result.'),
   required
     ? body('venue').isString().withMessage('Venue must be text.').trim().isLength({ min: 2, max: 200 }).withMessage('Venue must be 2 to 200 characters.')
     : body('venue').optional().isString().withMessage('Venue must be text.').trim().isLength({ min: 2, max: 200 }).withMessage('Venue must be 2 to 200 characters.'),
@@ -71,6 +72,14 @@ const matchFields = (required) => [
   body('startingPlayerIds.*').isMongoId().withMessage('Starting XI contains an invalid player.'),
   body('substitutePlayerIds').optional().isArray({ max: 30 }).withMessage('Substitutes must be an array of at most 30 players.'),
   body('substitutePlayerIds.*').isMongoId().withMessage('Substitutes contain an invalid player.'),
+  body('lineupPlacements').optional().isObject().withMessage('Lineup placements must be an object.'),
+  body('lineupPlacements').optional().custom((value) => {
+    Object.entries(value || {}).forEach(([playerId, slotId]) => {
+      if (!/^[a-f\d]{24}$/i.test(playerId)) throw new Error('Lineup placement contains an invalid player.');
+      if (typeof slotId !== 'string' || !/^(GK|L\d+-P\d+)$/.test(slotId)) throw new Error('Lineup placement contains an invalid pitch slot.');
+    });
+    return true;
+  }),
   body('notes').optional().isString().withMessage('Notes must be text.').trim().isLength({ max: 2000 }).withMessage('Notes cannot exceed 2000 characters.'),
   body().custom((value) => {
     if (value.formation === 'custom' && !value.customFormation?.trim()) throw new Error('Custom formation is required.');

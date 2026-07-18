@@ -19,6 +19,12 @@ export const compactSnapshot = (snapshot) => ({
   name: snapshot.name,
   jerseyNumber: snapshot.jerseyNumber ?? null,
   position: snapshot.position,
+  slotId: snapshot.slotId || '',
+  lineIndex: snapshot.lineIndex ?? null,
+  positionIndex: snapshot.positionIndex ?? null,
+  roleLabel: snapshot.roleLabel || '',
+  x: snapshot.x ?? null,
+  y: snapshot.y ?? null,
 });
 
 export const calculateElapsedSeconds = (match, now = new Date()) => {
@@ -58,9 +64,19 @@ export const buildCurrentLineup = (match, events) => {
     if (event.type === 'substitution') {
       const outId = idString(event.playerOut);
       const inId = idString(event.playerIn);
+      const outgoing = onField.get(outId) || event.playerOutSnapshot;
+      const incoming = {
+        ...event.playerInSnapshot,
+        slotId: outgoing?.slotId || event.playerInSnapshot?.slotId || '',
+        lineIndex: outgoing?.lineIndex ?? event.playerInSnapshot?.lineIndex ?? null,
+        positionIndex: outgoing?.positionIndex ?? event.playerInSnapshot?.positionIndex ?? null,
+        roleLabel: outgoing?.roleLabel || event.playerInSnapshot?.roleLabel || '',
+        x: outgoing?.x ?? event.playerInSnapshot?.x ?? null,
+        y: outgoing?.y ?? event.playerInSnapshot?.y ?? null,
+      };
       onField.delete(outId);
       bench.delete(inId);
-      onField.set(inId, event.playerInSnapshot);
+      onField.set(inId, incoming);
       substitutedOut.add(outId);
       entered.add(inId);
       substitutions.push({
@@ -136,6 +152,12 @@ export const assertLiveMatch = (match) => {
   if (match.status !== 'live') throw new AppError('Events can only be added while the match is live.', 409, 'MATCH_NOT_LIVE');
 };
 
+export const assertStreamMatchMode = (match) => {
+  if ((match.matchMode || 'stream') !== 'stream') {
+    throw new AppError('Direct result matches do not use live controls.', 409, 'DIRECT_MATCH_NO_LIVE');
+  }
+};
+
 export const assertCompleteLineup = (match) => {
   const matchFormat = match.matchFormat || '11v11';
   const required = starterCountForFormat(matchFormat);
@@ -157,6 +179,7 @@ const transition = async ({ matchModel = Match, teamId, matchId, userId, expecte
   if (match.status !== expectedStatus || (expectedPeriod && match.currentPeriod !== expectedPeriod)) {
     throw new AppError('That live transition is not valid right now.', 409, 'INVALID_TRANSITION');
   }
+  assertStreamMatchMode(match);
   if (expectedStatus === 'scheduled') assertCompleteLineup(match);
   Object.assign(match, typeof updates === 'function' ? updates(match, now) : updates, { updatedBy: userId });
   await match.save();
@@ -292,6 +315,7 @@ export const createMatchEvent = async ({
   matchModel = Match, eventModel = MatchEvent, teamId, matchId, userId, type, input, now = new Date(),
 }) => {
   const match = await findOwnedActiveMatch({ matchModel, teamId, matchId });
+  assertStreamMatchMode(match);
   assertLiveMatch(match);
   assertCompleteLineup(match);
   const activeEvents = await eventModel.find({ match: matchId, isUndone: false }).sort({ sequence: 1 });
@@ -309,6 +333,7 @@ export const createMatchEvent = async ({
 
 export const addAssistToGoal = async ({ eventModel = MatchEvent, matchModel = Match, teamId, matchId, eventId, userId, assistPlayerId }) => {
   const match = await findOwnedActiveMatch({ matchModel, teamId, matchId });
+  assertStreamMatchMode(match);
   assertLiveMatch(match);
   assertCompleteLineup(match);
   const activeEvents = await eventModel.find({ match: matchId, isUndone: false }).sort({ sequence: 1 });
@@ -326,6 +351,7 @@ export const addAssistToGoal = async ({ eventModel = MatchEvent, matchModel = Ma
 
 export const undoLatestEvent = async ({ eventModel = MatchEvent, matchModel = Match, teamId, matchId, userId, reason = '', now = new Date() }) => {
   const match = await findOwnedActiveMatch({ matchModel, teamId, matchId });
+  assertStreamMatchMode(match);
   assertLiveMatch(match);
   assertCompleteLineup(match);
   const event = await eventModel.findOne({ match: matchId, isUndone: false }).sort({ sequence: -1 });

@@ -2,6 +2,7 @@ import { ImagePlus, Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/client.js";
+import FootballPitchLineup from "../components/FootballPitchLineup.jsx";
 import LoadingScreen from "../components/LoadingScreen.jsx";
 import TeamIdentity from "../components/TeamIdentity.jsx";
 import EventTimeline from "../features/live/EventTimeline.jsx";
@@ -465,6 +466,17 @@ export default function MatchResultPage({ audience = "team" }) {
       </section>
       <section className="panel mt-6">
         <h2 className="panel-title">Starting XI and substitutes</h2>
+        <div className="mt-5">
+          <FootballPitchLineup
+            formation={match.formation}
+            customFormation={match.customFormation}
+            starters={match.startingXI.map((player) => ({ ...player, id: player.player, jersey: player.jerseyNumber }))}
+            goalkeeper={match.startingXI.find((player) => player.position === "GK")}
+            captain={match.startingXI.find((player) => player.isCaptain)}
+            editable={false}
+            compact
+          />
+        </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {squad.map((player, index) => (
             <div className="list-card" key={player.player}>

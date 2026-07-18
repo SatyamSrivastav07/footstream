@@ -1,18 +1,22 @@
-import { Radio } from 'lucide-react';
-
 export default function Brand({ compact = false }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid size-10 place-items-center rounded-xl bg-lime-300 text-emerald-950 shadow-[0_0_24px_rgba(190,242,100,.18)]">
-        <Radio size={20} strokeWidth={2.4} aria-hidden="true" />
-      </div>
+    <div className="flex min-w-0 items-center gap-3">
+      <img
+        src="/footstream-logo.jpeg"
+        alt="FootStream logo"
+        className="size-11 shrink-0 rounded-2xl border border-lime-300/20 bg-black object-contain shadow-[0_0_28px_rgba(132,204,22,.2)]"
+        loading="eager"
+      />
       {!compact && (
-        <div>
-          <p className="font-display text-xl font-bold tracking-tight text-white">FootStream</p>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-emerald-200/55">Command center</p>
+        <div className="min-w-0">
+          <p className="truncate font-display text-xl font-bold tracking-tight text-white">
+            FootStream
+          </p>
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.26em] text-emerald-200/55">
+            Play · Stream · Connect
+          </p>
         </div>
       )}
     </div>
   );
 }
-

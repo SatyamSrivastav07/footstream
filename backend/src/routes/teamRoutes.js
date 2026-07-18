@@ -10,7 +10,7 @@ import {
   updateTeamPlayerStatus,
   uploadTeamPlayerPhoto,
 } from '../controllers/playerController.js';
-import { protect, requireRole } from '../middleware/auth.js';
+import { protect, requireOperationalTeamForMutation, requireRole } from '../middleware/auth.js';
 import validate from '../middleware/validate.js';
 import { USER_ROLES } from '../models/User.js';
 import {
@@ -84,6 +84,8 @@ import {
 import { photoMutationValidator, photoUploadValidator, playerStatsValidator, resultIdValidator, teamStatsValidator, updateResultValidator } from '../validators/phaseFiveValidators.js';
 import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStream } from '../controllers/streamController.js';
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
+import { getTeamDirectResult, putTeamDirectResult } from '../controllers/directResultController.js';
+import { directResultIdValidator, directResultValidator } from '../validators/directResultValidators.js';
 import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejectTeamJoinRequest } from '../controllers/joinRequestController.js';
 import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
 import { body, param, query } from 'express-validator';
@@ -162,6 +164,20 @@ import {
   unlockParticipantSquad,
 } from '../controllers/tournamentSquadController.js';
 import {
+  awayEligiblePlayers,
+  getLineupHistory,
+  homeEligiblePlayers,
+  hostedLineups,
+  patchAwayLineup,
+  patchHomeLineup,
+  patchLineup,
+  postLineup,
+  postLockLineup,
+  postSubmitLineup,
+  postUnlockLineup,
+  readLineup,
+} from '../controllers/tournamentLineupController.js';
+import {
   createTournamentValidator,
   tournamentIdValidator,
   tournamentListValidator,
@@ -186,11 +202,19 @@ import {
   squadPlayerParamsValidator,
   updateSquadPlayerValidator,
 } from '../validators/tournamentSquadValidators.js';
+import {
+  createLineupValidator,
+  lineupListValidator,
+  lineupParamsValidator,
+  updateLineupSideValidator,
+  updateLineupValidator,
+} from '../validators/tournamentLineupValidators.js';
 const router = Router();
 const validateMatch = validateWithStatus(400);
 
 router.use(protect, requireRole(USER_ROLES.TEAM_ADMIN));
 router.use((req, res, next) => ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? next() : authenticatedMutationLimiter(req, res, next));
+router.use(requireOperationalTeamForMutation);
 router.get('/current', getAssignedTeam);
 router.route('/hosted-tournaments')
   .get(tournamentListValidator, validateMatch, listHosted)
@@ -208,6 +232,20 @@ router.put('/hosted-tournaments/:tournamentId/cover', uploadLimiter, tournamentI
 router.delete('/hosted-tournaments/:tournamentId/cover', tournamentMutationLimiter, tournamentIdValidator, validateMatch, deleteTournamentCover);
 router.get('/hosted-tournaments/:tournamentId/review-history', tournamentIdValidator, validateMatch, hostedReviewHistory);
 router.get('/hosted-tournaments/:tournamentId/squads', squadListValidator, validateMatch, hostedSquads);
+router.route('/hosted-tournaments/:tournamentId/lineups')
+  .get(lineupListValidator, validateMatch, hostedLineups)
+  .post(tournamentParticipantLimiter, createLineupValidator, validateMatch, postLineup);
+router.get('/hosted-tournaments/:tournamentId/lineups/:lineupId/history', lineupParamsValidator, validateMatch, getLineupHistory);
+router.get('/hosted-tournaments/:tournamentId/lineups/:lineupId/home/eligible-players', lineupParamsValidator, validateMatch, homeEligiblePlayers);
+router.get('/hosted-tournaments/:tournamentId/lineups/:lineupId/away/eligible-players', lineupParamsValidator, validateMatch, awayEligiblePlayers);
+router.patch('/hosted-tournaments/:tournamentId/lineups/:lineupId/home', tournamentParticipantLimiter, updateLineupSideValidator, validateMatch, patchHomeLineup);
+router.patch('/hosted-tournaments/:tournamentId/lineups/:lineupId/away', tournamentParticipantLimiter, updateLineupSideValidator, validateMatch, patchAwayLineup);
+router.post('/hosted-tournaments/:tournamentId/lineups/:lineupId/submit', tournamentParticipantLimiter, lineupParamsValidator, validateMatch, postSubmitLineup);
+router.post('/hosted-tournaments/:tournamentId/lineups/:lineupId/lock', tournamentParticipantLimiter, lineupParamsValidator, validateMatch, postLockLineup);
+router.post('/hosted-tournaments/:tournamentId/lineups/:lineupId/unlock', tournamentParticipantLimiter, lineupParamsValidator, validateMatch, postUnlockLineup);
+router.route('/hosted-tournaments/:tournamentId/lineups/:lineupId')
+  .get(lineupParamsValidator, validateMatch, readLineup)
+  .patch(tournamentParticipantLimiter, updateLineupValidator, validateMatch, patchLineup);
 router.get('/hosted-tournaments/:tournamentId/participants', participantListValidator, validateMatch, getTournamentParticipants);
 router.post('/hosted-tournaments/:tournamentId/participants/registered', tournamentParticipantLimiter, registeredParticipantValidator, validateMatch, postRegisteredParticipant);
 router.post('/hosted-tournaments/:tournamentId/participants/external', tournamentParticipantLimiter, manualParticipantValidator, validateMatch, postExternalParticipant);
@@ -292,6 +330,10 @@ router.patch('/matches/:matchId/stream/status', streamStatusValidator, validateM
 router.route('/matches/:matchId/result')
   .get(resultIdValidator, validateMatch, getTeamResult)
   .patch(updateResultValidator, validateMatch, patchTeamResult);
+router.route('/matches/:matchId/direct-result')
+  .get(directResultIdValidator, validateMatch, getTeamDirectResult)
+  .post(directResultValidator, validateMatch, putTeamDirectResult)
+  .patch(directResultValidator, validateMatch, putTeamDirectResult);
 router.route('/matches/:matchId/photos')
   .get(resultIdValidator, validateMatch, getTeamPhotos)
   .post(uploadLimiter, uploadMatchPhotos, validatePhotoSignatures, photoUploadValidator, validateMatch, postTeamPhotos);

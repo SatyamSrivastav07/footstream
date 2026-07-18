@@ -1,9 +1,19 @@
-import { ArrowLeft, ArrowRight, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Send, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import TeamBrandingUploader from '../components/TeamBrandingUploader.jsx';
 import { tournamentApi, unwrapData } from '../features/tournaments/api.js';
-import { TOURNAMENT_AWARD_OPTIONS, TOURNAMENT_COMPETITION_FORMAT, TOURNAMENT_MATCH_FORMAT_LABEL, TOURNAMENT_SCOPE, TOURNAMENT_TIEBREAK_OPTIONS, TOURNAMENT_VISIBILITY, formatTournamentLabel } from '../features/tournaments/constants.js';
+import {
+  TOURNAMENT_AWARD_OPTIONS,
+  TOURNAMENT_COMPETITION_FORMAT,
+  TOURNAMENT_MATCH_FORMAT_LABEL,
+  TOURNAMENT_SCOPE,
+  TOURNAMENT_TIEBREAK_OPTIONS,
+  TOURNAMENT_VISIBILITY,
+  formatTournamentLabel,
+  outfieldPlayersForMatchFormat,
+  startersForMatchFormat,
+} from '../features/tournaments/constants.js';
 
 const initial = {
   name: '', shortName: '', seriesName: '', seasonLabel: '', description: '', scope: TOURNAMENT_SCOPE.INTER_COLLEGE, competitionFormat: TOURNAMENT_COMPETITION_FORMAT.LEAGUE, visibility: TOURNAMENT_VISIBILITY.PRIVATE,
@@ -13,6 +23,21 @@ const initial = {
 };
 const steps = ['Basic Information', 'Venue', 'Dates', 'Competition', 'Review'];
 const isoDate = (value) => value ? String(value).slice(0, 10) : '';
+const editableTournamentFields = Object.keys(initial);
+
+const buildTournamentPayload = (form) => {
+  const payload = Object.fromEntries(editableTournamentFields.map((field) => [field, form[field]]));
+  const derivedPlayersOnField = startersForMatchFormat(form.matchFormat, form.playersOnField);
+  return {
+    ...payload,
+    playersOnField: derivedPlayersOnField,
+    minimumTeams: Number(form.minimumTeams),
+    maximumTeams: Number(form.maximumTeams),
+    winPoints: Number(form.winPoints),
+    drawPoints: Number(form.drawPoints),
+    lossPoints: Number(form.lossPoints),
+  };
+};
 
 export default function TournamentEditorPage() {
   const { tournamentId } = useParams();
@@ -20,18 +45,29 @@ export default function TournamentEditorPage() {
   const editing = Boolean(tournamentId);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(initial);
+  const [participants, setParticipants] = useState([]);
   const [locked, setLocked] = useState(false);
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const update = (field, value) => setForm((current) => {
+    if (field === 'matchFormat') {
+      const starters = startersForMatchFormat(value, current.playersOnField) || current.playersOnField;
+      return { ...current, matchFormat: value, playersOnField: starters };
+    }
+    return { ...current, [field]: value };
+  });
   const load = useCallback(async () => {
     if (!editing) return;
     setLoading(true);
     try {
-      const response = await tournamentApi.getHosted(tournamentId);
+      const [response, participantResponse] = await Promise.all([
+        tournamentApi.getHosted(tournamentId),
+        tournamentApi.participants(tournamentId).catch(() => ({ data: { data: { participants: [] } } })),
+      ]);
       const tournament = unwrapData(response).tournament;
       setForm({ ...initial, ...tournament, registrationOpen: isoDate(tournament.registrationOpen), registrationClose: isoDate(tournament.registrationClose), startDate: isoDate(tournament.startDate), endDate: isoDate(tournament.endDate) });
+      setParticipants(unwrapData(participantResponse).participants || []);
       setLocked(!['draft', 'changes_requested'].includes(tournament.approvalStatus));
     } catch (requestError) { setError(requestError.userMessage); }
     finally { setLoading(false); }
@@ -42,15 +78,40 @@ export default function TournamentEditorPage() {
     if (locked || saving) return;
     setSaving(true);
     try {
-      const payload = { ...form, playersOnField: Number(form.playersOnField), minimumTeams: Number(form.minimumTeams), maximumTeams: Number(form.maximumTeams), winPoints: Number(form.winPoints), drawPoints: Number(form.drawPoints), lossPoints: Number(form.lossPoints) };
+      const payload = buildTournamentPayload(form);
       const response = editing ? await tournamentApi.updateHosted(tournamentId, payload) : await tournamentApi.createHosted(payload);
       navigate(`/team/tournaments/${unwrapData(response).tournament.id}`);
     } catch (requestError) { setError(requestError.userMessage); }
     finally { setSaving(false); }
   };
+  const deleteDraft = async () => {
+    if (!editing || form.approvalStatus !== 'draft' || saving) return;
+    if (!window.confirm('Delete this tournament draft permanently? This cannot be undone.')) return;
+    setSaving(true); setError('');
+    try { await tournamentApi.deleteHosted(tournamentId); navigate('/team/tournaments'); }
+    catch (requestError) { setError(requestError.userMessage); }
+    finally { setSaving(false); }
+  };
+  const submitForApproval = async () => {
+    if (!editing || locked || saving) return;
+    if (form.scope === TOURNAMENT_SCOPE.INTRA_COLLEGE && participants.length < Number(form.minimumTeams || 0)) {
+      setError(`Add at least ${form.minimumTeams} intra-college teams before submitting.`);
+      return;
+    }
+    setSaving(true); setError('');
+    try {
+      const response = form.approvalStatus === 'changes_requested' ? await tournamentApi.resubmit(tournamentId) : await tournamentApi.submit(tournamentId);
+      navigate(`/team/tournaments/${unwrapData(response).tournament.id}`);
+    } catch (requestError) { setError(requestError.userMessage); }
+    finally { setSaving(false); }
+  };
+  const intraMissingTeams = form.scope === TOURNAMENT_SCOPE.INTRA_COLLEGE && participants.length < Number(form.minimumTeams || 0);
   if (loading) return <div className="skeleton h-96" />;
   return <form onSubmit={submit}><header className="flex flex-col justify-between gap-5 md:flex-row md:items-end"><div><p className="eyebrow">Tournament wizard</p><h1 className="page-title">{editing ? 'Edit Tournament' : 'Create Tournament'}</h1><p className="page-copy">Step {step + 1} of {steps.length}: {steps[step]}</p></div><Link to="/team/tournaments" className="secondary-button"><ArrowLeft size={16} /> Back</Link></header>
     {locked && <div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-amber-100">This tournament is locked by its approval status. Editing is disabled until changes are requested.</div>}
+    {form.approvalStatus === 'changes_requested' && form.changeRequest && <div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-amber-100"><strong>Super Admin requested changes:</strong> {form.changeRequest}</div>}
+    {form.approvalStatus === 'approval_pending' && <div className="mt-6 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-amber-100">Waiting for Super Admin review. Tournament configuration is read-only.</div>}
+    {form.approvalStatus === 'approved' && form.scope === TOURNAMENT_SCOPE.INTER_COLLEGE && <div className="mt-6 rounded-2xl border border-lime-300/20 bg-lime-300/10 p-4 text-lime-100">Approved. Add participating teams from the tournament detail page during registration.</div>}
     {error && <div className="mt-6 rounded-2xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error}</div>}
     {editing && <section className="mt-7 grid gap-5 lg:grid-cols-2" aria-label="Tournament branding uploads">
       <TeamBrandingUploader
@@ -77,10 +138,14 @@ export default function TournamentEditorPage() {
       {step === 0 && <div className="grid gap-4 md:grid-cols-2"><Field label="Tournament Name"><input className="field-input" required value={form.name} onChange={(e) => update('name', e.target.value)} /></Field><Field label="Short Name"><input className="field-input" value={form.shortName} onChange={(e) => update('shortName', e.target.value)} /></Field><Field label="Series Name"><input className="field-input" value={form.seriesName} onChange={(e) => update('seriesName', e.target.value)} /></Field><Field label="Season"><input className="field-input" value={form.seasonLabel} onChange={(e) => update('seasonLabel', e.target.value)} /></Field><Field label="Tournament Scope"><select className="field-input" value={form.scope} onChange={(e) => update('scope', e.target.value)}>{Object.values(TOURNAMENT_SCOPE).map((item) => <option key={item} value={item}>{formatTournamentLabel(item)}</option>)}</select></Field><Field label="Competition Format"><select className="field-input" value={form.competitionFormat} onChange={(e) => update('competitionFormat', e.target.value)}>{Object.values(TOURNAMENT_COMPETITION_FORMAT).map((item) => <option key={item} value={item}>{formatTournamentLabel(item)}</option>)}</select></Field><Field label="Visibility"><select className="field-input" value={form.visibility} onChange={(e) => update('visibility', e.target.value)}><option value="private">Private</option><option value="public">Public</option></select></Field><Field label="Description"><textarea className="field-input min-h-28" value={form.description} onChange={(e) => update('description', e.target.value)} /></Field></div>}
       {step === 1 && <div className="grid gap-4 md:grid-cols-2"><Field label="Country"><input className="field-input" value={form.country} onChange={(e) => update('country', e.target.value)} /></Field><Field label="State"><input className="field-input" value={form.state} onChange={(e) => update('state', e.target.value)} /></Field><Field label="City"><input className="field-input" value={form.city} onChange={(e) => update('city', e.target.value)} /></Field><Field label="Venue"><input className="field-input" value={form.primaryVenue} onChange={(e) => update('primaryVenue', e.target.value)} /></Field><Field label="Additional Venues"><textarea className="field-input min-h-28" placeholder="Coming soon as structured venue entries" disabled /></Field></div>}
       {step === 2 && <div className="grid gap-4 md:grid-cols-2"><Field label="Registration Opens"><input type="date" className="field-input" value={form.registrationOpen} onChange={(e) => update('registrationOpen', e.target.value)} /></Field><Field label="Registration Closes"><input type="date" className="field-input" value={form.registrationClose} onChange={(e) => update('registrationClose', e.target.value)} /></Field><Field label="Start Date"><input type="date" className="field-input" value={form.startDate} onChange={(e) => update('startDate', e.target.value)} /></Field><Field label="End Date"><input type="date" className="field-input" value={form.endDate} onChange={(e) => update('endDate', e.target.value)} /></Field></div>}
-      {step === 3 && <div className="grid gap-4 md:grid-cols-3"><Field label="Players on field"><input type="number" className="field-input" min="3" max="11" value={form.playersOnField} onChange={(e) => update('playersOnField', e.target.value)} /></Field><Field label="Match Format"><select className="field-input" value={form.matchFormat} onChange={(e) => update('matchFormat', e.target.value)}>{Object.values(TOURNAMENT_MATCH_FORMAT_LABEL).map((item) => <option key={item} value={item}>{item}</option>)}</select></Field><Field label="Min Teams"><input type="number" className="field-input" value={form.minimumTeams} onChange={(e) => update('minimumTeams', e.target.value)} /></Field><Field label="Max Teams"><input type="number" className="field-input" value={form.maximumTeams} onChange={(e) => update('maximumTeams', e.target.value)} /></Field><Field label="Win Points"><input type="number" className="field-input" value={form.winPoints} onChange={(e) => update('winPoints', e.target.value)} /></Field><Field label="Draw Points"><input type="number" className="field-input" value={form.drawPoints} onChange={(e) => update('drawPoints', e.target.value)} /></Field><Field label="Loss Points"><input type="number" className="field-input" value={form.lossPoints} onChange={(e) => update('lossPoints', e.target.value)} /></Field><Field label="Walkover"><select className="field-input" value={String(form.walkoverEnabled)} onChange={(e) => update('walkoverEnabled', e.target.value === 'true')}><option value="true">Enabled</option><option value="false">Disabled</option></select></Field><Field label="Tiebreak Priority"><select multiple className="field-input min-h-28" value={form.tiebreakOrder} onChange={(e) => update('tiebreakOrder', [...e.target.selectedOptions].map((option) => option.value))}>{TOURNAMENT_TIEBREAK_OPTIONS.map((item) => <option key={item} value={item}>{formatTournamentLabel(item)}</option>)}</select></Field><Field label="Awards Enabled"><select multiple className="field-input min-h-28" value={form.awardsEnabled} onChange={(e) => update('awardsEnabled', [...e.target.selectedOptions].map((option) => option.value))}>{TOURNAMENT_AWARD_OPTIONS.map((item) => <option key={item} value={item}>{formatTournamentLabel(item)}</option>)}</select></Field></div>}
+      {step === 3 && <div className="grid gap-4 md:grid-cols-3"><Field label="Match Format"><select className="field-input" value={form.matchFormat} onChange={(e) => update('matchFormat', e.target.value)}>{Object.values(TOURNAMENT_MATCH_FORMAT_LABEL).map((item) => <option key={item} value={item}>{item}</option>)}</select></Field>{form.matchFormat === TOURNAMENT_MATCH_FORMAT_LABEL.CUSTOM ? <Field label="Total players per team including goalkeeper"><input type="number" className="field-input" min="3" max="11" value={form.playersOnField} onChange={(e) => update('playersOnField', e.target.value)} /></Field> : <div className="rounded-2xl border border-lime-300/15 bg-lime-300/10 p-4 text-sm text-lime-50"><p className="font-bold">{startersForMatchFormat(form.matchFormat, form.playersOnField)} total starters</p><p className="mt-1 text-lime-50/70">1 goalkeeper + {outfieldPlayersForMatchFormat(form.matchFormat, form.playersOnField)} outfield players. This is derived from {form.matchFormat}.</p></div>}<Field label="Min Teams"><input type="number" className="field-input" value={form.minimumTeams} onChange={(e) => update('minimumTeams', e.target.value)} /></Field><Field label="Max Teams"><input type="number" className="field-input" value={form.maximumTeams} onChange={(e) => update('maximumTeams', e.target.value)} /></Field><Field label="Win Points"><input type="number" className="field-input" value={form.winPoints} onChange={(e) => update('winPoints', e.target.value)} /></Field><Field label="Draw Points"><input type="number" className="field-input" value={form.drawPoints} onChange={(e) => update('drawPoints', e.target.value)} /></Field><Field label="Loss Points"><input type="number" className="field-input" value={form.lossPoints} onChange={(e) => update('lossPoints', e.target.value)} /></Field><Field label="Walkover"><select className="field-input" value={String(form.walkoverEnabled)} onChange={(e) => update('walkoverEnabled', e.target.value === 'true')}><option value="true">Enabled</option><option value="false">Disabled</option></select></Field><Field label="Tiebreak Priority"><select multiple className="field-input min-h-28" value={form.tiebreakOrder} onChange={(e) => update('tiebreakOrder', [...e.target.selectedOptions].map((option) => option.value))}>{TOURNAMENT_TIEBREAK_OPTIONS.map((item) => <option key={item} value={item}>{formatTournamentLabel(item)}</option>)}</select></Field><Field label="Awards Enabled"><select multiple className="field-input min-h-28" value={form.awardsEnabled} onChange={(e) => update('awardsEnabled', [...e.target.selectedOptions].map((option) => option.value))}>{TOURNAMENT_AWARD_OPTIONS.map((item) => <option key={item} value={item}>{formatTournamentLabel(item)}</option>)}</select></Field></div>}
       {step === 4 && <div className="space-y-3 text-white/70"><h2 className="font-display text-3xl font-black text-white">{form.name || 'Untitled Tournament'}</h2><p>{form.seriesName} · {form.seasonLabel} · {formatTournamentLabel(form.scope)}</p><p>{form.city}, {form.country} · {form.primaryVenue}</p><p>{form.matchFormat} · {form.minimumTeams}-{form.maximumTeams} teams · {form.winPoints}/{form.drawPoints}/{form.lossPoints} points</p></div>}
     </fieldset>
-    <div className="mt-6 flex justify-between"><button type="button" className="secondary-button" disabled={step === 0} onClick={() => setStep((value) => Math.max(value - 1, 0))}><ArrowLeft size={16} /> Previous</button>{step < steps.length - 1 ? <button type="button" className="primary-button" onClick={() => setStep((value) => value + 1)}>Next <ArrowRight size={16} /></button> : <button className="primary-button" disabled={locked || saving}><Save size={16} /> {saving ? 'Saving...' : 'Submit Draft'}</button>}</div>
+    {editing && <section className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5">
+      <p className="eyebrow">Submission checklist</p>
+      {form.scope === TOURNAMENT_SCOPE.INTRA_COLLEGE ? <ul className="mt-3 space-y-2 text-sm text-white/65"><li>{intraMissingTeams ? '✕' : '✓'} Add at least {form.minimumTeams} intra-college teams ({participants.length} added).</li><li>✓ Only intra-college teams are allowed before submission.</li></ul> : <p className="mt-3 text-sm text-white/65">Teams can be added after Super Admin approval.</p>}
+    </section>}
+    <div className="mt-6 flex flex-wrap justify-between gap-3"><button type="button" className="secondary-button" disabled={step === 0} onClick={() => setStep((value) => Math.max(value - 1, 0))}><ArrowLeft size={16} /> Previous</button><div className="flex flex-wrap gap-2">{editing && form.approvalStatus === 'draft' && <button type="button" className="secondary-button border-red-300/20 text-red-100" disabled={saving} onClick={deleteDraft}><Trash2 size={16} /> Delete Draft</button>}{step < steps.length - 1 ? <button type="button" className="primary-button" onClick={() => setStep((value) => value + 1)}>Next <ArrowRight size={16} /></button> : <button className="primary-button" disabled={locked || saving}><Save size={16} /> {saving ? 'Saving...' : 'Save Draft'}</button>}{editing && !locked && <button type="button" className="primary-button" disabled={saving || intraMissingTeams} onClick={submitForApproval}><Send size={16} /> {form.approvalStatus === 'changes_requested' ? 'Resubmit for Approval' : 'Submit for Approval'}</button>}</div></div>
   </form>;
 }
 

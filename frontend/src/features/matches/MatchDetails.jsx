@@ -1,4 +1,5 @@
 import { CalendarDays, MapPin, NotebookText, UsersRound } from 'lucide-react';
+import FootballPitchLineup from '../../components/FootballPitchLineup.jsx';
 import TeamIdentity from '../../components/TeamIdentity.jsx';
 import SnapshotCard from './SnapshotCard.jsx';
 import { formatLocalDateTime, label } from './constants.js';
@@ -10,11 +11,13 @@ export default function MatchDetails({ match, fallbackTeamName }) {
   const rightIsTeam = match.teamSide !== 'home';
   const left = leftIsTeam ? teamName : match.opponent.name;
   const right = rightIsTeam ? teamName : match.opponent.name;
+  const isDirectMatch = match.matchMode === 'direct';
 
   return (
     <>
       <section className="overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(190,242,100,.1),rgba(255,255,255,.02)_52%)] p-6 sm:p-9">
         <div className="flex flex-wrap items-center justify-between gap-3"><span className={`status-badge ${match.status === 'cancelled' ? 'status-off' : match.status === 'completed' ? 'border-sky-300/15 bg-sky-300/[0.08] text-sky-200' : 'status-active'}`}>{label(match.status)}</span><span className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-100/40">{label(match.matchType)} · {label(match.teamSide)}</span></div>
+        <div className="mt-3"><span className={`status-badge ${isDirectMatch ? 'border-fuchsia-300/20 bg-fuchsia-300/10 text-fuchsia-100' : 'border-sky-300/20 bg-sky-300/10 text-sky-100'}`}>{isDirectMatch ? 'Direct Result' : 'Stream Match'}</span></div>
         <div className="my-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 text-center"><h1 className="flex justify-center font-display text-3xl font-black text-white sm:text-5xl">{leftIsTeam ? <TeamIdentity team={match.team} name={left} className="justify-center" logoClassName="size-10 rounded-xl sm:size-12" /> : left}</h1><span className="font-display text-xl font-black text-lime-300/50">VS</span><h1 className="flex justify-center font-display text-3xl font-black text-white sm:text-5xl">{rightIsTeam ? <TeamIdentity team={match.team} name={right} className="justify-center" logoClassName="size-10 rounded-xl sm:size-12" /> : right}</h1></div>
         <div className="grid gap-3 border-t border-white/[0.08] pt-6 text-sm text-emerald-100/55 sm:grid-cols-2 lg:grid-cols-4">
           <Info icon={CalendarDays} label="Kickoff" value={formatLocalDateTime(match.scheduledAt)} />
@@ -27,7 +30,7 @@ export default function MatchDetails({ match, fallbackTeamName }) {
       {match.notes && <section className="panel mt-6"><p className="eyebrow">Match notes</p><p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-emerald-50/60">{match.notes}</p></section>}
 
       <section className="mt-7 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
-        <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Match-day snapshot</p><h2 className="panel-title">Starting XI</h2></div><span className="count-pill">{starterCount} players</span></div>{starterCount ? <div className="grid gap-3 md:grid-cols-2">{match.startingXI.map((entry, index) => <SnapshotCard key={entry.player} snapshot={entry} index={index} />)}</div> : <p className="text-sm text-emerald-100/40">Lineup not selected yet.</p>}</div>
+        <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Match-day snapshot</p><h2 className="panel-title">Starting XI</h2></div><span className="count-pill">{starterCount} players</span></div>{starterCount ? <><FootballPitchLineup formation={match.formation} customFormation={match.customFormation} starters={match.startingXI.map((entry) => ({ ...entry, id: entry.player, jersey: entry.jerseyNumber }))} goalkeeper={match.startingXI.find((entry) => entry.position === 'GK')} captain={match.startingXI.find((entry) => entry.isCaptain)} editable={false} compact /><div className="mt-5 grid gap-3 md:grid-cols-2">{match.startingXI.map((entry, index) => <SnapshotCard key={entry.player} snapshot={entry} index={index} />)}</div></> : <p className="text-sm text-emerald-100/40">Lineup not selected yet.</p>}</div>
         <div className="space-y-6">
           <div className="panel"><div className="panel-heading"><div><p className="eyebrow">Match-day snapshot</p><h2 className="panel-title">Substitutes</h2></div><span className="count-pill">{match.substitutes.length}</span></div>{match.substitutes.length ? <div className="space-y-3">{match.substitutes.map((entry, index) => <SnapshotCard key={entry.player} snapshot={entry} index={index} />)}</div> : <p className="text-sm text-emerald-100/40">No substitutes selected.</p>}</div>
           {match.opponent.temporaryPlayers?.length > 0 && <div className="panel"><p className="eyebrow">Opponent notes</p><h2 className="panel-title">Temporary player list</h2><ul className="mt-4 space-y-2">{match.opponent.temporaryPlayers.map((player, index) => <li key={`${player.name}-${index}`} className="flex justify-between rounded-xl bg-white/[0.035] px-3 py-2 text-sm"><span>{player.name}</span><span className="text-emerald-100/40">{player.position || '—'} {player.jerseyNumber ? `#${player.jerseyNumber}` : ''}</span></li>)}</ul></div>}

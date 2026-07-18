@@ -7,7 +7,7 @@ import { playerPhotoUrl } from './playerPhotoService.js';
 export const MATCH_EDITABLE_FIELDS = Object.freeze([
   'opponent', 'tournament', 'venue', 'matchType', 'teamSide', 'scheduledAt', 'formation',
   'customFormation', 'startingPlayerIds', 'substitutePlayerIds', 'notes', 'opponentMode',
-  'registeredOpponentTeam', 'opponentLineup', 'matchFormat',
+  'registeredOpponentTeam', 'opponentLineup', 'matchFormat', 'lineupPlacements', 'matchMode',
 ]);
 
 export const FORMAT_STARTERS = Object.freeze({ '5v5': 5, '7v7': 7, '11v11': 11 });
@@ -16,6 +16,45 @@ export const FORMAT_FORMATIONS = Object.freeze({
   '7v7': ['2-3-1', '3-2-1', '2-2-2'],
   '11v11': ['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom'],
 });
+
+const parseFormationLines = (formation) => (/^\d+(?:-\d+){1,5}$/.test(String(formation || '')) ? String(formation).split('-').map(Number) : []);
+
+const formationSlots = ({ formation, customFormation, matchFormat = '11v11' }) => {
+  const effectiveFormation = formation === 'custom' ? customFormation : formation;
+  const lines = parseFormationLines(effectiveFormation);
+  if (!lines.length) return [];
+  const slots = [{ slotId: 'GK', lineIndex: 0, positionIndex: 0, roleLabel: 'Goalkeeper', x: 0.5, y: 0.92 }];
+  lines.forEach((count, lineIndex) => {
+    const y = 0.78 - (lineIndex * (0.58 / Math.max(lines.length - 1, 1)));
+    for (let index = 0; index < count; index += 1) {
+      slots.push({
+        slotId: `L${lineIndex + 1}-P${index + 1}`,
+        lineIndex: lineIndex + 1,
+        positionIndex: index,
+        roleLabel: `Line ${lineIndex + 1}`,
+        x: (index + 1) / (count + 1),
+        y: Number(y.toFixed(3)),
+      });
+    }
+  });
+  return slots.slice(0, starterCountForFormat(matchFormat));
+};
+
+const applyLineupPlacements = ({ snapshots, placements = {}, formation, customFormation, matchFormat }) => {
+  const slots = formationSlots({ formation, customFormation, matchFormat });
+  if (!slots.length) return snapshots;
+  const slotById = new Map(slots.map((slot) => [slot.slotId, slot]));
+  const usedSlots = new Set();
+  return snapshots.map((snapshot) => {
+    const placement = placements[String(snapshot.player)] || placements[String(snapshot.player?._id)] || '';
+    const slotId = typeof placement === 'string' ? placement : placement?.slotId;
+    if (!slotId) return snapshot;
+    const slot = slotById.get(slotId);
+    if (!slot || usedSlots.has(slotId)) return snapshot;
+    usedSlots.add(slotId);
+    return { ...snapshot, ...slot };
+  });
+};
 
 const pick = (source, fields) => Object.fromEntries(
   fields.filter((field) => Object.hasOwn(source, field)).map((field) => [field, source[field]]),
@@ -265,6 +304,9 @@ export const buildLineupSnapshots = async ({
   startingPlayerIds,
   substitutePlayerIds = [],
   matchFormat = '11v11',
+  formation = '',
+  customFormation = '',
+  lineupPlacements = {},
 }) => {
   const selection = validateSelections(startingPlayerIds, substitutePlayerIds, matchFormat);
   const players = await playerModel.find({ _id: { $in: selection.allIds } });
@@ -282,7 +324,13 @@ export const buildLineupSnapshots = async ({
   }
 
   return {
-    startingXI: selection.starters.map((id) => playerSnapshot(byId.get(id))),
+    startingXI: applyLineupPlacements({
+      snapshots: selection.starters.map((id) => playerSnapshot(byId.get(id))),
+      placements: lineupPlacements,
+      formation,
+      customFormation,
+      matchFormat,
+    }),
     substitutes: selection.substitutes.map((id) => playerSnapshot(byId.get(id))),
   };
 };
@@ -316,6 +364,9 @@ export const createMatchForTeam = async ({
     startingPlayerIds: values.startingPlayerIds,
     substitutePlayerIds: values.substitutePlayerIds,
     matchFormat: values.matchFormat,
+    formation: values.formation,
+    customFormation: values.customFormation,
+    lineupPlacements: values.lineupPlacements,
   });
   const opponentMode = values.opponentMode || 'manual';
   let opponentSnapshots = {};
@@ -344,6 +395,7 @@ export const createMatchForTeam = async ({
   delete values.substitutePlayerIds;
   delete values.opponentMode;
   delete values.opponentLineup;
+  delete values.lineupPlacements;
   if (values.formation !== 'custom') values.customFormation = '';
   await assertNoDuplicateScheduledMatch({
     matchModel,
@@ -491,6 +543,9 @@ export const updateMatchForTeam = async ({
       startingPlayerIds: updates.startingPlayerIds || currentStarters,
       substitutePlayerIds: updates.substitutePlayerIds || currentSubstitutes,
       matchFormat: effectiveMatchFormat,
+      formation,
+      customFormation,
+      lineupPlacements: updates.lineupPlacements,
     });
     if (registeredOpponent) {
       updates.registeredOpponentStartingXI = snapshots.startingXI;
@@ -557,6 +612,7 @@ export const updateMatchForTeam = async ({
   delete updates.substitutePlayerIds;
   delete updates.opponentMode;
   delete updates.opponentLineup;
+  delete updates.lineupPlacements;
   if (registeredOpponent) {
     delete updates.opponent;
     delete updates.tournament;

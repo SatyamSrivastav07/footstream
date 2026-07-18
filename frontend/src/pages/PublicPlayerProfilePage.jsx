@@ -1,11 +1,8 @@
 import {
   Award,
   Footprints,
-  Goal,
   GraduationCap,
-  ShieldAlert,
   Shirt,
-  Trophy,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -53,7 +50,7 @@ export default function PublicPlayerProfilePage() {
   }, [playerId]);
   if (!data && !error) return <LoadingScreen />;
   if (!data) return <PublicError message={error} />;
-  const { player, statistics, awards, recentMatches } = data;
+  const { player, statistics, recentMatches } = data;
   return (
     <>
       <PublicBreadcrumbs
@@ -131,25 +128,6 @@ export default function PublicPlayerProfilePage() {
           ))}
         </div>
       </section>
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <AwardCard
-          icon={Trophy}
-          label="Man of the Match"
-          value={awards.manOfTheMatch}
-        />
-        <AwardCard icon={Goal} label="Goals" value={awards.goals} />
-        <AwardCard icon={Award} label="Assists" value={awards.assists} />
-        <AwardCard
-          icon={ShieldAlert}
-          label="Yellow cards"
-          value={awards.yellowCards}
-        />
-        <AwardCard
-          icon={ShieldAlert}
-          label="Red cards"
-          value={awards.redCards}
-        />
-      </section>
       <section className="mt-10">
         <p className="eyebrow">Recent match squads</p>
         <h2 className="panel-title">Completed matches</h2>
@@ -181,15 +159,6 @@ function Fact({ icon: Icon, label, value }) {
       <Icon size={18} className="text-lime-300" />
       <p className="mt-4 text-xs text-white/35">{label}</p>
       <p className="mt-1 font-semibold">{value}</p>
-    </article>
-  );
-}
-function AwardCard({ icon: Icon, label, value }) {
-  return (
-    <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-      <Icon size={17} className="text-lime-300" />
-      <p className="mt-3 font-display text-2xl font-bold">{value}</p>
-      <p className="text-xs text-white/35">{label}</p>
     </article>
   );
 }

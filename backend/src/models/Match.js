@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 export const MATCH_TYPES = Object.freeze(['friendly', 'league', 'knockout', 'practice']);
 export const MATCH_FORMATS = Object.freeze(['5v5', '7v7', '11v11']);
+export const MATCH_MODES = Object.freeze(['stream', 'direct']);
 export const TEAM_SIDES = Object.freeze(['home', 'away']);
 export const MATCH_FORMATIONS = Object.freeze(['1-2-1', '2-1-1', '1-1-2', '2-3-1', '3-2-1', '2-2-2', '4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom']);
 export const MATCH_STATUSES = Object.freeze(['scheduled', 'live', 'half_time', 'completed', 'cancelled']);
@@ -34,6 +35,12 @@ const playerSnapshotSchema = new mongoose.Schema(
     photoUrl: { type: String, default: '' },
     isCaptain: { type: Boolean, default: false },
     isViceCaptain: { type: Boolean, default: false },
+    slotId: { type: String, trim: true, maxlength: 20, default: '' },
+    lineIndex: { type: Number, min: 0, max: 8, default: null },
+    positionIndex: { type: Number, min: 0, max: 20, default: null },
+    roleLabel: { type: String, trim: true, maxlength: 40, default: '' },
+    x: { type: Number, min: 0, max: 1, default: null },
+    y: { type: Number, min: 0, max: 1, default: null },
   },
   { _id: false },
 );
@@ -49,6 +56,12 @@ const opponentPlayerSnapshotSchema = new mongoose.Schema(
     photoUrl: { type: String, default: '' },
     isCaptain: { type: Boolean, default: false },
     isViceCaptain: { type: Boolean, default: false },
+    slotId: { type: String, trim: true, maxlength: 20, default: '' },
+    lineIndex: { type: Number, min: 0, max: 8, default: null },
+    positionIndex: { type: Number, min: 0, max: 20, default: null },
+    roleLabel: { type: String, trim: true, maxlength: 40, default: '' },
+    x: { type: Number, min: 0, max: 1, default: null },
+    y: { type: Number, min: 0, max: 1, default: null },
   },
   { _id: false },
 );
@@ -93,6 +106,7 @@ const matchSchema = new mongoose.Schema(
     venue: { type: String, required: true, trim: true, minlength: 2, maxlength: 200 },
     matchType: { type: String, enum: MATCH_TYPES, required: true },
     matchFormat: { type: String, enum: MATCH_FORMATS, default: '11v11', required: true },
+    matchMode: { type: String, enum: MATCH_MODES, default: 'stream', required: true },
     teamSide: { type: String, enum: TEAM_SIDES, required: true },
     scheduledAt: { type: Date, required: true },
     formation: { type: String, enum: MATCH_FORMATIONS, default: null },
@@ -148,6 +162,14 @@ const matchSchema = new mongoose.Schema(
     attendance: { type: Number, min: 0, default: null },
     resultConfirmedAt: { type: Date, default: null },
     resultConfirmedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    directResult: {
+      submittedAt: { type: Date, default: null },
+      submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+      updatedAt: { type: Date, default: null },
+      matchDuration: { type: Number, min: 1, max: 300, default: null },
+      refereeName: { type: String, trim: true, maxlength: 120, default: '' },
+      venueNotes: { type: String, trim: true, maxlength: 1000, default: '' },
+    },
     stream: { type: streamSchema, default: null },
     sourceChallenge: { type: mongoose.Schema.Types.ObjectId, default: undefined },
     tournamentCompetition: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', default: null },
@@ -210,6 +232,7 @@ matchSchema.set('toJSON', {
     delete returned.createdBy;
     delete returned.updatedBy;
     delete returned.resultConfirmedBy;
+    if (returned.directResult) delete returned.directResult.submittedBy;
     if (returned.stream) {
       delete returned.stream.addedBy;
       delete returned.stream.sourceUrl;

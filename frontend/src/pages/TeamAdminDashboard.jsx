@@ -1,8 +1,9 @@
-import { Building2, CalendarDays, MapPin, ShieldCheck } from 'lucide-react';
+import { Building2, CalendarDays, ExternalLink, MapPin, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import api from '../api/client.js';
 import TeamBrandingUploader from '../components/TeamBrandingUploader.jsx';
 import TeamIdentity from '../components/TeamIdentity.jsx';
+import { WHATSAPP_COMMUNITY_URL } from '../config/features.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TeamAdminDashboard() {
@@ -38,6 +39,34 @@ export default function TeamAdminDashboard() {
         <article className="panel min-h-56"><div className="metric-icon metric-emerald"><Building2 size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">Team administration</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Your account is securely linked to one team. Cross-team access is rejected by the FootStream API.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100/30">Phase 1 active</p></article>
         <article className="panel min-h-56"><div className="metric-icon metric-lime"><CalendarDays size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">Public applications</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Allow public visitors to request to join your team, then approve applicants into the official squad.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-lime-300/50">Phase 6F active</p></article>
       </section>
+
+      {WHATSAPP_COMMUNITY_URL && (
+        <section className="panel mt-7">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-4">
+              <div className="metric-icon metric-lime">
+                <MessageCircle size={20} />
+              </div>
+              <div>
+                <p className="eyebrow">FootStream community</p>
+                <h2 className="panel-title">Join FootStream Official Group</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-100/45">
+                  Connect with FootStream admins for announcements, help, and platform updates.
+                </p>
+              </div>
+            </div>
+            <a
+              className="primary-button w-full sm:w-auto"
+              href={WHATSAPP_COMMUNITY_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Join FootStream Official WhatsApp Group"
+            >
+              Join Official Group <ExternalLink size={15} />
+            </a>
+          </div>
+        </section>
+      )}
 
       <section className="panel mt-7">
         <div className="panel-heading"><div><p className="eyebrow">Join requests</p><h2 className="panel-title">Public application status</h2></div></div>

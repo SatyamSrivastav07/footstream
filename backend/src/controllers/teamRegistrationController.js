@@ -5,6 +5,7 @@ import {
   getTeamRegistrationRequest,
   listTeamRegistrationRequests,
   rejectTeamRegistrationRequest,
+  requestTeamRegistrationChanges,
   submitTeamRegistrationRequest,
 } from '../services/teamRegistrationService.js';
 import { createNotificationForSuperAdmins } from '../services/notificationService.js';
@@ -40,5 +41,10 @@ export const approveAdminTeamRegistrationRequest = asyncHandler(async (req, res)
 
 export const rejectAdminTeamRegistrationRequest = asyncHandler(async (req, res) => {
   const request = await rejectTeamRegistrationRequest({ requestId: req.params.requestId, reviewerId: req.user._id, rejectionReason: req.body.rejectionReason });
+  res.json({ success: true, data: { request } });
+});
+
+export const requestChangesAdminTeamRegistrationRequest = asyncHandler(async (req, res) => {
+  const request = await requestTeamRegistrationChanges({ requestId: req.params.requestId, reviewerId: req.user._id, message: req.body.message });
   res.json({ success: true, data: { request } });
 });

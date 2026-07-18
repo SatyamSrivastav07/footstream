@@ -33,11 +33,12 @@ export default function PublicMatchPage() {
   }, [matchId]);
   if (!match && !error) return <LoadingScreen />;
   if (!match) return <PublicError message={error} />;
+  const isDirectMatch = match.matchMode === "direct";
   const live = ["live", "half_time"].includes(match.status);
   const completed = match.status === "completed";
-  const streamLabel = match.stream.isPlayable
+  const streamLabel = !isDirectMatch && match.stream.isPlayable
     ? "Stream available"
-    : match.stream.isEnabled
+    : !isDirectMatch && match.stream.isEnabled
       ? "Stream scheduled"
       : "";
   const homeIsTeam = match.teamSide === "home";
@@ -95,7 +96,7 @@ export default function PublicMatchPage() {
           <span>{label(match.matchType)}</span>
         </div>
         <div className="mt-7 flex justify-center">
-          {live ? (
+          {live && !isDirectMatch ? (
             <Link className="primary-button" to={`/matches/${matchId}/live`}>
               <Radio size={16} /> Open live match
             </Link>
@@ -103,7 +104,7 @@ export default function PublicMatchPage() {
             <Link className="primary-button" to={`/matches/${matchId}/result`}>
               <Trophy size={16} /> View full result
             </Link>
-          ) : match.status === "scheduled" ? (
+          ) : match.status === "scheduled" && !isDirectMatch ? (
             <Link className="secondary-button" to={`/matches/${matchId}/live`}>
               <Radio size={16} /> Live page
             </Link>

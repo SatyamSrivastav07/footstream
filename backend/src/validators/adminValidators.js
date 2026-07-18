@@ -16,6 +16,8 @@ const optionalProfileFields = [
   body('city').optional().trim().isLength({ max: 100 }).withMessage('City cannot exceed 100 characters.'),
   body('coach').optional().trim().isLength({ max: 100 }).withMessage('Coach cannot exceed 100 characters.'),
   body('homeGround').optional().trim().isLength({ max: 160 }).withMessage('Home ground cannot exceed 160 characters.'),
+  body('organization').optional().trim().isLength({ max: 160 }).withMessage('Organization cannot exceed 160 characters.'),
+  body('teamType').optional().trim().isLength({ max: 60 }).withMessage('Team type cannot exceed 60 characters.'),
   body('founded').optional({ nullable: true }).isInt({ min: 1800, max: new Date().getFullYear() }).withMessage('Founded year cannot be in the future.').toInt(),
   body('socialLinks').optional().isObject().withMessage('Social links must be an object.'),
   body('socialLinks.*').optional({ values: 'falsy' }).trim().isURL({ protocols: ['http', 'https'], require_protocol: true }).withMessage('Social links must use HTTP or HTTPS.'),

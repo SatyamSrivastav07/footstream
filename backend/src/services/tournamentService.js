@@ -1,13 +1,26 @@
 import Tournament from '../models/Tournament.js';
 import TournamentParticipant from '../models/TournamentParticipant.js';
+import TournamentReviewHistory from '../models/TournamentReviewHistory.js';
+import TournamentSquad from '../models/TournamentSquad.js';
+import TournamentSquadHistory from '../models/TournamentSquadHistory.js';
+import TournamentSquadPlayer from '../models/TournamentSquadPlayer.js';
+import TournamentMatchdayLineup from '../models/TournamentMatchdayLineup.js';
+import TournamentLineupHistory from '../models/TournamentLineupHistory.js';
+import Match from '../models/Match.js';
 import AppError from '../utils/AppError.js';
 import { slugify } from '../utils/slugify.js';
+import { cloudinaryClient } from '../config/cloudinary.js';
 import {
   TOURNAMENT_APPROVAL_STATUS,
   TOURNAMENT_LIFECYCLE_STATUS,
+  TOURNAMENT_LINEUP_STATUS,
+  TOURNAMENT_PARTICIPANT_TYPE,
+  TOURNAMENT_SCOPE,
+  TOURNAMENT_SQUAD_STATUS,
   TOURNAMENT_VISIBILITY,
   canHostEditTournament,
   isTournamentPubliclyVisible,
+  startersForMatchFormat,
   validateApprovalTransition,
 } from '../constants/tournamentConstants.js';
 import { USER_ROLES } from '../models/User.js';
@@ -58,6 +71,8 @@ const normalizeTournamentInput = (input = {}) => {
   ['seasonLabel', 'description', 'country', 'state', 'city', 'primaryVenue'].forEach((field) => {
     if (payload[field] !== undefined) payload[field] = clean(payload[field]);
   });
+  const derivedStarters = startersForMatchFormat(payload.matchFormat, payload.playersOnField);
+  if (derivedStarters) payload.playersOnField = derivedStarters;
   return payload;
 };
 
@@ -67,6 +82,10 @@ const duplicateSlugError = (error) => {
   }
   return error;
 };
+
+const imagePublicId = (image) => (image && typeof image === 'object' ? image.publicId || '' : '');
+
+const compactList = (items = []) => [...new Set(items.filter(Boolean))];
 
 const findHostedTournament = async ({ tournamentModel = Tournament, tournamentId, hostTeamId }) => {
   const tournament = await tournamentModel.findOne({ _id: tournamentId, hostTeam: hostTeamId });
@@ -83,7 +102,9 @@ export const ensureTournamentEditableByHost = (tournament, user) => {
     lifecycleStatus: tournament.lifecycleStatus,
     isArchived: tournament.isArchived,
   })) {
-    throw new AppError('Tournament is not editable in its current state.', 409, 'TOURNAMENT_NOT_EDITABLE');
+    const approvalStatus = tournament.approvalStatus || 'unknown';
+    const lifecycleStatus = tournament.lifecycleStatus || 'unknown';
+    throw new AppError(`This tournament is not editable because its approval status is ${approvalStatus} and lifecycle status is ${lifecycleStatus}. You can edit only Draft or Changes Requested tournaments.`, 409, 'TOURNAMENT_NOT_EDITABLE');
   }
 };
 
@@ -148,46 +169,106 @@ export const updateHostedTournament = async ({ user, tournamentId, input }) => {
   }
 };
 
-export const deleteHostedTournamentDraft = async ({ user, tournamentId }) => {
+export const deleteHostedTournamentDraft = async ({
+  tournamentModel = Tournament,
+  participantModel = TournamentParticipant,
+  squadModel = TournamentSquad,
+  squadPlayerModel = TournamentSquadPlayer,
+  squadHistoryModel = TournamentSquadHistory,
+  lineupModel = TournamentMatchdayLineup,
+  lineupHistoryModel = TournamentLineupHistory,
+  reviewModel = TournamentReviewHistory,
+  matchModel = Match,
+  storage = cloudinaryClient,
+  user,
+  tournamentId,
+}) => {
   const hostTeamId = requireHostContext(user);
-  const tournament = await findHostedTournament({ tournamentId, hostTeamId });
-  if (tournament.approvalStatus !== TOURNAMENT_APPROVAL_STATUS.DRAFT || tournament.isArchived) {
-    throw new AppError('Only draft tournaments can be deleted.', 409, 'TOURNAMENT_NOT_EDITABLE');
+  const tournament = await findHostedTournament({ tournamentModel, tournamentId, hostTeamId });
+  if (tournament.approvalStatus !== TOURNAMENT_APPROVAL_STATUS.DRAFT || tournament.isArchived || tournament.submittedAt) {
+    throw new AppError('Only never-submitted draft tournaments can be permanently deleted.', 409, 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
   }
-  const participantCount = await TournamentParticipant.countDocuments({ tournament: tournament._id });
-  if (participantCount > 0) {
-    tournament.isArchived = true;
-    tournament.archivedAt = new Date();
-    tournament.lifecycleStatus = TOURNAMENT_LIFECYCLE_STATUS.ARCHIVED;
-    await tournament.save();
-    await createReviewHistory({ tournament, action: 'archived', actor: user._id, actorRole: USER_ROLES.TEAM_ADMIN, message: 'Draft archived because participants existed.' });
-    return { archived: true };
+
+  const tournamentObjectId = tournament._id;
+  const [matchCount, blockedSquadCount, blockedLineupCount] = await Promise.all([
+    matchModel.countDocuments({ tournamentCompetition: tournamentObjectId }),
+    squadModel.countDocuments({ tournament: tournamentObjectId, status: { $ne: TOURNAMENT_SQUAD_STATUS.DRAFT } }),
+    lineupModel.countDocuments({
+      tournament: tournamentObjectId,
+      $or: [{ status: { $ne: TOURNAMENT_LINEUP_STATUS.DRAFT } }, { matchCreated: true }],
+    }),
+  ]);
+
+  const blockers = [];
+  if (matchCount) blockers.push('matches already exist');
+  if (blockedSquadCount) blockers.push('locked or submitted squads exist');
+  if (blockedLineupCount) blockers.push('locked or submitted lineups exist');
+  if (blockers.length) {
+    throw new AppError(`Tournament draft cannot be deleted because ${blockers.join(', ')}.`, 409, 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
   }
+
+  const [participants, squadPlayers] = await Promise.all([
+    participantModel.find({ tournament: tournamentObjectId }).select('logo').lean(),
+    squadPlayerModel.find({ tournament: tournamentObjectId }).select('photo').lean(),
+  ]);
+  const publicIds = compactList([
+    imagePublicId(tournament.logo),
+    imagePublicId(tournament.coverImage),
+    ...participants.map((participant) => imagePublicId(participant.logo)),
+    ...squadPlayers.map((player) => imagePublicId(player.photo)),
+  ]);
+
+  const lineups = await lineupModel.find({ tournament: tournamentObjectId }).select('_id').lean();
+  const lineupIds = lineups.map((lineup) => lineup._id);
+
+  await Promise.all([
+    lineupHistoryModel.deleteMany({ tournament: tournamentObjectId, ...(lineupIds.length ? { lineup: { $in: lineupIds } } : {}) }),
+    lineupModel.deleteMany({ tournament: tournamentObjectId }),
+    squadHistoryModel.deleteMany({ tournament: tournamentObjectId }),
+    squadPlayerModel.deleteMany({ tournament: tournamentObjectId }),
+    squadModel.deleteMany({ tournament: tournamentObjectId }),
+    participantModel.deleteMany({ tournament: tournamentObjectId }),
+    reviewModel.deleteMany({ tournament: tournamentObjectId }),
+  ]);
   await tournament.deleteOne();
+  await Promise.all(publicIds.map((publicId) => storage.destroy(publicId).catch(() => {})));
   return { deleted: true };
 };
 
-const assertSubmissionReady = (tournament) => {
+const assertSubmissionReady = async (tournament, { participantModel = TournamentParticipant } = {}) => {
   const required = ['name', 'slug', 'scope', 'competitionFormat', 'matchFormat', 'city', 'primaryVenue', 'startDate', 'endDate'];
   const missing = required.filter((field) => !tournament[field]);
-  if (missing.length) throw new AppError(`Tournament is missing required fields: ${missing.join(', ')}.`, 400, 'TOURNAMENT_APPROVAL_REQUIRED');
+  const missingRequirements = missing.map((field) => `Missing ${field}.`);
   if (tournament.isArchived) throw new AppError('Archived tournaments cannot be submitted.', 409, 'TOURNAMENT_ARCHIVED');
+  if (tournament.scope === TOURNAMENT_SCOPE.INTRA_COLLEGE) {
+    const participants = await participantModel.find({ tournament: tournament._id }).select('participantType displayName').lean();
+    const invalidParticipants = participants.filter((participant) => participant.participantType !== TOURNAMENT_PARTICIPANT_TYPE.INTRA_TEAM);
+    if (participants.length < tournament.minimumTeams) {
+      missingRequirements.push(`Add at least ${tournament.minimumTeams} intra-college teams.`);
+    }
+    if (invalidParticipants.length) {
+      missingRequirements.push('Intra-college tournaments can contain only intra-college teams.');
+    }
+  }
+  if (missingRequirements.length) {
+    throw new AppError(`Tournament is not ready for approval: ${missingRequirements.join(' ')}`, 400, 'TOURNAMENT_APPROVAL_REQUIRED', missingRequirements.map((message) => ({ field: 'submission', message })));
+  }
 };
 
-const submit = async ({ user, tournamentId, resubmit = false }) => {
+const submit = async ({ tournamentModel = Tournament, participantModel = TournamentParticipant, createHistory = createReviewHistory, notifyApprovalSubmitted = notifyTournamentApprovalSubmitted, user, tournamentId, resubmit = false }) => {
   const hostTeamId = requireHostContext(user);
-  const tournament = await findHostedTournament({ tournamentId, hostTeamId });
+  const tournament = await findHostedTournament({ tournamentModel, tournamentId, hostTeamId });
   const from = tournament.approvalStatus;
   const allowedFrom = resubmit ? TOURNAMENT_APPROVAL_STATUS.CHANGES_REQUESTED : TOURNAMENT_APPROVAL_STATUS.DRAFT;
   if (from !== allowedFrom || !validateApprovalTransition(from, TOURNAMENT_APPROVAL_STATUS.APPROVAL_PENDING)) {
     throw new AppError('Tournament cannot be submitted in its current state.', 409, 'TOURNAMENT_INVALID_TRANSITION');
   }
-  assertSubmissionReady(tournament);
+  await assertSubmissionReady(tournament, { participantModel });
   tournament.approvalStatus = TOURNAMENT_APPROVAL_STATUS.APPROVAL_PENDING;
   tournament.submittedAt = new Date();
   tournament.updatedBy = user._id;
   await tournament.save();
-  await createReviewHistory({
+  await createHistory({
     tournament,
     action: resubmit ? 'resubmitted' : 'submitted',
     actor: user._id,
@@ -196,24 +277,24 @@ const submit = async ({ user, tournamentId, resubmit = false }) => {
     nextStatus: tournament.approvalStatus,
     message: resubmit ? 'Tournament resubmitted for approval.' : 'Tournament submitted for approval.',
   });
-  await notifyTournamentApprovalSubmitted({ tournament, hostTeam: user.team });
+  await notifyApprovalSubmitted({ tournament, hostTeam: user.team });
   return serializeTournamentHost(tournament.toObject());
 };
 
 export const submitForApproval = (args) => submit({ ...args, resubmit: false });
 export const resubmitForApproval = (args) => submit({ ...args, resubmit: true });
 
-const assertPublishReady = (tournament) => {
+const assertPublishReady = async (tournament, { participantModel = TournamentParticipant } = {}) => {
   if (tournament.approvalStatus !== TOURNAMENT_APPROVAL_STATUS.APPROVED) throw new AppError('Tournament approval is required before publishing.', 409, 'TOURNAMENT_APPROVAL_REQUIRED');
   if (tournament.visibility !== TOURNAMENT_VISIBILITY.PUBLIC) throw new AppError('Only public tournaments can be published.', 409, 'TOURNAMENT_PUBLISH_REQUIREMENTS_NOT_MET');
   if (tournament.isArchived) throw new AppError('Archived tournaments cannot be published.', 409, 'TOURNAMENT_ARCHIVED');
-  assertSubmissionReady(tournament);
+  await assertSubmissionReady(tournament, { participantModel });
 };
 
 export const publishTournament = async ({ user, tournamentId }) => {
   const hostTeamId = requireHostContext(user);
   const tournament = await findHostedTournament({ tournamentId, hostTeamId });
-  assertPublishReady(tournament);
+  await assertPublishReady(tournament);
   tournament.isPublished = true;
   tournament.publishedAt = new Date();
   tournament.updatedBy = user._id;

@@ -49,10 +49,15 @@ The MVP should be:
 - Team admins can add, edit, archive, and restore their players.
 - Archived players remain available in historical match records.
 - Player jersey numbers must be unique among active players in the same team.
+- Team admins have a private Tactical Board inside the squad area for match preparation, training planning, formation discussion, player-position planning, and squad rotation.
+- The Tactical Board is independent from match creation: it does not create matches, publish lineups, update statistics, affect tournament squads, or create match-event records.
+- Tactical plans are saved in team-specific browser localStorage for the MVP using `footstream:tactical-board:<teamId>`, with a future-friendly shape for later backend persistence.
+- Tactical Board presets include common 11-a-side formations, smaller-side planning shapes, and Manual mode with percentage-based `x/y` player coordinates.
 
 ### Match preparation
 
 - A team admin creates a match for their team.
+- A team admin chooses the match management mode: `stream` for the existing live workflow or `direct` for post-match result entry.
 - The opponent is entered by name only; it does not require an opponent team account or full team record.
 - Optional temporary opponent player names can be added to the match.
 - The team admin selects the starting XI and substitutes from the team's permanent, available player pool.
@@ -62,6 +67,8 @@ The MVP should be:
 ### Live match management
 
 - Match states: `scheduled`, `live`, `completed`, and `cancelled`.
+- Stream matches use the live timer, live scoreboard, live event controls, Socket.IO updates, and optional YouTube embed.
+- Direct-result matches skip live controls and are completed through a dedicated post-match result form.
 - The team admin starts and completes a match.
 - The live control screen displays the score, match status, selected squads, and event timeline.
 - Supported events:
@@ -83,6 +90,8 @@ The MVP should be:
 ### Completed matches and public content
 
 - Store and display the final result.
+- Direct-result submissions create the same canonical match-event records used by streamed matches, so statistics and public result pages share one source of truth.
+- Editing a direct result replaces the previous direct-result event set before applying the new one, preventing duplicate goals, assists, cards, appearances, and team records.
 - Select Man of the Match from the FootStream team's match squad.
 - Upload or attach match photos.
 - Calculate player career statistics from completed match events and appearances.
@@ -606,6 +615,27 @@ Each phase should be usable and tested before starting the next one.
 - A team admin can log in but cannot access another team's data or super-admin pages.
 - There is no registration page or registration API.
 
+#### Production-ready UI polish completion update
+
+- Added a frontend tournament feature gate controlled by `VITE_TOURNAMENTS_ENABLED`.
+- When tournaments are disabled, public, team-admin, and super-admin tournament navigation remains visible and tournament routes redirect to a branded Coming Soon page.
+- Kept existing tournament code and backend APIs intact so setting `VITE_TOURNAMENTS_ENABLED=true` restores the current tournament module.
+- Added a responsive Coming Soon page with FootStream branding, upcoming tournament capabilities, and Home navigation.
+- Added a reusable public footer with FootStream branding, support email fallback support, optional portfolio link, quick links, responsive wrapping, and the FootStream copyright notice.
+- Standardized global select/dropdown states, disabled fields, button wrapping, focus visibility, and safe horizontal overflow behavior through shared frontend styling.
+- Confirmed FootStream logo, favicon, browser title, and tagline are consistent across the public and dashboard shells.
+
+#### Super Admin Team Management completion update
+
+- Added dedicated Super Admin pages for `/admin/teams`, `/admin/teams/pending`, and `/admin/teams/:teamId`.
+- Added team search, status/team-type filtering, sorting, pagination, team-admin search matching, and archived-team visibility controls.
+- Added a centralized team status model and transition rules for `pending`, `approved`, `changesRequested`, `rejected`, `suspended`, and `archived`.
+- Preserved the existing public registration request workflow while adding request-changes support.
+- Approved registration requests now create an approved, published team and one team-admin account.
+- Super admins can edit safe team identity fields, assign or replace a team admin, suspend, reactivate, and archive teams without deleting historical data.
+- Team-admin mutation routes are blocked server-side when the assigned team is not operationally approved.
+- Public pages continue to rely on `isPublished` and `isArchived`, so suspended/archived teams are not exposed as active public teams.
+
 ### Phase 2 â€” Permanent squad and player cards
 
 #### Deliverables
@@ -627,8 +657,13 @@ Each phase should be usable and tested before starting the next one.
 
 #### Deliverables
 
+- Add the Team Admin Tactical Board inside the squad area for planning without creating a match.
+- Add reusable tactical formation definitions for common 11-a-side shapes, smaller-side shapes, and Manual mode.
+- Add localStorage tactical-plan persistence with validation, removed-player recovery, and new-player bench recovery.
+- Add bench-to-pitch, pitch-to-bench, swapping, Captain, Vice Captain, Goalkeeper, Auto Arrange, Reset, Clear Pitch, and Restore Saved Plan controls.
 - Create the match schema.
 - Build match list, create, view, and edit workflows.
+- Add match mode selection with Stream Match as the default and Direct Input Result as the post-match entry workflow.
 - Allow opponent entry using only a name.
 - Allow optional temporary opponent player names.
 - Add kickoff, venue, home/away, publication, and YouTube URL fields.
@@ -639,6 +674,8 @@ Each phase should be usable and tested before starting the next one.
 #### Phase 3 completion criteria
 
 - A team admin can schedule a match against a name-only opponent.
+- A team admin can open `/team/squad/tactical-board`, plan a formation, save it locally, restore it later, and use Manual mode coordinates without touching match data.
+- A team admin can choose a direct-result match, submit the completed score/events, and edit it without double-counting statistics.
 - Starting XI and substitutes contain valid, non-duplicated players from the assigned team.
 - Editing a player's card later does not corrupt the stored match lineup display.
 
@@ -821,6 +858,31 @@ These fields are nullable and optional, so old matches continue working without 
 - Tournament match creation.
 - Tournament participant/squad CRUD workflows.
 - Any change to the existing Match, Live, Socket.IO, Statistics, Result, Streaming, Photo, or Notification runtime behavior.
+
+### Phase 8B Part 2 — Tournament matchday lineup foundation
+
+Phase 8B Part 2 adds tournament matchday lineup preparation only. A host team admin can create a safe provisional matchup reference, choose home and away participants, select starters and bench players from each participant's approved or locked tournament squad, set each side's captain and goalkeeper, choose a players-on-field-compatible formation, submit the lineup, and lock it for later fixture/Match integration.
+
+This phase keeps tournament squad and matchday lineup records separate. A tournament squad is the full eligibility pool; a matchday lineup is the selected players for one future matchup. Matchday selections reference `TournamentSquadPlayer` snapshots and never select permanent `Player` records directly.
+
+Part 2 remains intentionally limited:
+
+- no fixture generation;
+- no tournament `Match` document creation;
+- no live tournament match controls;
+- no Playing XI route beyond the matchday lineup foundation;
+- no groups, standings, knockout progression, tournament statistics, awards, gallery, PDF/QR, referee accounts, payments, sponsors, or Challenge restoration.
+
+#### Phase 8B Part 2.5 — Match-format and tactical-lineup UX stabilization
+
+Part 2.5 keeps the Part 2 backend scope but improves the lineup preparation experience:
+
+- preset match formats derive total starters automatically: `5v5`, `6v6`, `7v7`, `8v8`, `9v9`, and `11v11`;
+- `custom` is the only format that asks for total players per team, including goalkeeper, from 3 to 11;
+- formation numbers represent outfield lines only, so line totals plus one goalkeeper must equal the derived starter count;
+- matchday lineup starter snapshots may store deterministic tactical slot placement such as `GK`, `L1-P1`, and `L2-P3`;
+- the dashboard can render an original FootStream-styled football pitch for editable and read-only lineup review;
+- legacy lineups without placement data must render with safe deterministic fallback placement and never require a data migration.
 
 #### Foundation contracts added in Part 1
 

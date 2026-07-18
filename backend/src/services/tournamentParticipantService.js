@@ -6,9 +6,11 @@ import AppError from '../utils/AppError.js';
 import { slugify } from '../utils/slugify.js';
 import {
   TOURNAMENT_APPROVAL_STATUS,
+  TOURNAMENT_LIFECYCLE_STATUS,
   TOURNAMENT_NOTIFICATION_TYPE,
   TOURNAMENT_PARTICIPANT_TYPE,
   TOURNAMENT_PARTICIPATION_STATUS,
+  TOURNAMENT_SCOPE,
   isParticipantTypeAllowedForScope,
 } from '../constants/tournamentConstants.js';
 import { USER_ROLES } from '../models/User.js';
@@ -25,18 +27,42 @@ const pageParams = (query = {}, max = 100) => ({
   limit: Math.min(Math.max(Number(query.limit) || 20, 1), max),
 });
 
+const participantDuplicateError = (error) => {
+  if (error?.code !== 11000) return null;
+  const keys = Object.keys(error.keyPattern || error.keyValue || {});
+  if (keys.includes('registeredTeam')) {
+    return new AppError('That registered team is already added to this tournament.', 409, 'TOURNAMENT_PARTICIPANT_EXISTS');
+  }
+  if (keys.includes('normalizedName')) {
+    return new AppError('A participant with this name already exists in this tournament.', 409, 'TOURNAMENT_PARTICIPANT_EXISTS');
+  }
+  if (keys.includes('slug')) {
+    return new AppError('A participant with this slug already exists in this tournament.', 409, 'TOURNAMENT_PARTICIPANT_SLUG_EXISTS');
+  }
+  return new AppError('Tournament participant already exists.', 409, 'TOURNAMENT_PARTICIPANT_EXISTS');
+};
+
 const requireHostTeam = (user) => {
   if (!user?.team) throw new AppError('A team-admin account must be assigned to a team.', 403, 'TOURNAMENT_ACCESS_DENIED');
   return idString(user.team);
 };
 
 const editableStatuses = [TOURNAMENT_APPROVAL_STATUS.DRAFT, TOURNAMENT_APPROVAL_STATUS.CHANGES_REQUESTED];
+const openRegistrationStatuses = [TOURNAMENT_LIFECYCLE_STATUS.DRAFT, TOURNAMENT_LIFECYCLE_STATUS.REGISTRATION_OPEN];
+
+const canManageParticipants = (tournament) => {
+  if (tournament.isArchived) return false;
+  if (editableStatuses.includes(tournament.approvalStatus)) return true;
+  return tournament.scope === TOURNAMENT_SCOPE.INTER_COLLEGE &&
+    tournament.approvalStatus === TOURNAMENT_APPROVAL_STATUS.APPROVED &&
+    openRegistrationStatuses.includes(tournament.lifecycleStatus);
+};
 
 const getOwnedEditableTournament = async ({ tournamentId, user }) => {
   const tournament = await Tournament.findOne({ _id: tournamentId, hostTeam: requireHostTeam(user) });
   if (!tournament) throw new AppError('Tournament not found.', 404, 'TOURNAMENT_NOT_FOUND');
   if (tournament.isArchived) throw new AppError('Archived tournaments are read-only.', 409, 'TOURNAMENT_ARCHIVED');
-  if (!editableStatuses.includes(tournament.approvalStatus)) throw new AppError('Tournament participants cannot be changed in the current state.', 409, 'TOURNAMENT_NOT_EDITABLE');
+  if (!canManageParticipants(tournament)) throw new AppError('Tournament participants cannot be changed in the current state.', 409, 'TOURNAMENT_NOT_EDITABLE');
   return tournament;
 };
 
@@ -86,7 +112,8 @@ const createParticipant = async ({ tournament, user, payload, notifyTeam = null 
     }
     return serializeTournamentParticipantPublic(participant.toObject());
   } catch (error) {
-    if (error?.code === 11000) throw new AppError('Tournament participant already exists.', 409, 'TOURNAMENT_PARTICIPANT_EXISTS');
+    const duplicateError = participantDuplicateError(error);
+    if (duplicateError) throw duplicateError;
     throw error;
   }
 };
@@ -182,7 +209,8 @@ export const updateParticipant = async ({ tournamentId, participantId, user, inp
   try {
     await participant.save();
   } catch (error) {
-    if (error?.code === 11000) throw new AppError('Tournament participant already exists.', 409, 'TOURNAMENT_PARTICIPANT_EXISTS');
+    const duplicateError = participantDuplicateError(error);
+    if (duplicateError) throw duplicateError;
     throw error;
   }
   await createReviewHistory({ tournament, action: 'updated', actor: user._id, actorRole: USER_ROLES.TEAM_ADMIN, message: `${participant.displayName} updated.` });

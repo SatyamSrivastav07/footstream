@@ -11,9 +11,14 @@ const initialFilters = { status: '', position: '', academicYear: '', search: '' 
 export default function TeamJoinRequestsPage() {
   const [data, setData] = useState(null);
   const [filters, setFilters] = useState(initialFilters);
+  const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const params = useMemo(() => Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), [filters]);
+  const params = useMemo(() => ({ ...Object.fromEntries(Object.entries(filters).filter(([, value]) => value)), page, limit: 20 }), [filters, page]);
+  const updateFilter = (field, value) => {
+    setFilters((current) => ({ ...current, [field]: value }));
+    setPage(1);
+  };
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -41,10 +46,10 @@ export default function TeamJoinRequestsPage() {
       </section>
       <section className="mt-7 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_160px_160px_160px]">
-          <label className="relative"><span className="sr-only">Search requests</span><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={16} /><input className="field-input pl-9" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} placeholder="Search applicant, email, or phone" /></label>
-          <Filter value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })}><option value="">All statuses</option>{['pending', 'approved', 'rejected'].map((item) => <option key={item} value={item}>{statusLabel(item)}</option>)}</Filter>
-          <Filter value={filters.position} onChange={(value) => setFilters({ ...filters, position: value })}><option value="">All positions</option>{POSITIONS.map((item) => <option key={item}>{item}</option>)}</Filter>
-          <Filter value={filters.academicYear} onChange={(value) => setFilters({ ...filters, academicYear: value })}><option value="">All years</option>{ACADEMIC_YEARS.map((item) => <option key={item}>{item}</option>)}</Filter>
+          <label className="relative"><span className="sr-only">Search requests</span><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={16} /><input className="field-input pl-9" value={filters.search} onChange={(e) => updateFilter('search', e.target.value)} placeholder="Search applicant, email, or phone" /></label>
+          <Filter value={filters.status} onChange={(value) => updateFilter('status', value)}><option value="">All statuses</option>{['pending', 'approved', 'rejected'].map((item) => <option key={item} value={item}>{statusLabel(item)}</option>)}</Filter>
+          <Filter value={filters.position} onChange={(value) => updateFilter('position', value)}><option value="">All positions</option>{POSITIONS.map((item) => <option key={item}>{item}</option>)}</Filter>
+          <Filter value={filters.academicYear} onChange={(value) => updateFilter('academicYear', value)}><option value="">All years</option>{ACADEMIC_YEARS.map((item) => <option key={item}>{item}</option>)}</Filter>
         </div>
       </section>
       <section className="mt-7">
@@ -53,6 +58,13 @@ export default function TeamJoinRequestsPage() {
             {data.requests.map((request) => <RequestCard key={request._id} request={request} />)}
           </div>
         )}
+        {data?.pagination?.pages > 1 && <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+          <p className="text-sm text-white/55">Page {data.pagination.page} of {data.pagination.pages} · {data.pagination.total} requests</p>
+          <div className="flex gap-2">
+            <button type="button" className="secondary-button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>Previous</button>
+            <button type="button" className="secondary-button" disabled={page >= data.pagination.pages || loading} onClick={() => setPage((value) => value + 1)}>Next</button>
+          </div>
+        </div>}
       </section>
     </>
   );

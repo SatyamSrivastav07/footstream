@@ -71,3 +71,9 @@ export const rejectTeamRegistrationValidator = [
   body('rejectionReason').trim().isLength({ min: 5, max: 300 }).withMessage('Rejection reason must be 5 to 300 characters.').escape(),
   rejectUnknown(['rejectionReason'], 'rejection fields'),
 ];
+
+export const requestChangesTeamRegistrationValidator = [
+  ...teamRegistrationIdValidator,
+  body('message').trim().isLength({ min: 5, max: 1000 }).withMessage('Change request message must be 5 to 1000 characters.').escape(),
+  rejectUnknown(['message'], 'change request fields'),
+];

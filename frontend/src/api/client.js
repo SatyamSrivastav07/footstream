@@ -29,6 +29,16 @@ const api = axios.create({
   },
 });
 
+const readableDetailsMessage = (details = []) => {
+  if (!Array.isArray(details) || details.length === 0) return '';
+  if (details.length === 1) return details[0]?.message || '';
+  const fields = details
+    .slice(0, 3)
+    .map((item) => String(item?.field || 'field').replace(/[.[\]]+/g, ' '))
+    .join(', ');
+  return `Please fix ${fields}. First issue: ${details[0]?.message || 'Invalid value.'}`;
+};
+
 api.interceptors.request.use((config) => {
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
@@ -44,8 +54,12 @@ api.interceptors.response.use(
       error.userMessage =
         'Unable to reach FootStream. Check that the backend is running.';
     } else {
+      const details = error.response.data?.error?.details || [];
+      const serverMessage = error.response.data?.error?.message || '';
+      const detailMessage = readableDetailsMessage(details);
       error.userMessage =
-        error.response.data?.error?.message ||
+        detailMessage ||
+        serverMessage ||
         'The request could not be completed.';
 
       if (error.response.status === 429) {
@@ -57,7 +71,7 @@ api.interceptors.response.use(
         }
       }
 
-      error.fieldErrors = error.response.data?.error?.details || [];
+      error.fieldErrors = details;
     }
 
     return Promise.reject(error);

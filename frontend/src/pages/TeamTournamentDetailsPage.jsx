@@ -5,7 +5,31 @@ import EmptyState from '../components/EmptyState.jsx';
 import TeamBrandingUploader, { brandingUrl } from '../components/TeamBrandingUploader.jsx';
 import { tournamentApi, unwrapData } from '../features/tournaments/api.js';
 import { ReviewTimeline, StatusBadge, TournamentLogo, dateText } from '../features/tournaments/TournamentUi.jsx';
-import { TOURNAMENT_PARTICIPANT_TYPE_LABEL, formatTournamentLabel } from '../features/tournaments/constants.js';
+import {
+  TOURNAMENT_PARTICIPANT_TYPE_LABEL,
+  TOURNAMENT_SCOPE,
+  formatTournamentLabel,
+} from '../features/tournaments/constants.js';
+
+const participantTabsForScope = (scope) => {
+  if (scope === TOURNAMENT_SCOPE.INTRA_COLLEGE) return ['intra'];
+  return ['registered', 'external'];
+};
+
+const participantHelpText = (scope) => (
+  scope === TOURNAMENT_SCOPE.INTRA_COLLEGE
+    ? 'Intra-college tournaments accept only intra-college teams.'
+    : 'Inter-college tournaments accept registered FootStream teams or external teams.'
+);
+
+const userMessageFor = (requestError) => requestError?.userMessage || 'The request could not be completed.';
+const canManageParticipants = (tournament) => {
+  if (!tournament || tournament.isArchived) return false;
+  if (['draft', 'changes_requested'].includes(tournament.approvalStatus)) return true;
+  return tournament.scope === TOURNAMENT_SCOPE.INTER_COLLEGE &&
+    tournament.approvalStatus === 'approved' &&
+    ['draft', 'registration_open'].includes(tournament.lifecycleStatus);
+};
 
 export default function TeamTournamentDetailsPage() {
   const { tournamentId } = useParams();
@@ -43,6 +67,11 @@ export default function TeamTournamentDetailsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const allowedTabs = participantTabsForScope(tournament?.scope);
+    if (!allowedTabs.includes(tab)) setTab(allowedTabs[0]);
+  }, [tab, tournament?.scope]);
+
   const searchTeams = async () => {
     try {
       const response = await tournamentApi.availableTeams(tournamentId, { search });
@@ -53,23 +82,40 @@ export default function TeamTournamentDetailsPage() {
   };
 
   const addRegistered = async (teamId) => {
-    if (brandingLocked) return;
-    await tournamentApi.addRegistered(tournamentId, { registeredTeam: teamId });
-    await load();
+    if (participantChangesLocked) return;
+    try {
+      setError('');
+      await tournamentApi.addRegistered(tournamentId, { registeredTeam: teamId });
+      await load();
+    } catch (requestError) {
+      setError(userMessageFor(requestError));
+    }
   };
 
   const addManual = async () => {
-    if (brandingLocked) return;
-    await (tab === 'external' ? tournamentApi.addExternal : tournamentApi.addIntra)(tournamentId, { ...manual, seed: manual.seed || undefined });
-    setManual({ displayName: '', shortName: '', seed: '' });
-    await load();
+    if (participantChangesLocked) return;
+    try {
+      setError('');
+      const allowedTabs = participantTabsForScope(tournament?.scope);
+      const activeTab = allowedTabs.includes(tab) ? tab : allowedTabs[0];
+      await (activeTab === 'external' ? tournamentApi.addExternal : tournamentApi.addIntra)(tournamentId, { ...manual, seed: manual.seed || undefined });
+      setManual({ displayName: '', shortName: '', seed: '' });
+      await load();
+    } catch (requestError) {
+      setError(userMessageFor(requestError));
+    }
   };
 
   const remove = async (participantId) => {
-    if (brandingLocked) return;
+    if (participantChangesLocked) return;
     if (window.confirm('Remove this participant?')) {
-      await tournamentApi.removeParticipant(tournamentId, participantId);
-      await load();
+      try {
+        setError('');
+        await tournamentApi.removeParticipant(tournamentId, participantId);
+        await load();
+      } catch (requestError) {
+        setError(userMessageFor(requestError));
+      }
     }
   };
 
@@ -78,7 +124,10 @@ export default function TeamTournamentDetailsPage() {
   if (!tournament) return <EmptyState title="Tournament not found" message="This tournament could not be loaded." />;
 
   const brandingLocked = !['draft', 'changes_requested'].includes(tournament.approvalStatus);
+  const participantChangesLocked = !canManageParticipants(tournament);
   const squadFor = (participantId) => squadRows.find((row) => row.participant?.id === participantId)?.squad;
+  const participantTabs = participantTabsForScope(tournament.scope);
+  const activeTab = participantTabs.includes(tab) ? tab : participantTabs[0];
 
   return (
     <>
@@ -93,6 +142,7 @@ export default function TeamTournamentDetailsPage() {
         </div>
         <div className="flex gap-2">
           {!brandingLocked && <Link to={`/team/tournaments/${tournament.id}/edit`} className="secondary-button">Edit</Link>}
+          <Link to={`/team/tournaments/${tournament.id}/lineups`} className="primary-button">Matchday Lineups</Link>
           <Link to={`/team/tournaments/${tournament.id}/history`} className="secondary-button">History</Link>
         </div>
       </header>
@@ -111,25 +161,27 @@ export default function TeamTournamentDetailsPage() {
           </div>
           <StatusBadge><UsersRound size={12} className="mr-1 inline" />{participants.length}</StatusBadge>
         </div>
-        {brandingLocked && <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Participant changes are read-only in this approval state.</div>}
+        {participantChangesLocked && <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-100">Participant changes are read-only in this approval state.</div>}
+        {!participantChangesLocked && tournament.approvalStatus === 'approved' && tournament.scope === TOURNAMENT_SCOPE.INTER_COLLEGE && <div className="mt-5 rounded-2xl border border-lime-300/20 bg-lime-300/10 p-4 text-sm text-lime-100">Add participating teams during the registration window.</div>}
+        <p className="mt-4 text-sm text-white/50">{participantHelpText(tournament.scope)}</p>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {['registered', 'external', 'intra'].map((item) => (
-            <button key={item} type="button" className={`rounded-full border px-4 py-2 text-sm font-bold ${tab === item ? 'border-lime-300/40 bg-lime-300/15 text-lime-100' : 'border-white/10 text-white/55'}`} onClick={() => setTab(item)}>
+          {participantTabs.map((item) => (
+            <button key={item} type="button" className={`rounded-full border px-4 py-2 text-sm font-bold ${activeTab === item ? 'border-lime-300/40 bg-lime-300/15 text-lime-100' : 'border-white/10 text-white/55'}`} onClick={() => setTab(item)}>
               {formatTournamentLabel(item)} Teams
             </button>
           ))}
         </div>
 
-        {tab === 'registered' ? (
+        {activeTab === 'registered' ? (
           <div className="mt-5">
             <div className="flex gap-3">
-              <input className="field-input" placeholder="Search public registered teams" value={search} onChange={(event) => setSearch(event.target.value)} disabled={brandingLocked} />
-              <button type="button" className="secondary-button" onClick={searchTeams} disabled={brandingLocked}><Search size={16} /> Search</button>
+              <input className="field-input" placeholder="Search public registered teams" value={search} onChange={(event) => setSearch(event.target.value)} disabled={participantChangesLocked} />
+              <button type="button" className="secondary-button" onClick={searchTeams} disabled={participantChangesLocked}><Search size={16} /> Search</button>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {available.length === 0 ? <p className="text-sm text-white/45">Search teams to add registered participants.</p> : available.map((team) => (
-                <button key={team.id} type="button" className="rounded-2xl border border-white/10 p-4 text-left hover:border-lime-300/30 disabled:opacity-50" disabled={brandingLocked} onClick={() => addRegistered(team.id)}>
+                <button key={team.id} type="button" className="rounded-2xl border border-white/10 p-4 text-left hover:border-lime-300/30 disabled:opacity-50" disabled={participantChangesLocked} onClick={() => addRegistered(team.id)}>
                   <strong>{team.name}</strong><span className="ml-2 text-white/40">{team.city}</span>
                 </button>
               ))}
@@ -137,10 +189,10 @@ export default function TeamTournamentDetailsPage() {
           </div>
         ) : (
           <div className="mt-5 grid gap-3 md:grid-cols-[1fr_160px_100px_auto]">
-            <input className="field-input" placeholder={`${formatTournamentLabel(tab)} team name`} value={manual.displayName} disabled={brandingLocked} onChange={(event) => setManual({ ...manual, displayName: event.target.value })} />
-            <input className="field-input" placeholder="Short name" value={manual.shortName} disabled={brandingLocked} onChange={(event) => setManual({ ...manual, shortName: event.target.value })} />
-            <input className="field-input" placeholder="Seed" value={manual.seed} disabled={brandingLocked} onChange={(event) => setManual({ ...manual, seed: event.target.value })} />
-            <button type="button" className="primary-button" disabled={brandingLocked || !manual.displayName.trim()} onClick={addManual}>Add</button>
+            <input className="field-input" placeholder={activeTab === 'intra' ? 'Department, house, or class team name' : `${formatTournamentLabel(activeTab)} team name`} value={manual.displayName} disabled={participantChangesLocked} onChange={(event) => setManual({ ...manual, displayName: event.target.value })} />
+            <input className="field-input" placeholder="Short name" value={manual.shortName} disabled={participantChangesLocked} onChange={(event) => setManual({ ...manual, shortName: event.target.value })} />
+            <input className="field-input" placeholder="Seed" value={manual.seed} disabled={participantChangesLocked} onChange={(event) => setManual({ ...manual, seed: event.target.value })} />
+            <button type="button" className="primary-button" disabled={participantChangesLocked || !manual.displayName.trim()} onClick={addManual}>Add</button>
           </div>
         )}
 
@@ -159,7 +211,7 @@ export default function TeamTournamentDetailsPage() {
                     <p className="text-xs text-white/45">{TOURNAMENT_PARTICIPANT_TYPE_LABEL[participant.participantType]} · {participant.status}</p>
                   </div>
                 </div>
-                {!brandingLocked && <button type="button" className="icon-button" onClick={() => remove(participant.id)} aria-label={`Remove ${participant.displayName}`}><Trash2 size={16} /></button>}
+                {!participantChangesLocked && <button type="button" className="icon-button" onClick={() => remove(participant.id)} aria-label={`Remove ${participant.displayName}`}><Trash2 size={16} /></button>}
               </div>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <StatusBadge tone={squad?.status === 'locked' ? 'lime' : 'neutral'}>{squad ? formatTournamentLabel(squad.status) : 'No Squad'}</StatusBadge>

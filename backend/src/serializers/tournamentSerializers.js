@@ -191,3 +191,65 @@ export const serializeTournamentSquadHistory = (historyDocument) => {
     createdAt: item.createdAt,
   });
 };
+
+const serializeLineupPlayer = (playerDocument) => {
+  const player = asObject(playerDocument);
+  if (!player) return null;
+  return removeEmpty({
+    id: idOf(player.squadPlayer || player._id),
+    name: player.name,
+    position: player.position,
+    jersey: player.jersey,
+    photoUrl: player.photoUrl,
+    sourceType: player.sourceType,
+    slotId: player.slotId,
+    lineIndex: player.lineIndex,
+    positionIndex: player.positionIndex,
+    roleLabel: player.roleLabel,
+    x: player.x,
+    y: player.y,
+  });
+};
+
+const serializeLineupSide = (side = {}) => removeEmpty({
+  formation: side.formation,
+  customFormation: side.customFormation,
+  startingPlayers: (side.startingPlayers || []).map(serializeLineupPlayer).filter(Boolean),
+  substitutes: (side.substitutes || []).map(serializeLineupPlayer).filter(Boolean),
+  captain: serializeLineupPlayer(side.captain),
+  goalkeeper: serializeLineupPlayer(side.goalkeeper),
+  submittedAt: side.submittedAt,
+  lockedAt: side.lockedAt,
+});
+
+export const serializeTournamentLineupHost = (lineupDocument, participantsById = {}) => {
+  const lineup = asObject(lineupDocument);
+  if (!lineup) return null;
+  const homeId = idOf(lineup.homeParticipant);
+  const awayId = idOf(lineup.awayParticipant);
+  return removeEmpty({
+    id: idOf(lineup._id),
+    tournament: idOf(lineup.tournament),
+    provisionalFixtureKey: lineup.provisionalFixtureKey,
+    status: lineup.status,
+    matchCreated: lineup.matchCreated,
+    homeParticipant: participantsById[homeId] || homeId,
+    awayParticipant: participantsById[awayId] || awayId,
+    home: serializeLineupSide(lineup.home || {}),
+    away: serializeLineupSide(lineup.away || {}),
+    createdAt: lineup.createdAt,
+    updatedAt: lineup.updatedAt,
+  });
+};
+
+export const serializeTournamentLineupHistory = (historyDocument) => {
+  const item = asObject(historyDocument);
+  if (!item) return null;
+  return removeEmpty({
+    id: idOf(item._id),
+    action: item.action,
+    actorRole: item.actorRole,
+    safeMessage: item.safeMessage,
+    createdAt: item.createdAt,
+  });
+};

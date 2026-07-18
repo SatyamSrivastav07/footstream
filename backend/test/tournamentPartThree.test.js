@@ -6,19 +6,59 @@ import { validationResult } from 'express-validator';
 import Notification, { NOTIFICATION_TYPES } from '../src/models/Notification.js';
 import { TOURNAMENT_REVIEW_ACTIONS } from '../src/models/TournamentReviewHistory.js';
 import { TOURNAMENT_SQUAD_HISTORY_ACTIONS } from '../src/models/TournamentSquadHistory.js';
+import TournamentMatchdayLineup from '../src/models/TournamentMatchdayLineup.js';
+import { TOURNAMENT_LINEUP_HISTORY_ACTIONS } from '../src/models/TournamentLineupHistory.js';
+import {
+  TOURNAMENT_FORMATION_PRESETS,
+  TOURNAMENT_LINEUP_STATUS,
+  outfieldPlayersForMatchFormat,
+  startersForMatchFormat,
+} from '../src/constants/tournamentConstants.js';
 import {
   assertNoProtectedTournamentFields,
+  deleteHostedTournamentDraft,
   ensureTournamentEditableByHost,
+  submitForApproval,
 } from '../src/services/tournamentService.js';
 import { listTournamentsForAdmin, serializeHostReviewHistory } from '../src/services/tournamentReviewService.js';
 import { createTournamentValidator, requiredReasonValidator } from '../src/validators/tournamentValidators.js';
-import { registeredParticipantValidator } from '../src/validators/tournamentParticipantValidators.js';
+import { manualParticipantValidator, registeredParticipantValidator } from '../src/validators/tournamentParticipantValidators.js';
 import { registeredSquadPlayerValidator } from '../src/validators/tournamentSquadValidators.js';
+import { createLineupValidator, updateLineupSideValidator } from '../src/validators/tournamentLineupValidators.js';
 import { serializeTournamentSquadPublic } from '../src/serializers/tournamentSerializers.js';
+import { formationSlots, validateTournamentFormation } from '../src/services/tournamentLineupService.js';
+import { validateWithStatus } from '../src/middleware/validate.js';
+import { errorHandler } from '../src/middleware/errorHandler.js';
 const runValidators = async (validators, req) => {
   for (const validator of validators) await validator.run(req);
   return validationResult(req);
 };
+const leanSelectChain = (rows = []) => ({ select: () => ({ lean: async () => rows }) });
+const tournamentDoc = (overrides = {}) => ({
+  _id: '650000000000000000000010',
+  hostTeam: '650000000000000000000011',
+  createdBy: '650000000000000000000012',
+  name: 'RANN',
+  slug: 'rann',
+  scope: 'inter_college',
+  competitionFormat: 'league',
+  matchFormat: '11v11',
+  city: 'Ghaziabad',
+  primaryVenue: 'Main Ground',
+  startDate: new Date('2027-01-01T00:00:00Z'),
+  endDate: new Date('2027-01-10T00:00:00Z'),
+  minimumTeams: 2,
+  approvalStatus: 'draft',
+  lifecycleStatus: 'draft',
+  isArchived: false,
+  submittedAt: null,
+  logo: {},
+  coverImage: {},
+  save: async function save() { return this; },
+  deleteOne: async function deleteOne() { this.deleted = true; },
+  toObject: function toObject() { return { ...this }; },
+  ...overrides,
+});
 
 test('tournament notification and review-history contracts include Phase 8A Part 3 actions', () => {
   [
@@ -101,6 +141,100 @@ test('tournament squad routes validators and serializers stay Phase 8B Part 1 sc
   assert.equal(safe.players[0].registeredPlayer, undefined);
 });
 
+test('tournament matchday lineup foundation stays Phase 8B Part 2 scoped', async () => {
+  const teamRoutes = readFileSync(resolve('src/routes/teamRoutes.js'), 'utf8');
+  const adminRoutes = readFileSync(resolve('src/routes/adminRoutes.js'), 'utf8');
+  const packageJson = readFileSync(resolve('package.json'), 'utf8');
+  [
+    'lineup_created',
+    'player_added_to_starting',
+    'player_added_to_bench',
+    'player_removed',
+    'captain_changed',
+    'goalkeeper_changed',
+    'formation_changed',
+    'lineup_submitted',
+    'lineup_locked',
+    'lineup_unlocked',
+  ].forEach((action) => assert.ok(TOURNAMENT_LINEUP_HISTORY_ACTIONS.includes(action)));
+  assert.deepEqual(Object.values(TOURNAMENT_LINEUP_STATUS), ['draft', 'submitted', 'locked']);
+  assert.match(teamRoutes, /hosted-tournaments\/:tournamentId\/lineups/);
+  assert.match(teamRoutes, /lineups\/:lineupId\/home\/eligible-players/);
+  assert.match(teamRoutes, /lineups\/:lineupId\/away\/eligible-players/);
+  assert.match(adminRoutes, /tournaments\/:tournamentId\/lineups/);
+  assert.doesNotMatch(teamRoutes, /fixtures\/generate|standings|tournament-matches|playing-xi/i);
+  assert.match(packageJson, /TournamentMatchdayLineup\.js/);
+  assert.match(packageJson, /tournamentLineupService\.js/);
+
+  const result = await runValidators(createLineupValidator, {
+    params: { tournamentId: '64b000000000000000000001' },
+    body: { provisionalFixtureKey: 'RANN-M1', homeParticipant: '64b000000000000000000002', awayParticipant: '64b000000000000000000003' },
+  });
+  assert.equal(result.isEmpty(), true);
+
+  const badAction = await runValidators(updateLineupSideValidator, {
+    params: { tournamentId: '64b000000000000000000001', lineupId: '64b000000000000000000004' },
+    body: { action: 'startMatch' },
+  });
+  assert.equal(badAction.isEmpty(), false);
+
+  const slotAction = await runValidators(updateLineupSideValidator, {
+    params: { tournamentId: '64b000000000000000000001', lineupId: '64b000000000000000000004' },
+    body: { action: 'assignSlot', squadPlayerId: '64b000000000000000000005', slotId: 'L1-P1' },
+  });
+  assert.equal(slotAction.isEmpty(), true);
+});
+
+test('tournament lineup model and formation validation enforce matchday contracts', async () => {
+  assert.deepEqual(TOURNAMENT_FORMATION_PRESETS[5], ['1-2-1', '1-1-2', '2-1-1']);
+  assert.deepEqual(TOURNAMENT_FORMATION_PRESETS[6], ['2-2-1', '2-1-2', '1-3-1']);
+  assert.deepEqual(TOURNAMENT_FORMATION_PRESETS[8], ['3-3-1', '2-3-2', '3-2-2']);
+  assert.deepEqual(TOURNAMENT_FORMATION_PRESETS[11], ['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '3-4-3']);
+  assert.equal(startersForMatchFormat('6v6'), 6);
+  assert.equal(outfieldPlayersForMatchFormat('6v6'), 5);
+  assert.doesNotThrow(() => validateTournamentFormation({ formation: '4-3-3', playersOnField: 11 }));
+  assert.doesNotThrow(() => validateTournamentFormation({ formation: '2-2-1', playersOnField: 6 }));
+  assert.doesNotThrow(() => validateTournamentFormation({ formation: 'custom', customFormation: '4-3-3', playersOnField: 11 }));
+  assert.throws(() => validateTournamentFormation({ formation: '4-3-3', playersOnField: 7 }), /compatible/);
+  assert.throws(() => validateTournamentFormation({ formation: 'custom', customFormation: '2-2-2', playersOnField: 11 }), /one goalkeeper/);
+  const slots = formationSlots({ formation: '2-2-1', playersOnField: 6 });
+  assert.equal(slots.length, 6);
+  assert.equal(slots[0].slotId, 'GK');
+  assert.equal(slots.filter((slot) => slot.slotId !== 'GK').length, 5);
+
+  const sameParticipants = new TournamentMatchdayLineup({
+    tournament: '64b000000000000000000001',
+    provisionalFixtureKey: 'RANN-M1',
+    homeParticipant: '64b000000000000000000002',
+    awayParticipant: '64b000000000000000000002',
+    createdBy: '64b000000000000000000005',
+  });
+  const error = sameParticipants.validateSync();
+  assert.ok(error.errors.awayParticipant);
+
+  const valid = new TournamentMatchdayLineup({
+    tournament: '64b000000000000000000001',
+    provisionalFixtureKey: 'RANN-M2',
+    homeParticipant: '64b000000000000000000002',
+    awayParticipant: '64b000000000000000000003',
+    home: {
+      startingPlayers: [{
+        squadPlayer: '64b000000000000000000006',
+        name: 'Aman',
+        position: 'GK',
+        sourceType: 'manual_player',
+        slotId: 'GK',
+        lineIndex: 0,
+        positionIndex: 0,
+        x: 0.5,
+        y: 0.92,
+      }],
+    },
+    createdBy: '64b000000000000000000005',
+  });
+  assert.equal(valid.validateSync(), undefined);
+});
+
 test('host editability and protected tournament fields are enforced by service helpers', () => {
   assert.throws(
     () => assertNoProtectedTournamentFields({ createdBy: 'user1', approvalStatus: 'approved' }),
@@ -126,6 +260,88 @@ test('host editability and protected tournament fields are enforced by service h
   }, { team: 'team1' }), /not editable/);
 });
 
+test('draft delete hard-removes draft tournament scoped records and assets', async () => {
+  const tournament = tournamentDoc({
+    logo: { publicId: 'logo-secret' },
+    coverImage: { publicId: 'cover-secret' },
+  });
+  const deleted = [];
+  const destroyed = [];
+  const modelWithDelete = (rows = []) => ({
+    countDocuments: async () => 0,
+    find: () => leanSelectChain(rows),
+    deleteMany: async (filter) => { deleted.push(filter); },
+  });
+  const result = await deleteHostedTournamentDraft({
+    user: { _id: '650000000000000000000013', team: tournament.hostTeam },
+    tournamentId: tournament._id,
+    tournamentModel: { findOne: async () => tournament },
+    participantModel: modelWithDelete([{ logo: { publicId: 'participant-logo' } }]),
+    squadModel: modelWithDelete(),
+    squadPlayerModel: modelWithDelete([{ photo: { publicId: 'player-photo' } }]),
+    squadHistoryModel: modelWithDelete(),
+    lineupModel: modelWithDelete([{ _id: '650000000000000000000020' }]),
+    lineupHistoryModel: modelWithDelete(),
+    reviewModel: modelWithDelete(),
+    matchModel: { countDocuments: async () => 0 },
+    storage: { destroy: async (publicId) => { destroyed.push(publicId); return { result: 'ok' }; } },
+  });
+  assert.deepEqual(result, { deleted: true });
+  assert.equal(tournament.deleted, true);
+  assert.ok(deleted.length >= 6);
+  assert.deepEqual(destroyed.sort(), ['cover-secret', 'logo-secret', 'participant-logo', 'player-photo'].sort());
+});
+
+test('draft delete blocks submitted approved match and locked dependencies', async () => {
+  await assert.rejects(deleteHostedTournamentDraft({
+    user: { _id: '650000000000000000000013', team: '650000000000000000000011' },
+    tournamentId: '650000000000000000000010',
+    tournamentModel: { findOne: async () => tournamentDoc({ submittedAt: new Date() }) },
+  }), (error) => error.code === 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
+
+  await assert.rejects(deleteHostedTournamentDraft({
+    user: { _id: '650000000000000000000013', team: '650000000000000000000011' },
+    tournamentId: '650000000000000000000010',
+    tournamentModel: { findOne: async () => tournamentDoc() },
+    matchModel: { countDocuments: async () => 1 },
+    squadModel: { countDocuments: async () => 0 },
+    lineupModel: { countDocuments: async () => 0 },
+  }), (error) => error.code === 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
+});
+
+test('submission rules split intra-college and inter-college requirements', async () => {
+  const inter = tournamentDoc({ scope: 'inter_college' });
+  await submitForApproval({
+    user: { _id: '650000000000000000000013', team: inter.hostTeam },
+    tournamentId: inter._id,
+    tournamentModel: { findOne: async () => inter },
+    participantModel: { find: () => leanSelectChain([]) },
+    createHistory: async () => {},
+    notifyApprovalSubmitted: async () => {},
+  });
+  assert.equal(inter.approvalStatus, 'approval_pending');
+
+  const intra = tournamentDoc({ scope: 'intra_college' });
+  await assert.rejects(submitForApproval({
+    user: { _id: '650000000000000000000013', team: intra.hostTeam },
+    tournamentId: intra._id,
+    tournamentModel: { findOne: async () => intra },
+    participantModel: { find: () => leanSelectChain([{ participantType: 'intra_team', displayName: 'CSE' }]) },
+    createHistory: async () => {},
+    notifyApprovalSubmitted: async () => {},
+  }), (error) => error.code === 'TOURNAMENT_APPROVAL_REQUIRED' && /Add at least 2 intra-college teams/.test(error.message));
+
+  const invalidIntra = tournamentDoc({ scope: 'intra_college' });
+  await assert.rejects(submitForApproval({
+    user: { _id: '650000000000000000000013', team: invalidIntra.hostTeam },
+    tournamentId: invalidIntra._id,
+    tournamentModel: { findOne: async () => invalidIntra },
+    participantModel: { find: () => leanSelectChain([{ participantType: 'intra_team' }, { participantType: 'external_team' }]) },
+    createHistory: async () => {},
+    notifyApprovalSubmitted: async () => {},
+  }), (error) => error.code === 'TOURNAMENT_APPROVAL_REQUIRED' && /only intra-college teams/.test(error.message));
+});
+
 test('tournament validators reject protected fields and enforce reasons/participant payloads', async () => {
   const createResult = await runValidators(createTournamentValidator, {
     body: { name: 'RANN', scope: 'inter_college', createdBy: 'attacker' },
@@ -145,6 +361,46 @@ test('tournament validators reject protected fields and enforce reasons/particip
   });
   assert.equal(participantResult.isEmpty(), false);
   assert.match(participantResult.array()[0].msg, /Protected participant fields/);
+});
+
+test('validation middleware returns a specific actionable message', async () => {
+  const req = {
+    params: { tournamentId: '650000000000000000000001' },
+    body: { displayName: '', seed: '9999' },
+  };
+  await runValidators(manualParticipantValidator, req);
+  let capturedError;
+  validateWithStatus(400)(req, {}, (error) => {
+    capturedError = error;
+  });
+  assert.equal(capturedError.statusCode, 400);
+  assert.doesNotMatch(capturedError.message, /highlighted fields/i);
+  assert.match(capturedError.message, /Display name|Seed|Please fix/);
+  assert.ok(capturedError.details.length >= 1);
+});
+
+test('tournament duplicate key errors use participant-specific copy', () => {
+  let statusCode;
+  let payload;
+  const duplicateError = {
+    code: 11000,
+    keyPattern: { tournament: 1, normalizedName: 1 },
+    keyValue: { tournament: '650000000000000000000001', normalizedName: 'ims fc' },
+    message: 'E11000 duplicate key error collection: footstream.tournamentparticipants index: tournament_1_normalizedName_1 dup key',
+  };
+  errorHandler(duplicateError, { id: 'req-test' }, {
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(data) {
+      payload = data;
+    },
+  });
+  assert.equal(statusCode, 409);
+  assert.equal(payload.error.code, 'TOURNAMENT_PARTICIPANT_EXISTS');
+  assert.match(payload.error.message, /participant/i);
+  assert.doesNotMatch(payload.error.message, /team slug/i);
 });
 
 test('tournament routes are registered without frontend or challenge restoration', () => {

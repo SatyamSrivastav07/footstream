@@ -25,7 +25,7 @@ export default function AdminTeamRegistrationRequestsPage() {
   return <><header><p className="eyebrow">Super admin review</p><h1 className="page-title">Team Requests</h1><p className="page-copy">Review public club/team requests to join FootStream.</p></header>
     <form onSubmit={submit} className="mt-6 grid gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 md:grid-cols-[1fr_180px_auto]">
       <input className="field-input" placeholder="Search team, city, representative" value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} />
-      <select className="field-input" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">All statuses</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+      <select className="field-input" value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">All statuses</option><option value="pending">Pending</option><option value="changesRequested">Changes requested</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
       <button className="primary-button"><Search size={16} /> Filter</button>
     </form>
     {error && <div className="mt-6 rounded-xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error}</div>}

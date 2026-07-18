@@ -46,7 +46,11 @@ export default function PlayerFormModal({ open, player, onClose, onSave }) {
   const submit = async (event) => {
     event.preventDefault();
     const clientErrors = validateForm(form);
-    if (Object.keys(clientErrors).length > 0) { setErrors(clientErrors); setMessage('Please correct the highlighted fields.'); return; }
+    if (Object.keys(clientErrors).length > 0) {
+      setErrors(clientErrors);
+      setMessage(Object.values(clientErrors)[0]);
+      return;
+    }
 
     setSaving(true); setErrors({}); setMessage('');
     try {

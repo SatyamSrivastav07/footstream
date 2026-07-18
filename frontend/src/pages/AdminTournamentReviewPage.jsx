@@ -10,6 +10,7 @@ export default function AdminTournamentReviewPage() {
   const [tournament, setTournament] = useState(null);
   const [history, setHistory] = useState([]);
   const [squadRows, setSquadRows] = useState([]);
+  const [lineups, setLineups] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -17,14 +18,16 @@ export default function AdminTournamentReviewPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [detail, timeline, squadsResponse] = await Promise.all([
+      const [detail, timeline, squadsResponse, lineupResponse] = await Promise.all([
         tournamentApi.getAdmin(tournamentId),
         tournamentApi.adminHistory(tournamentId),
         tournamentApi.adminSquads(tournamentId),
+        tournamentApi.adminLineups(tournamentId),
       ]);
       setTournament(unwrapData(detail).tournament);
       setHistory(unwrapData(timeline).history || []);
       setSquadRows(unwrapData(squadsResponse).squads || []);
+      setLineups(unwrapData(lineupResponse).lineups || []);
       setError('');
     } catch (requestError) {
       setError(requestError.userMessage);
@@ -101,6 +104,14 @@ export default function AdminTournamentReviewPage() {
             <Link key={row.participant.id} className="block rounded-2xl border border-white/10 p-3 hover:border-lime-300/30" to={`/admin/tournaments/${tournament.id}/participants/${row.participant.id}/squad`}>
               <span className="font-bold text-white">{row.participant.displayName}</span>
               <span className="ml-2 text-sm text-white/45">{row.squad ? `${formatTournamentLabel(row.squad.status)} · ${row.squad.playerCount} players · Captain ${row.squad.captain?.name || 'not set'}` : 'No squad'}</span>
+            </Link>
+          ))}
+        </Panel>
+        <Panel title="Matchday Lineups">
+          {lineups.length === 0 ? <p>No matchday lineups yet.</p> : lineups.map((lineup) => (
+            <Link key={lineup.id} className="block rounded-2xl border border-white/10 p-3 hover:border-lime-300/30" to={`/admin/tournaments/${tournament.id}/lineups/${lineup.id}`}>
+              <span className="font-bold text-white">{lineup.homeParticipant?.displayName || 'Home'} vs {lineup.awayParticipant?.displayName || 'Away'}</span>
+              <span className="ml-2 text-sm text-white/45">{formatTournamentLabel(lineup.status)} · {lineup.home?.formation || 'No home formation'} / {lineup.away?.formation || 'No away formation'}</span>
             </Link>
           ))}
         </Panel>

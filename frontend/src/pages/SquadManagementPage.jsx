@@ -1,5 +1,6 @@
-import { Activity, Plus, Search, ShieldAlert, UserCheck, UsersRound, UserX } from 'lucide-react';
+import { Activity, ClipboardCheck, Plus, Search, ShieldAlert, UserCheck, UsersRound, UserX } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client.js';
 import EmptyState from '../components/EmptyState.jsx';
 import TeamIdentity from '../components/TeamIdentity.jsx';
@@ -75,7 +76,10 @@ export default function SquadManagementPage() {
     <>
       <header className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
         <div><p className="eyebrow"><TeamIdentity team={user.team} name={user.team?.name || 'My team'} logoClassName="size-5 rounded" /></p><h1 className="page-title">Permanent squad</h1><p className="page-copy">Keep every player card, role, and availability status accurate in one place.</p></div>
-        <button type="button" className="primary-button w-fit" onClick={() => setEditor({ open: true, player: null })}><Plus size={17} /> Add player</button>
+        <div className="flex flex-wrap gap-3">
+          <Link to="/team/squad/tactical-board" className="secondary-button w-fit"><ClipboardCheck size={17} /> Tactical Board</Link>
+          <button type="button" className="primary-button w-fit" onClick={() => setEditor({ open: true, player: null })}><Plus size={17} /> Add player</button>
+        </div>
       </header>
 
       {(error || notice) && <div className={`mt-7 rounded-xl border px-4 py-3 text-sm ${error ? 'border-red-300/20 bg-red-300/10 text-red-100' : 'border-lime-300/15 bg-lime-300/[0.07] text-lime-100'}`} role="status">{error || notice}</div>}

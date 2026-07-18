@@ -89,6 +89,37 @@ export const DEFAULT_TOURNAMENT_CONFIGURATION = Object.freeze({
   lossPoints: 0,
 });
 
+export const MATCH_FORMAT_PLAYERS_ON_FIELD = Object.freeze({
+  [TOURNAMENT_MATCH_FORMAT_LABEL.FIVE_V_FIVE]: 5,
+  [TOURNAMENT_MATCH_FORMAT_LABEL.SIX_V_SIX]: 6,
+  [TOURNAMENT_MATCH_FORMAT_LABEL.SEVEN_V_SEVEN]: 7,
+  [TOURNAMENT_MATCH_FORMAT_LABEL.EIGHT_V_EIGHT]: 8,
+  [TOURNAMENT_MATCH_FORMAT_LABEL.NINE_V_NINE]: 9,
+  [TOURNAMENT_MATCH_FORMAT_LABEL.ELEVEN_V_ELEVEN]: 11,
+});
+
+export const TOURNAMENT_FORMATION_PRESETS = Object.freeze({
+  5: Object.freeze(['1-2-1', '2-1-1', '1-1-2']),
+  6: Object.freeze(['2-2-1', '2-1-2', '1-3-1']),
+  7: Object.freeze(['2-3-1', '3-2-1', '2-2-2']),
+  8: Object.freeze(['3-3-1', '2-3-2', '3-2-2']),
+  9: Object.freeze(['3-3-2', '3-2-3', '2-3-3']),
+  11: Object.freeze(['4-3-3', '4-4-2', '4-2-3-1', '3-5-2', '3-4-3']),
+});
+
+export const startersForMatchFormat = (matchFormat, playersOnField) => {
+  if (matchFormat === TOURNAMENT_MATCH_FORMAT_LABEL.CUSTOM) {
+    const value = Number(playersOnField);
+    return Number.isInteger(value) && value >= 3 && value <= 11 ? value : null;
+  }
+  return MATCH_FORMAT_PLAYERS_ON_FIELD[matchFormat] || null;
+};
+
+export const outfieldPlayersForMatchFormat = (matchFormat, playersOnField) => {
+  const starters = startersForMatchFormat(matchFormat, playersOnField);
+  return starters ? starters - 1 : null;
+};
+
 export const TOURNAMENT_APPROVAL_STATUS_LABEL = Object.freeze({
   [TOURNAMENT_APPROVAL_STATUS.DRAFT]: 'Draft',
   [TOURNAMENT_APPROVAL_STATUS.APPROVAL_PENDING]: 'Pending approval',

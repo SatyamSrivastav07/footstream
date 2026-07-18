@@ -1,6 +1,6 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, Phase 8A.5, and Phase 8B Part 1 tournament squad registration**: the MERN foundation, administration, permanent squads, match scheduling, live match control, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, tournament production-readiness polish, and tournament squad registration/allocation/locking.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, Phase 8A.5, Phase 8B Part 1 tournament squad registration, Phase 8B Part 2 tournament matchday lineup foundation, Phase 8B Part 2.5 lineup UX stabilization, the Match Creation Mode + Direct Result enhancement, and the My Team Tactical Formation Builder**: the MERN foundation, administration, permanent squads, private tactical planning, match scheduling, stream/live match control, direct-result match entry, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, tournament production-readiness polish, tournament squad registration/allocation/locking, and tournament tactical lineup placement.
 
 Deployment execution, email/SMS notifications, payments, AI features, tournament fixture generation/matches/standings/statistics, mobile apps, and later Phase 8 functionality are intentionally not included yet.
 
@@ -43,6 +43,40 @@ Deployment execution, email/SMS notifications, payments, AI features, tournament
 - Read-only super-admin match lists and match details.
 - Responsive match filters, multi-section forms, player selectors, review summaries, and detail pages.
 
+## My Team Tactical Formation Builder
+
+- Team admins can open **Squad → Tactical Board** at `/team/squad/tactical-board` without creating or editing a match.
+- The Tactical Board is a private planning tool for match preparation, training discussion, player-position planning, and squad rotation. It does not create matches, publish lineups, update statistics, touch tournaments, or create `MatchEvent` records.
+- The board loads the authenticated team admin's active permanent squad from `/api/team/players` and displays player photos/fallback avatars, names, jersey numbers, positions, and availability labels.
+- Preset formations include `4-3-3`, `4-4-2`, `4-2-3-1`, `3-5-2`, `3-4-3`, `5-3-2`, `5-4-1`, plus `5-a-side`, `6-a-side`, `7-a-side`, `8-a-side`, and `9-a-side`.
+- Manual mode acts as a tactical whiteboard and stores percentage-based `x/y` coordinates so layouts remain responsive.
+- Players can be selected from the bench and placed on pitch slots, swapped, moved back to the bench, or dragged on the manual board with pointer coordinates clamped inside the pitch.
+- Captain, Vice Captain, and Goalkeeper can be assigned with visible `C`, `VC`, and `GK` badges. Captain and Vice Captain must be different players.
+- Auto Arrange fills the selected shape deterministically by registered position, preferring a goalkeeper in the goalkeeper slot, then defenders, midfielders, and attackers.
+- Reset, Clear Pitch, Restore Saved Plan, unsaved-change warnings, loading/error/empty states, and mobile-friendly bench layout are included.
+- Tactical plans are saved only in browser `localStorage` for this MVP; backend persistence can be added later without changing the planning model.
+
+LocalStorage schema:
+
+```json
+{
+  "version": 1,
+  "teamId": "team-id",
+  "formation": "4-3-3",
+  "mode": "preset",
+  "pitchPlayers": [
+    { "playerId": "player-id", "slotId": "GK", "x": null, "y": null }
+  ],
+  "benchPlayerIds": ["player-id"],
+  "captainId": "player-id",
+  "viceCaptainId": "player-id",
+  "goalkeeperId": "player-id",
+  "updatedAt": "ISO_DATE"
+}
+```
+
+Manual mode uses the same schema with `formation: "manual"`, `mode: "manual"`, `slotId: null`, and `x/y` values between 0 and 100.
+
 ## Phase 4 Features
 
 - Safe scheduled â†’ first half â†’ half-time â†’ second half â†’ completed transitions.
@@ -65,6 +99,28 @@ Deployment execution, email/SMS notifications, payments, AI features, tournament
 - Team record, goals for/against, goal difference, rounded win percentage, deterministic leaderboards, and filterable history.
 - Team-admin management, super-admin read-only oversight, and anonymous public result/statistics/history pages.
 
+## Match Creation Mode + Direct Result Enhancement
+
+- Match creation now requires a management mode while defaulting to **Stream Match** for the existing live workflow.
+- **Stream Match** preserves the live timer, Socket.IO scoreboard, event controls, YouTube stream manager, public live pages, and existing result flow.
+- **Direct Input Result** lets a team admin or super admin enter a complete post-match result without starting the live engine.
+- Direct result submission records canonical `MatchEvent` rows for goals, assists, yellow cards, red cards, and substitutions, then completes the match.
+- Editing a direct result deletes the previous direct-result event set and writes the new canonical set, so statistics are recalculated without double-counting.
+- Direct result validation rejects negative scores, score/event mismatches, duplicate goals/substitutions, invalid squad players, missing/duplicate goalkeeper/captain states, and MOTM selections from players who did not appear.
+- Public result pages render direct-result matches through the same result bundle and timeline components used by streamed matches, without live controls or streaming sections.
+
+## Super Admin Team Management
+
+- Super admins can open **All Teams** at `/admin/teams` to search and filter teams by name, organization, city, team admin, status, team type, sort order, and paginated results.
+- Super admins can open **Pending Teams** at `/admin/teams/pending` to review pending and changes-requested public team registration requests.
+- Team detail pages at `/admin/teams/:teamId` show identity, administration, squad summary, match summary, recent safe activity, and links to read-only squad/statistics views.
+- Safe team fields can be edited by super admins: name, short name, organization, team type, city, location, coach, home ground, founded year, description, publication, and join-request status.
+- Team status lifecycle is centralized: `pending`, `approved`, `changesRequested`, `rejected`, `suspended`, and `archived`.
+- Public registration requests support approve, reject, and request-changes. Approved registrations create an approved, published team and one team-admin account.
+- Approved teams can be suspended, reactivated, or archived without deleting players, matches, results, photos, or statistics.
+- Suspended and archived teams are blocked from active Team Admin mutation APIs server-side while safe reads remain available.
+- Super admins can assign or replace a team admin from existing team-admin users; replaced admins for that team are unassigned and disabled.
+
 ## Phase 6A Features
 
 - Owning team administrators can add, update, enable, disable, preview, and remove a match YouTube stream configuration.
@@ -75,7 +131,9 @@ Deployment execution, email/SMS notifications, payments, AI features, tournament
 
 ## Phase 6B Features
 
-- A dedicated responsive public layout with Home, Live, Fixtures, Results, Login/Dashboard navigation, mobile controls, and a footer.
+- A dedicated responsive public layout with Home, Live, Fixtures, Results, Login/Dashboard navigation, mobile controls, and a reusable footer.
+- The public footer includes FootStream branding, `Play • Stream • Connect`, quick public links, optional support email from `VITE_SUPPORT_EMAIL` with `VITE_CONTACT_EMAIL` kept as a fallback, optional portfolio URL, and the FootStream copyright notice.
+- Tournament pages are guarded by `VITE_TOURNAMENTS_ENABLED`; when disabled, tournament navigation remains visible and routes users to a branded Coming Soon page without removing any existing tournament code or backend APIs.
 - API-driven home sections for live matches, nearest fixtures, and latest completed results, each limited to six entries.
 - Anonymous live, fixture, and result directories with bounded queries, deterministic ordering, filters, empty/error/loading states, and pagination.
 - A status-aware public match page for scheduled, live, half-time, completed, and cancelled matches.
@@ -267,8 +325,19 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/notifications/unread-count` | Authenticated | Return the signed-in user's unread notification count |
 | `PATCH` | `/api/notifications/:notificationId/read` | Authenticated | Mark one owned notification as read |
 | `PATCH` | `/api/notifications/read-all` | Authenticated | Mark all owned notifications as read |
-| `GET` | `/api/admin/teams` | superAdmin | List active teams |
+| `GET` | `/api/admin/teams` | superAdmin | List teams with search, status/team-type filters, sorting, archived option, and pagination |
 | `POST` | `/api/admin/teams` | superAdmin | Create a team |
+| `GET` | `/api/admin/teams/pending` | superAdmin | List pending and changes-requested public team registration requests |
+| `GET` | `/api/admin/teams/:teamId` | superAdmin | Read team detail, administration, squad summary, match summary, and recent activity |
+| `PATCH` | `/api/admin/teams/:teamId` | superAdmin | Edit safe team profile/identity fields |
+| `PATCH` | `/api/admin/teams/:teamId/status` | superAdmin | Apply a validated team status transition |
+| `POST` | `/api/admin/teams/:teamId/approve` | superAdmin | Approve/reactivate a team and publish it |
+| `POST` | `/api/admin/teams/:teamId/reject` | superAdmin | Reject a reviewable team with a reason |
+| `POST` | `/api/admin/teams/:teamId/request-changes` | superAdmin | Mark a reviewable team as changes requested with a message |
+| `POST` | `/api/admin/teams/:teamId/suspend` | superAdmin | Suspend an approved team with a reason |
+| `POST` | `/api/admin/teams/:teamId/reactivate` | superAdmin | Reactivate a suspended team |
+| `POST` | `/api/admin/teams/:teamId/archive` | superAdmin | Archive a team without deleting history |
+| `PATCH` | `/api/admin/teams/:teamId/team-admin` | superAdmin | Assign or replace a team admin from existing team-admin users |
 | `GET` | `/api/admin/teams/:teamId/players` | superAdmin | View a team's squad read-only |
 | `GET` | `/api/admin/teams/:teamId/join-requests` | superAdmin | Read-only join requests for one team |
 | `GET` | `/api/admin/join-requests/:requestId` | superAdmin | Read-only join request detail |
@@ -276,9 +345,13 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/admin/team-registration-requests/:requestId` | superAdmin | Review one public team registration request |
 | `PATCH` | `/api/admin/team-registration-requests/:requestId/approve` | superAdmin | Approve a pending request and create one Team plus one team-admin account |
 | `PATCH` | `/api/admin/team-registration-requests/:requestId/reject` | superAdmin | Reject a pending team registration request with a safe reason |
+| `PATCH` | `/api/admin/team-registration-requests/:requestId/request-changes` | superAdmin | Request corrections for a pending team registration |
 | `GET` | `/api/admin/matches` | superAdmin | List all active matches with filters |
 | `GET` | `/api/admin/matches/:matchId` | superAdmin | View one match and lineup snapshots |
+| `GET` | `/api/admin/matches/:matchId/direct-result` | superAdmin | Read one direct-result payload and canonical events |
+| `POST/PATCH` | `/api/admin/matches/:matchId/direct-result` | superAdmin | Submit or edit a direct-result match without live controls |
 | `GET` | `/api/admin/team-admins` | superAdmin | List team administrators |
+| `GET` | `/api/admin/team-admins/assignable` | superAdmin | Search existing team admins that can be assigned to a team |
 | `POST` | `/api/admin/team-admins` | superAdmin | Create and assign a team administrator |
 | `PATCH` | `/api/admin/team-admins/:userId/status` | superAdmin | Enable or disable a team administrator |
 | `GET` | `/api/team/current` | teamAdmin | Return the authenticated admin's assigned team |
@@ -295,6 +368,8 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `GET` | `/api/team/opponents/:teamId/players` | teamAdmin | Fetch active public-safe squad members for a registered opponent team |
 | `GET` | `/api/team/matches/:matchId` | teamAdmin | View one owned match |
 | `PATCH` | `/api/team/matches/:matchId` | teamAdmin | Edit an owned scheduled match |
+| `GET` | `/api/team/matches/:matchId/direct-result` | teamAdmin | Read one owned direct-result payload and canonical events |
+| `POST/PATCH` | `/api/team/matches/:matchId/direct-result` | teamAdmin | Submit or edit an owned direct-result match and refresh statistics source events |
 | `PATCH` | `/api/team/matches/:matchId/cancel` | teamAdmin | Cancel an owned scheduled match |
 | `DELETE` | `/api/team/matches/:matchId` | teamAdmin | Soft-delete an owned scheduled match |
 | `GET` | `/api/team/join-requests` | teamAdmin | List owned public join requests |
@@ -348,6 +423,8 @@ Match creation supports two opponent modes:
 Registered-opponent lineups are stored as independent historical snapshots in `registeredOpponentStartingXI` and `registeredOpponentSubstitutes`. Registered entries preserve the player reference plus name, position, jersey, and photo at match time. Temporary entries use `sourceType: "temporary"` and never create permanent `Player` records or statistics. The opponent display name is derived from the selected Team document; client-supplied opponent names are ignored in registered mode.
 
 The Match Format selector is available on scheduled matches. `11v11` remains the default for backward compatibility, while `5v5` and `7v7` can be selected before kickoff. The starter count is format-aware: `5v5` requires exactly 5 starters, `7v7` requires exactly 7, and `11v11` requires exactly 11. Registered players cannot be duplicated or appear as both starter and substitute, temporary guest names cannot be duplicated within the match, and registered players must belong to the selected opponent team and be active.
+
+Normal match lineups also support tactical pitch placement. After choosing a formation, the match create/edit form shows a FootStream-styled pitch: select a starting player, click a slot, and the saved match-day snapshot stores that player's safe slot metadata (`slotId`, line, position, role label, and normalized coordinates). Older matches without placement still render from deterministic fallback ordering. During live display, substitutions inherit the outgoing player's slot so the scoreboard and current lineup shape stay stable without changing statistics or event rules.
 
 Duplicate scheduled-match protection is exact: an active, non-cancelled fixture conflicts only when the host team, registered opponent team or normalized manual opponent name, and scheduled kickoff timestamp all match. Matches at a different kickoff time remain valid.
 
@@ -516,6 +593,21 @@ Deployment configuration is reserved for a later milestone and is not included i
 
 ## Manual Phase 3 Test Checklist
 
+### My Team Tactical Board
+
+1. Sign in as a team admin with at least five active squad players and open **Squad → Tactical Board**.
+2. Confirm the board loads without creating a match and shows the active squad in the bench panel with photo/fallback, jersey, position, and availability.
+3. Select `5-a-side`, click **Auto Arrange**, and confirm five unique players appear on the pitch while remaining players stay on the bench.
+4. Click a bench player, click an empty pitch slot, and confirm the player moves without duplication.
+5. Select a pitch player, assign Captain, Vice Captain, and Goalkeeper, and confirm the visible `C`, `VC`, and `GK` badges.
+6. Try assigning the same player as Captain and Vice Captain and confirm the inline validation blocks saving.
+7. Switch to **Manual**, place or drag players on the pitch, save, refresh, and confirm coordinates restore.
+8. Use **Clear Pitch**, **Reset Formation**, and **Restore Saved Plan** and confirm each action behaves as described with confirmation prompts.
+9. Corrupt or remove the localStorage key `footstream:tactical-board:<teamId>` and confirm the page recovers safely.
+10. Add a new squad player, reopen the board, and confirm the new player appears on the bench without losing the saved plan.
+
+### Match creation
+
 1. Give a team at least 11 active, available permanent players.
 2. Sign in as its team admin and open **Matches**.
 3. Create a manual fixture with opponent, venue, future kickoff, type, side, formation, and exactly 11 starters.
@@ -600,6 +692,17 @@ History accepts `from`, `to`, `opponent`, `tournament`, and `outcome`. Leaderboa
 10. Deactivate or edit a player and confirm historical identity/statistics remain available.
 11. Sign in as super admin and verify statistics, history, player statistics, results, and photos are read-only.
 12. Open `/teams/:teamId/stats`, `/teams/:teamId/history`, `/players/:playerId/stats`, and `/matches/:matchId/result` anonymously and verify no internal user or Cloudinary public-ID fields are exposed.
+
+## Manual Direct Result Test Checklist
+
+1. Sign in as a team admin, create a match, leave **Stream Match** selected, and verify the existing Live Control workflow still appears.
+2. Create another match and choose **Direct Input Result**. Confirm the match card/detail page shows a Direct Result badge and an **Input result** action instead of live controls.
+3. Open **Input result**, enter final score, goal scorers, assists, cards, substitutions, Man of the Match, notes, duration, referee, and venue notes.
+4. Save the direct result and verify the match becomes completed, redirects to the result page, and appears in public Results.
+5. Open team/player statistics and confirm goals, assists, cards, appearances, substitute appearances, MOTM, and team record are derived from the submitted events.
+6. Edit the direct result and verify old values are replaced instead of double-counted.
+7. Try invalid inputs: negative score, score that does not match goal entries, duplicate substitutions, missing goalkeeper, and a player outside the match squad.
+8. Confirm public result pages do not show live timer, live controls, or streaming sections for direct-result matches.
 
 ## Phase 6A YouTube Stream API
 
@@ -883,6 +986,11 @@ Required production environment:
 | `VITE_API_URL` | Frontend API base URL |
 | `VITE_SOCKET_URL` | Frontend Socket.IO backend origin; usually the API URL without `/api` |
 | `VITE_PUBLIC_APP_URL` | Frontend public canonical/share origin |
+| `VITE_SUPPORT_EMAIL` | Public footer query/support email displayed as a clickable `mailto:` link |
+| `VITE_CONTACT_EMAIL` | Backward-compatible fallback for the public footer support email |
+| `VITE_PORTFOLIO_URL` | Optional public footer portfolio link; hidden when empty |
+| `VITE_TOURNAMENTS_ENABLED` | Set to `true` to show tournament navigation and routes; `false` sends tournament routes to Coming Soon |
+| `VITE_WHATSAPP_COMMUNITY_URL` | Optional FootStream official WhatsApp group link shown only to logged-in team admins on Team Admin My Team |
 
 Deployment checklist:
 
@@ -1711,5 +1819,127 @@ Manual Phase 8B Part 1 checks:
 11. Open a public tournament participant squad and verify approved/locked squads show public-safe cards.
 12. Confirm public pages show “Squad not announced yet” for draft/submitted squads.
 13. Confirm no Playing XI, fixtures, groups, standings, tournament matches, statistics, awards, or Challenge routes were added.
+
+## Phase 8B Part 2 Tournament Matchday Lineup Foundation
+
+Phase 8B Part 2 adds reusable tournament matchday lineup records. It lets the tournament host prepare both sides for a future matchup reference without generating fixtures, creating `Match` documents, starting live matches, or changing tournament statistics.
+
+### Tournament draft workflow stabilization
+
+- Draft deletion now permanently deletes never-submitted draft tournaments instead of archiving them.
+- Draft deletion is blocked with `TOURNAMENT_DRAFT_DELETE_BLOCKED` when submitted, approved, match-backed, or locked squad/lineup dependencies exist.
+- Intra-college tournaments must add the minimum required intra teams before submission.
+- Inter-college tournaments can be submitted for Super Admin approval with zero participants; teams can be added after approval during registration.
+- Team admins can edit configuration only in `draft` and `changes_requested`; `approval_pending`, `approved`, `rejected`, `suspended`, and archived tournaments are read-only for configuration.
+
+Squad vs matchday lineup:
+
+- **Tournament Squad:** the full list of players eligible for a participant across the tournament.
+- **Matchday Lineup:** the starters, bench, captain, goalkeeper, and formation selected for one future matchup reference.
+- Matchday lineup players reference `TournamentSquadPlayer`, not permanent `Player`, so registered, external, and intra tournament players work consistently.
+- Creating or editing a matchday lineup never mutates the tournament squad.
+
+Lineup status workflow:
+
+```text
+draft -> submitted -> locked
+```
+
+- Draft lineups are editable and may be incomplete.
+- Submitted lineups must be complete and are read-only in this phase.
+- Locked lineups are immutable and ready for later fixture/Match integration.
+- Unlock is allowed only while no future Match has been attached.
+
+Starter and bench rules:
+
+- Preset match formats derive `tournament.playersOnField`; admins do not manually enter player count for `5v5`, `6v6`, `7v7`, `8v8`, `9v9`, or `11v11`.
+- `5v5` means 5 total starters: 1 goalkeeper + 4 outfield players.
+- `6v6` means 6 total starters: 1 goalkeeper + 5 outfield players.
+- `7v7` means 7 total starters: 1 goalkeeper + 6 outfield players.
+- `8v8` means 8 total starters: 1 goalkeeper + 7 outfield players.
+- `9v9` means 9 total starters: 1 goalkeeper + 8 outfield players.
+- `11v11` means 11 total starters: 1 goalkeeper + 10 outfield players.
+- `custom` asks for total players per team including the goalkeeper, from 3 to 11.
+- Starters plus substitutes cannot exceed `tournament.maximumMatchdaySquad`.
+- A player cannot appear twice or be both starter and substitute.
+- Only active players from that participant's approved or locked tournament squad are eligible.
+
+Captain and goalkeeper rules:
+
+- Each side must select exactly one matchday captain before submission/lock.
+- The captain must be a starter.
+- Each side must select a starting goalkeeper.
+- Goalkeeper validation accepts a selected starter with `position === "GK"`.
+- Matchday captain/goalkeeper choices do not modify squad captain/vice-captain assignments.
+
+Formation presets:
+
+- 5v5: `1-2-1`, `1-1-2`, `2-1-1`
+- 6v6: `2-2-1`, `2-1-2`, `1-3-1`
+- 7v7: `2-3-1`, `3-2-1`, `2-2-2`
+- 8v8: `3-3-1`, `2-3-2`, `3-2-2`
+- 9v9: `3-3-2`, `3-2-3`, `2-3-3`
+- 11v11: `4-3-3`, `4-4-2`, `4-2-3-1`, `3-5-2`, `3-4-3`
+- Formation numbers represent outfield lines only. The goalkeeper is always added separately.
+- Custom formations are accepted only when the dash-separated outfield values plus one goalkeeper equal `playersOnField`.
+
+Phase 8B Part 2.5 tactical placement:
+
+- The tournament creation/edit UI no longer shows a manual `playersOnField` input for preset formats.
+- The lineup editor renders an original FootStream-styled football pitch after a formation is selected.
+- Hosts select a starter, then click/tap a pitch slot to persist placement.
+- Slot IDs are deterministic and safe: `GK`, `L1-P1`, `L1-P2`, `L2-P1`, and so on.
+- Each starting-player snapshot may store `slotId`, `lineIndex`, `positionIndex`, `roleLabel`, and normalized `x`/`y` coordinates.
+- Submitted or locked lineups require every starter to have a valid tactical slot, no duplicate slots, no duplicate players, and the selected goalkeeper in `GK`.
+- Older lineups without placement data render with deterministic fallback placement and can be reordered before submission/lock.
+- Super-admin lineup review uses the same pitch component in read-only mode.
+- The live match screen can display a read-only current tactical shape from existing live-state data without changing live-event or statistics behavior.
+
+Team Admin lineup APIs:
+
+- `GET /api/team/hosted-tournaments/:tournamentId/lineups`
+- `POST /api/team/hosted-tournaments/:tournamentId/lineups`
+- `GET /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/home`
+- `PATCH /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/away`
+- `POST /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/submit`
+- `POST /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/lock`
+- `POST /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/unlock`
+- `GET /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/history`
+- `GET /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/home/eligible-players`
+- `GET /api/team/hosted-tournaments/:tournamentId/lineups/:lineupId/away/eligible-players`
+
+Super Admin read-only lineup APIs:
+
+- `GET /api/admin/tournaments/:tournamentId/lineups`
+- `GET /api/admin/tournaments/:tournamentId/lineups/:lineupId`
+- `GET /api/admin/tournaments/:tournamentId/lineups/:lineupId/history`
+
+Public behavior:
+
+- No public lineup endpoint is exposed in this phase.
+- Draft/submitted/locked matchday lineups remain authenticated dashboard data until fixtures and tournament Match pages are implemented later.
+
+Audit history:
+
+- New model: `TournamentLineupHistory`.
+- Actions include lineup creation, player add/remove, captain changes, goalkeeper changes, formation changes, submit, lock, and unlock.
+- Actor user IDs and internal metadata are never exposed in serialized history responses.
+
+Manual Phase 8B Part 2 checks:
+
+1. Open a hosted tournament and click **Matchday Lineups**.
+2. Create a future matchup reference using two different confirmed participants.
+3. Open the lineup editor and verify home and away eligible player lists load only from approved/locked squads.
+4. Add starters and bench players for both sides.
+5. Confirm duplicate starter/bench selection is blocked.
+6. Select captain and goalkeeper for each side.
+7. Choose a formation compatible with the tournament's `playersOnField`.
+8. Try submitting with incomplete starter count, missing captain, missing goalkeeper, or invalid formation and confirm safe validation errors.
+9. Submit a complete lineup and verify mutation controls become read-only.
+10. Lock the lineup and verify it remains immutable.
+11. Open Super Admin tournament review and verify read-only lineup summaries and details.
+12. Confirm there is no Start Match button, fixture generator, tournament Match creation, standings, statistics, awards, or Challenge route.
 
 Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament fixtures/standings/statistics, native mobile apps, and custom video hosting are not included.
