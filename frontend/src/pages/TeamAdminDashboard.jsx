@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import api from '../api/client.js';
 import TeamBrandingUploader from '../components/TeamBrandingUploader.jsx';
 import TeamIdentity from '../components/TeamIdentity.jsx';
-import { WHATSAPP_COMMUNITY_URL } from '../config/features.js';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function TeamAdminDashboard() {
@@ -11,12 +10,43 @@ export default function TeamAdminDashboard() {
   const [team, setTeam] = useState(user.team);
   const [message, setMessage] = useState('');
   const [isSavingJoinStatus, setIsSavingJoinStatus] = useState(false);
+  const [whatsapp, setWhatsapp] = useState({ url: '', enabled: false });
+  const [profileStrength, setProfileStrength] = useState(null);
+  const [profileForm, setProfileForm] = useState({ motto: '', website: '', instagram: '', facebook: '', youtube: '' });
 
   useEffect(() => {
     api.get('/team/current')
-      .then((response) => setTeam(response.data.data.team))
+      .then((response) => {
+        const loaded = response.data.data.team;
+        setTeam(loaded);
+        setProfileForm({
+          motto: loaded?.motto || '',
+          website: loaded?.socialLinks?.website || '',
+          instagram: loaded?.socialLinks?.instagram || '',
+          facebook: loaded?.socialLinks?.facebook || '',
+          youtube: loaded?.socialLinks?.youtube || '',
+        });
+      })
       .catch(() => setTeam(user.team));
   }, [user.team]);
+
+  useEffect(() => {
+    api.get('/team/community/whatsapp').then((response) => setWhatsapp(response.data.data.setting || { url: '', enabled: false })).catch(() => {});
+    api.get('/team/profile/strength').then((response) => setProfileStrength(response.data.data.profileStrength)).catch(() => {});
+  }, []);
+
+  const savePublicProfile = async (event) => {
+    event.preventDefault();
+    setMessage('');
+    try {
+      const response = await api.patch('/team/profile/public', profileForm);
+      setTeam(response.data.data.team);
+      setProfileStrength(response.data.data.profileStrength);
+      setMessage('Public profile details saved.');
+    } catch (error) {
+      setMessage(error.userMessage || 'Could not update public profile details.');
+    }
+  };
 
   return (
     <>
@@ -40,7 +70,15 @@ export default function TeamAdminDashboard() {
         <article className="panel min-h-56"><div className="metric-icon metric-lime"><CalendarDays size={20} /></div><h2 className="mt-7 font-display text-2xl font-bold">Public applications</h2><p className="mt-2 max-w-md text-sm leading-6 text-emerald-100/45">Allow public visitors to request to join your team, then approve applicants into the official squad.</p><div className="mt-7 h-px bg-white/[0.07]" /><p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-lime-300/50">Phase 6F active</p></article>
       </section>
 
-      {WHATSAPP_COMMUNITY_URL && (
+      {profileStrength && (
+        <section className="panel mt-7">
+          <div className="panel-heading"><div><p className="eyebrow">Profile strength</p><h2 className="panel-title">{profileStrength.percentage}% complete</h2></div></div>
+          <div className="h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-lime-300" style={{ width: `${profileStrength.percentage}%` }} /></div>
+          {profileStrength.missing?.length > 0 && <p className="mt-3 text-sm text-emerald-100/45">Missing: {profileStrength.missing.join(', ')}</p>}
+        </section>
+      )}
+
+      {whatsapp.enabled && whatsapp.url && (
         <section className="panel mt-7">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="flex items-start gap-4">
@@ -57,7 +95,7 @@ export default function TeamAdminDashboard() {
             </div>
             <a
               className="primary-button w-full sm:w-auto"
-              href={WHATSAPP_COMMUNITY_URL}
+              href={whatsapp.url}
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Join FootStream Official WhatsApp Group"
@@ -67,6 +105,17 @@ export default function TeamAdminDashboard() {
           </div>
         </section>
       )}
+
+      <section className="panel mt-7">
+        <div className="panel-heading"><div><p className="eyebrow">Public identity</p><h2 className="panel-title">Motto and social links</h2></div></div>
+        <form onSubmit={savePublicProfile} className="grid gap-4 md:grid-cols-2">
+          <label className="field-label md:col-span-2">Team motto<textarea className="field-input mt-2 min-h-20" value={profileForm.motto} onChange={(event) => setProfileForm({ ...profileForm, motto: event.target.value })} placeholder="Play Together. Win Together." /></label>
+          {['website', 'instagram', 'facebook', 'youtube'].map((field) => (
+            <label className="field-label capitalize" key={field}>{field}<input className="field-input mt-2" value={profileForm[field]} onChange={(event) => setProfileForm({ ...profileForm, [field]: event.target.value })} placeholder="https://..." /></label>
+          ))}
+          <button className="primary-button w-fit">Save public profile</button>
+        </form>
+      </section>
 
       <section className="panel mt-7">
         <div className="panel-heading"><div><p className="eyebrow">Join requests</p><h2 className="panel-title">Public application status</h2></div></div>

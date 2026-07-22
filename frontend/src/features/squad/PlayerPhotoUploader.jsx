@@ -98,7 +98,7 @@ export default function PlayerPhotoUploader({ player, onChanged }) {
       </div>
       <div className="mt-3 flex items-center gap-3">
         <div className="size-16 shrink-0 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035]">
-          {displayed ? <img src={displayed} alt={`${player.name} preview`} className="size-full object-cover" /> : <div className="grid size-full place-items-center text-[10px] text-white/35">Avatar</div>}
+          {displayed ? <img src={displayed} alt={`${player.name} preview`} className="size-full object-contain" /> : <div className="grid size-full place-items-center text-[10px] text-white/35">Avatar</div>}
         </div>
         <div className="min-w-0 flex-1">
           {fileInfo && <p className="truncate text-xs text-emerald-100/50">{fileInfo}</p>}

@@ -11,12 +11,11 @@ import AppError from '../utils/AppError.js';
 import { slugify } from '../utils/slugify.js';
 import { cloudinaryClient } from '../config/cloudinary.js';
 import {
+  DEFAULT_TOURNAMENT_CONFIGURATION,
   TOURNAMENT_APPROVAL_STATUS,
   TOURNAMENT_LIFECYCLE_STATUS,
-  TOURNAMENT_LINEUP_STATUS,
   TOURNAMENT_PARTICIPANT_TYPE,
   TOURNAMENT_SCOPE,
-  TOURNAMENT_SQUAD_STATUS,
   TOURNAMENT_VISIBILITY,
   canHostEditTournament,
   isTournamentPubliclyVisible,
@@ -72,7 +71,12 @@ const normalizeTournamentInput = (input = {}) => {
     if (payload[field] !== undefined) payload[field] = clean(payload[field]);
   });
   const derivedStarters = startersForMatchFormat(payload.matchFormat, payload.playersOnField);
-  if (derivedStarters) payload.playersOnField = derivedStarters;
+  if (derivedStarters) {
+    const minimumSquad = Number(payload.minimumSquad);
+    const maximumSquad = Number(payload.maximumSquad || DEFAULT_TOURNAMENT_CONFIGURATION.maximumTournamentSquadSize);
+    payload.playersOnField = derivedStarters;
+    if (!payload.minimumSquad || (minimumSquad > derivedStarters && minimumSquad <= maximumSquad)) payload.minimumSquad = derivedStarters;
+  }
   return payload;
 };
 
@@ -185,28 +189,11 @@ export const deleteHostedTournamentDraft = async ({
 }) => {
   const hostTeamId = requireHostContext(user);
   const tournament = await findHostedTournament({ tournamentModel, tournamentId, hostTeamId });
-  if (tournament.approvalStatus !== TOURNAMENT_APPROVAL_STATUS.DRAFT || tournament.isArchived || tournament.submittedAt) {
-    throw new AppError('Only never-submitted draft tournaments can be permanently deleted.', 409, 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
+  if (tournament.lifecycleStatus === TOURNAMENT_LIFECYCLE_STATUS.COMPLETED) {
+    throw new AppError('Completed tournaments cannot be deleted.', 409, 'TOURNAMENT_DELETE_BLOCKED');
   }
 
   const tournamentObjectId = tournament._id;
-  const [matchCount, blockedSquadCount, blockedLineupCount] = await Promise.all([
-    matchModel.countDocuments({ tournamentCompetition: tournamentObjectId }),
-    squadModel.countDocuments({ tournament: tournamentObjectId, status: { $ne: TOURNAMENT_SQUAD_STATUS.DRAFT } }),
-    lineupModel.countDocuments({
-      tournament: tournamentObjectId,
-      $or: [{ status: { $ne: TOURNAMENT_LINEUP_STATUS.DRAFT } }, { matchCreated: true }],
-    }),
-  ]);
-
-  const blockers = [];
-  if (matchCount) blockers.push('matches already exist');
-  if (blockedSquadCount) blockers.push('locked or submitted squads exist');
-  if (blockedLineupCount) blockers.push('locked or submitted lineups exist');
-  if (blockers.length) {
-    throw new AppError(`Tournament draft cannot be deleted because ${blockers.join(', ')}.`, 409, 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
-  }
-
   const [participants, squadPlayers] = await Promise.all([
     participantModel.find({ tournament: tournamentObjectId }).select('logo').lean(),
     squadPlayerModel.find({ tournament: tournamentObjectId }).select('photo').lean(),
@@ -220,6 +207,23 @@ export const deleteHostedTournamentDraft = async ({
 
   const lineups = await lineupModel.find({ tournament: tournamentObjectId }).select('_id').lean();
   const lineupIds = lineups.map((lineup) => lineup._id);
+
+  if (matchModel.updateMany) {
+    await matchModel.updateMany(
+      { tournamentCompetition: tournamentObjectId },
+      {
+        $unset: {
+          tournamentCompetition: '',
+          tournamentHomeParticipant: '',
+          tournamentAwayParticipant: '',
+          tournamentStage: '',
+          tournamentRound: '',
+          tournamentScope: '',
+          tournamentFixtureNumber: '',
+        },
+      },
+    );
+  }
 
   await Promise.all([
     lineupHistoryModel.deleteMany({ tournament: tournamentObjectId, ...(lineupIds.length ? { lineup: { $in: lineupIds } } : {}) }),

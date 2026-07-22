@@ -1,8 +1,10 @@
 import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
 import MatchPhoto from '../models/MatchPhoto.js';
+import MatchCollaboration from '../models/MatchCollaboration.js';
 import AppError from '../utils/AppError.js';
 import { calculateScore, currentLineupEligibility } from './liveMatchService.js';
+import { serializeCollaborationSummary } from './matchCollaborationService.js';
 
 export const idString = (value) => String(value?._id || value || '');
 const plain = (value) => typeof value?.toJSON === 'function' ? value.toJSON() : { ...value };
@@ -39,13 +41,21 @@ export const findCompletedMatch = async ({ matchModel = Match, matchId, teamId }
   return match;
 };
 
-export const getResultBundle = async ({ matchModel = Match, eventModel = MatchEvent, photoModel = MatchPhoto, matchId, teamId }) => {
+export const getResultBundle = async ({ matchModel = Match, eventModel = MatchEvent, photoModel = MatchPhoto, collaborationModel = MatchCollaboration, matchId, teamId }) => {
   const match = await findCompletedMatch({ matchModel, matchId, teamId });
-  const [events, photos] = await Promise.all([
+  const [events, photos, collaboration] = await Promise.all([
     eventModel.find({ match: matchId, isUndone: false }).select('-createdBy -undoneBy -__v').sort({ sequence: 1 }).lean(),
     photoModel.find({ match: matchId, isActive: true }).select('-uploadedBy -publicId -__v').sort({ createdAt: -1 }).lean(),
+    collaborationModel.findOne({ match: matchId }).populate('hostTeam', 'name shortName slug logo').populate('opponentTeam', 'name shortName slug logo').lean(),
   ]);
-  return { match: plain(match), result: deriveResult(match, events), events, photos };
+  const matchData = plain(match);
+  const collaborationSummary = serializeCollaborationSummary(collaboration, teamId);
+  return {
+    match: { ...matchData, collaboration: collaborationSummary, collaborationStatus: collaboration?.status || null, collaborationBadge: collaborationSummary?.badge || null },
+    result: deriveResult(match, events),
+    events,
+    photos,
+  };
 };
 
 export const confirmResult = async ({ matchModel = Match, eventModel = MatchEvent, matchId, teamId, userId, input, now = new Date() }) => {

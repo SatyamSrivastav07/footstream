@@ -1,5 +1,6 @@
 import { param, query } from "express-validator";
 import { PHOTO_CATEGORIES } from "../models/MatchPhoto.js";
+import { TEAM_GALLERY_CATEGORIES } from "../models/TeamGalleryPost.js";
 
 const pagination = [
   query("page")
@@ -41,7 +42,7 @@ export const publicTeamGalleryValidator = [
   ...pagination,
   query("category")
     .optional()
-    .isIn(PHOTO_CATEGORIES)
+    .isIn([...PHOTO_CATEGORIES, ...TEAM_GALLERY_CATEGORIES])
     .withMessage("Invalid photo category."),
 ];
 export const publicPlayerProfileValidator = [

@@ -55,9 +55,14 @@ export default function AdminTeamRegistrationRequestDetailsPage() {
 
   const requestChanges = async (event) => {
     event.preventDefault();
+    const message = changeMessage.trim();
+    if (!message) {
+      setError('Please write what the applicant should correct.');
+      return;
+    }
     setSaving(true); setError(''); setNotice('');
     try {
-      await api.patch(`/admin/team-registration-requests/${requestId}/request-changes`, { message: changeMessage });
+      await api.patch(`/admin/team-registration-requests/${requestId}/request-changes`, { message });
       setNotice('Changes requested from applicant.');
       setChangeMessage('');
       await load();
@@ -70,9 +75,14 @@ export default function AdminTeamRegistrationRequestDetailsPage() {
 
   const reject = async (event) => {
     event.preventDefault();
+    const reason = rejectionReason.trim();
+    if (!reason) {
+      setError('Please write a safe rejection reason.');
+      return;
+    }
     setSaving(true); setError(''); setNotice('');
     try {
-      await api.patch(`/admin/team-registration-requests/${requestId}/reject`, { rejectionReason });
+      await api.patch(`/admin/team-registration-requests/${requestId}/reject`, { rejectionReason: reason });
       setNotice('Request rejected.');
       await load();
     } catch (requestError) {

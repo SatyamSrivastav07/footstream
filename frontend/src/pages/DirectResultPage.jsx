@@ -5,12 +5,21 @@ import api from '../api/client.js';
 import LoadingScreen from '../components/LoadingScreen.jsx';
 import TeamIdentity from '../components/TeamIdentity.jsx';
 
-const emptyGoal = { scoringSide: 'team', playerId: '', assistPlayerId: '', temporaryOpponentPlayerName: '', minute: '' };
-const emptyCard = { side: 'team', playerId: '', temporaryOpponentPlayerName: '', minute: '' };
+const emptyGoal = { scoringSide: 'team', playerId: '', assistPlayerId: '', opponentPlayerId: '', opponentAssistPlayerId: '', temporaryOpponentPlayerName: '', minute: '' };
+const emptyCard = { side: 'team', playerId: '', opponentPlayerId: '', temporaryOpponentPlayerName: '', minute: '' };
 const emptySubstitution = { playerOutId: '', playerInId: '', minute: '' };
 
 const eventSide = (event) => event.scoringSide || event.side || (event.team ? 'team' : 'opponent');
 const playerId = (snapshot) => String(snapshot?.player || snapshot?._id || '');
+const uniqueByPlayerId = (players = []) => {
+  const seen = new Set();
+  return players.filter((player) => {
+    const id = playerId(player);
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+};
 
 const toNumberOrNull = (value) => (value === '' || value === null || value === undefined ? null : Number(value));
 const toTrimmedOrNull = (value) => {
@@ -45,6 +54,8 @@ export const buildDirectResultPayload = (form) => ({
       scoringSide,
       playerId: scoringSide === 'team' ? toTrimmedOrNull(goal.playerId) : null,
       assistPlayerId: scoringSide === 'team' ? toTrimmedOrNull(goal.assistPlayerId) : null,
+      opponentPlayerId: scoringSide === 'opponent' ? toTrimmedOrNull(goal.opponentPlayerId) : null,
+      opponentAssistPlayerId: scoringSide === 'opponent' ? toTrimmedOrNull(goal.opponentAssistPlayerId) : null,
       temporaryOpponentPlayerName: scoringSide === 'opponent' ? toTrimmedOrNull(goal.temporaryOpponentPlayerName) : null,
       minute: toNumberOrNull(goal.minute),
     };
@@ -52,12 +63,14 @@ export const buildDirectResultPayload = (form) => ({
   yellowCards: form.yellowCards.map((card) => ({
     side: card.side || 'team',
     playerId: card.side === 'opponent' ? null : toTrimmedOrNull(card.playerId),
+    opponentPlayerId: card.side === 'opponent' ? toTrimmedOrNull(card.opponentPlayerId) : null,
     temporaryOpponentPlayerName: card.side === 'opponent' ? toTrimmedOrNull(card.temporaryOpponentPlayerName) : null,
     minute: toNumberOrNull(card.minute),
   })),
   redCards: form.redCards.map((card) => ({
     side: card.side || 'team',
     playerId: card.side === 'opponent' ? null : toTrimmedOrNull(card.playerId),
+    opponentPlayerId: card.side === 'opponent' ? toTrimmedOrNull(card.opponentPlayerId) : null,
     temporaryOpponentPlayerName: card.side === 'opponent' ? toTrimmedOrNull(card.temporaryOpponentPlayerName) : null,
     minute: toNumberOrNull(card.minute),
   })),
@@ -74,6 +87,32 @@ export const buildDirectResultPayload = (form) => ({
   venueNotes: String(form.venueNotes || '').trim(),
 });
 
+export const buildDirectSubstitutionOptions = ({
+  starters = [],
+  substitutes = [],
+  substitutions = [],
+  rowIndex = 0,
+}) => {
+  const onField = new Map(uniqueByPlayerId(starters).map((player) => [playerId(player), player]));
+  const bench = new Map(uniqueByPlayerId(substitutes).map((player) => [playerId(player), player]));
+  const previousRows = substitutions.slice(0, rowIndex);
+
+  for (const substitution of previousRows) {
+    const outId = String(substitution.playerOutId || '');
+    const inId = String(substitution.playerInId || '');
+    if (!outId || !inId || outId === inId || !onField.has(outId) || !bench.has(inId)) continue;
+    const incoming = bench.get(inId);
+    onField.delete(outId);
+    bench.delete(inId);
+    onField.set(inId, incoming);
+  }
+
+  return {
+    onField: [...onField.values()],
+    bench: [...bench.values()],
+  };
+};
+
 export const buildInitialDirectResultForm = (match, direct) => {
   const events = direct?.events || [];
   return {
@@ -81,20 +120,24 @@ export const buildInitialDirectResultForm = (match, direct) => {
     finalOpponentScore: direct?.result?.finalOpponentScore ?? match?.result?.finalOpponentScore ?? '',
     goals: events.filter((event) => event.type === 'goal').map((event) => ({
       scoringSide: eventSide(event),
-      playerId: event.player ? String(event.player) : '',
-      assistPlayerId: event.assistPlayer ? String(event.assistPlayer) : '',
+      playerId: eventSide(event) === 'team' && event.player ? String(event.player) : '',
+      assistPlayerId: eventSide(event) === 'team' && event.assistPlayer ? String(event.assistPlayer) : '',
+      opponentPlayerId: eventSide(event) === 'opponent' && event.player ? String(event.player) : '',
+      opponentAssistPlayerId: eventSide(event) === 'opponent' && event.assistPlayer ? String(event.assistPlayer) : '',
       temporaryOpponentPlayerName: event.temporaryOpponentPlayerName || '',
       minute: event.minute ?? '',
     })),
     yellowCards: events.filter((event) => event.type === 'yellow_card').map((event) => ({
       side: event.team ? 'team' : 'opponent',
-      playerId: event.player ? String(event.player) : '',
+      playerId: event.team && event.player ? String(event.player) : '',
+      opponentPlayerId: !event.team && event.player ? String(event.player) : '',
       temporaryOpponentPlayerName: event.temporaryOpponentPlayerName || '',
       minute: event.minute ?? '',
     })),
     redCards: events.filter((event) => event.type === 'red_card').map((event) => ({
       side: event.team ? 'team' : 'opponent',
-      playerId: event.player ? String(event.player) : '',
+      playerId: event.team && event.player ? String(event.player) : '',
+      opponentPlayerId: !event.team && event.player ? String(event.player) : '',
       temporaryOpponentPlayerName: event.temporaryOpponentPlayerName || '',
       minute: event.minute ?? '',
     })),
@@ -125,7 +168,10 @@ export default function DirectResultPage({ audience = 'team' }) {
   const [notice, setNotice] = useState('');
 
   const squad = useMemo(() => [...(match?.startingXI || []), ...(match?.substitutes || [])], [match]);
+  const opponentSquad = useMemo(() => [...(match?.registeredOpponentStartingXI || []), ...(match?.registeredOpponentSubstitutes || [])]
+    .filter((player) => player.sourceType !== 'temporary' && playerId(player)), [match]);
   const starters = match?.startingXI || [];
+  const substitutes = match?.substitutes || [];
   const opponentName = match?.registeredOpponentTeam?.name || match?.opponent?.name || 'Opponent';
   const goalCountError = useMemo(() => validateDirectResultGoalCounts(form), [form]);
 
@@ -215,19 +261,19 @@ export default function DirectResultPage({ audience = 'team' }) {
         </section>
 
         <EventRows title="Goal scorers and assists" rows={form.goals} addLabel="Add goal" onAdd={() => addRow('goals', { ...emptyGoal })} onRemove={(index) => removeRow('goals', index)}>
-          {(goal, index) => <GoalRow key={index} goal={goal} index={index} squad={squad} opponentName={opponentName} onChange={updateArray} />}
+          {(goal, index) => <GoalRow key={index} goal={goal} index={index} squad={squad} opponentSquad={opponentSquad} opponentName={opponentName} onChange={updateArray} />}
         </EventRows>
 
         <EventRows title="Yellow cards" rows={form.yellowCards} addLabel="Add yellow card" onAdd={() => addRow('yellowCards', { ...emptyCard })} onRemove={(index) => removeRow('yellowCards', index)}>
-          {(card, index) => <CardRow key={index} kind="yellowCards" card={card} index={index} squad={squad} opponentName={opponentName} onChange={updateArray} />}
+          {(card, index) => <CardRow key={index} kind="yellowCards" card={card} index={index} squad={squad} opponentSquad={opponentSquad} opponentName={opponentName} onChange={updateArray} />}
         </EventRows>
 
         <EventRows title="Red cards" rows={form.redCards} addLabel="Add red card" onAdd={() => addRow('redCards', { ...emptyCard })} onRemove={(index) => removeRow('redCards', index)}>
-          {(card, index) => <CardRow key={index} kind="redCards" card={card} index={index} squad={squad} opponentName={opponentName} onChange={updateArray} />}
+          {(card, index) => <CardRow key={index} kind="redCards" card={card} index={index} squad={squad} opponentSquad={opponentSquad} opponentName={opponentName} onChange={updateArray} />}
         </EventRows>
 
         <EventRows title="Substitutions" rows={form.substitutions} addLabel="Add substitution" onAdd={() => addRow('substitutions', { ...emptySubstitution })} onRemove={(index) => removeRow('substitutions', index)}>
-          {(substitution, index) => <SubstitutionRow key={index} substitution={substitution} index={index} starters={starters} squad={squad} onChange={updateArray} />}
+          {(substitution, index) => <SubstitutionRow key={index} substitution={substitution} index={index} starters={starters} substitutes={substitutes} substitutions={form.substitutions} onChange={updateArray} />}
         </EventRows>
 
         <section className="panel">
@@ -261,16 +307,74 @@ function EventRows({ title, rows, addLabel, onAdd, onRemove, children }) {
   return <section className="panel"><div className="panel-heading"><h2 className="panel-title">{title}</h2><button className="secondary-button px-3" type="button" onClick={onAdd}><Plus size={15} /> {addLabel}</button></div><div className="mt-5 space-y-3">{rows.length ? rows.map((row, index) => <div key={index} className="rounded-2xl border border-white/[0.07] bg-black/10 p-4"><div className="flex items-start gap-3"><div className="flex-1">{children(row, index)}</div><button type="button" className="icon-button text-red-200/70" onClick={() => onRemove(index)} aria-label={`Remove ${title} row ${index + 1}`}><Trash2 size={16} /></button></div></div>) : <p className="rounded-2xl bg-white/[0.025] p-4 text-sm text-emerald-100/40">No entries yet.</p>}</div></section>;
 }
 
-function GoalRow({ goal, index, squad, opponentName, onChange }) {
+function GoalRow({ goal, index, squad, opponentSquad, opponentName, onChange }) {
   const teamGoal = goal.scoringSide === 'team';
-  return <div className="grid gap-3 md:grid-cols-[150px_1fr_1fr_110px]"><select className="field-input" aria-label="Goal side" value={goal.scoringSide} onChange={(event) => onChange('goals', index, 'scoringSide', event.target.value)}><option value="team">Our team</option><option value="opponent">{opponentName}</option></select>{teamGoal ? <select className="field-input" aria-label="Goal scorer" value={goal.playerId} onChange={(event) => onChange('goals', index, 'playerId', event.target.value)}><option value="">Scorer</option>{squad.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select> : <input className="field-input" aria-label="Opponent scorer" placeholder="Opponent scorer" value={goal.temporaryOpponentPlayerName} onChange={(event) => onChange('goals', index, 'temporaryOpponentPlayerName', event.target.value)} />}{teamGoal ? <select className="field-input" aria-label="Assist player" value={goal.assistPlayerId} onChange={(event) => onChange('goals', index, 'assistPlayerId', event.target.value)}><option value="">No assist</option>{squad.filter((player) => playerId(player) !== goal.playerId).map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select> : <input className="field-input" aria-label="Opponent assist" placeholder="Assist not tracked" disabled />}<input className="field-input" aria-label="Goal minute" type="number" min="0" max="150" placeholder="Min" value={goal.minute} onChange={(event) => onChange('goals', index, 'minute', event.target.value)} /></div>;
+  const hasRegisteredOpponentSquad = opponentSquad.length > 0;
+  return (
+    <div className="grid gap-3 md:grid-cols-[150px_1fr_1fr_110px]">
+      <select className="field-input" aria-label="Goal side" value={goal.scoringSide} onChange={(event) => onChange('goals', index, 'scoringSide', event.target.value)}>
+        <option value="team">Our team</option>
+        <option value="opponent">{opponentName}</option>
+      </select>
+      {teamGoal ? (
+        <select className="field-input" aria-label="Goal scorer" value={goal.playerId} onChange={(event) => onChange('goals', index, 'playerId', event.target.value)}>
+          <option value="">Scorer</option>
+          {squad.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}
+        </select>
+      ) : hasRegisteredOpponentSquad ? (
+        <select className="field-input" aria-label="Opponent scorer" value={goal.opponentPlayerId} onChange={(event) => onChange('goals', index, 'opponentPlayerId', event.target.value)}>
+          <option value="">Opponent scorer</option>
+          {opponentSquad.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}
+        </select>
+      ) : (
+        <input className="field-input" aria-label="Opponent scorer" placeholder="Opponent scorer" value={goal.temporaryOpponentPlayerName} onChange={(event) => onChange('goals', index, 'temporaryOpponentPlayerName', event.target.value)} />
+      )}
+      {teamGoal ? (
+        <select className="field-input" aria-label="Assist player" value={goal.assistPlayerId} onChange={(event) => onChange('goals', index, 'assistPlayerId', event.target.value)}>
+          <option value="">No assist</option>
+          {squad.filter((player) => playerId(player) !== goal.playerId).map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}
+        </select>
+      ) : hasRegisteredOpponentSquad ? (
+        <select className="field-input" aria-label="Opponent assist" value={goal.opponentAssistPlayerId} onChange={(event) => onChange('goals', index, 'opponentAssistPlayerId', event.target.value)}>
+          <option value="">No assist</option>
+          {opponentSquad.filter((player) => playerId(player) !== goal.opponentPlayerId).map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}
+        </select>
+      ) : (
+        <input className="field-input" aria-label="Opponent assist" placeholder="Assist not tracked" disabled />
+      )}
+      <input className="field-input" aria-label="Goal minute" type="number" min="0" max="150" placeholder="Min" value={goal.minute} onChange={(event) => onChange('goals', index, 'minute', event.target.value)} />
+    </div>
+  );
 }
 
-function CardRow({ kind, card, index, squad, opponentName, onChange }) {
+function CardRow({ kind, card, index, squad, opponentSquad, opponentName, onChange }) {
   const teamCard = card.side === 'team';
-  return <div className="grid gap-3 md:grid-cols-[150px_1fr_110px]"><select className="field-input" aria-label="Card side" value={card.side} onChange={(event) => onChange(kind, index, 'side', event.target.value)}><option value="team">Our team</option><option value="opponent">{opponentName}</option></select>{teamCard ? <select className="field-input" aria-label="Carded player" value={card.playerId} onChange={(event) => onChange(kind, index, 'playerId', event.target.value)}><option value="">Player</option>{squad.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select> : <input className="field-input" aria-label="Opponent carded player" placeholder="Opponent player" value={card.temporaryOpponentPlayerName} onChange={(event) => onChange(kind, index, 'temporaryOpponentPlayerName', event.target.value)} />}<input className="field-input" aria-label="Card minute" type="number" min="0" max="150" placeholder="Min" value={card.minute} onChange={(event) => onChange(kind, index, 'minute', event.target.value)} /></div>;
+  const hasRegisteredOpponentSquad = opponentSquad.length > 0;
+  return (
+    <div className="grid gap-3 md:grid-cols-[150px_1fr_110px]">
+      <select className="field-input" aria-label="Card side" value={card.side} onChange={(event) => onChange(kind, index, 'side', event.target.value)}>
+        <option value="team">Our team</option>
+        <option value="opponent">{opponentName}</option>
+      </select>
+      {teamCard ? (
+        <select className="field-input" aria-label="Carded player" value={card.playerId} onChange={(event) => onChange(kind, index, 'playerId', event.target.value)}>
+          <option value="">Player</option>
+          {squad.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}
+        </select>
+      ) : hasRegisteredOpponentSquad ? (
+        <select className="field-input" aria-label="Opponent carded player" value={card.opponentPlayerId} onChange={(event) => onChange(kind, index, 'opponentPlayerId', event.target.value)}>
+          <option value="">Opponent player</option>
+          {opponentSquad.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}
+        </select>
+      ) : (
+        <input className="field-input" aria-label="Opponent carded player" placeholder="Opponent player" value={card.temporaryOpponentPlayerName} onChange={(event) => onChange(kind, index, 'temporaryOpponentPlayerName', event.target.value)} />
+      )}
+      <input className="field-input" aria-label="Card minute" type="number" min="0" max="150" placeholder="Min" value={card.minute} onChange={(event) => onChange(kind, index, 'minute', event.target.value)} />
+    </div>
+  );
 }
 
-function SubstitutionRow({ substitution, index, starters, squad, onChange }) {
-  return <div className="grid gap-3 md:grid-cols-[1fr_1fr_110px]"><select className="field-input" aria-label="Player out" value={substitution.playerOutId} onChange={(event) => onChange('substitutions', index, 'playerOutId', event.target.value)}><option value="">Player out</option>{starters.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select><select className="field-input" aria-label="Player in" value={substitution.playerInId} onChange={(event) => onChange('substitutions', index, 'playerInId', event.target.value)}><option value="">Player in</option>{squad.filter((player) => playerId(player) !== substitution.playerOutId).map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select><input className="field-input" aria-label="Substitution minute" type="number" min="0" max="150" placeholder="Min" value={substitution.minute} onChange={(event) => onChange('substitutions', index, 'minute', event.target.value)} /></div>;
+function SubstitutionRow({ substitution, index, starters, substitutes, substitutions, onChange }) {
+  const options = buildDirectSubstitutionOptions({ starters, substitutes, substitutions, rowIndex: index });
+  return <div className="grid gap-3 md:grid-cols-[1fr_1fr_110px]"><select className="field-input" aria-label="Player out" value={substitution.playerOutId} onChange={(event) => onChange('substitutions', index, 'playerOutId', event.target.value)}><option value="">Current player out</option>{options.onField.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select><select className="field-input" aria-label="Player in" value={substitution.playerInId} onChange={(event) => onChange('substitutions', index, 'playerInId', event.target.value)}><option value="">Current bench player in</option>{options.bench.map((player) => <option key={playerId(player)} value={playerId(player)}>{player.name}</option>)}</select><input className="field-input" aria-label="Substitution minute" type="number" min="0" max="150" placeholder="Min" value={substitution.minute} onChange={(event) => onChange('substitutions', index, 'minute', event.target.value)} /></div>;
 }

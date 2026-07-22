@@ -10,7 +10,8 @@ const minuteValidator = (path) => [
 const cardValidator = (path) => [
   body(`${path}.*.side`).optional().isIn(['team', 'opponent']).withMessage('Card side must be team or opponent.'),
   body(`${path}.*.playerId`).optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Selected card player is invalid.'),
-  body(`${path}.*.temporaryOpponentPlayerName`).optional().isString().trim().isLength({ max: 100 }).withMessage('Opponent player name is too long.'),
+  body(`${path}.*.opponentPlayerId`).optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Selected opponent card player is invalid.'),
+  body(`${path}.*.temporaryOpponentPlayerName`).optional({ nullable: true, checkFalsy: true }).isString().trim().isLength({ max: 100 }).withMessage('Opponent player name is too long.'),
   ...minuteValidator(`${path}.*`),
 ];
 
@@ -35,7 +36,9 @@ export const directResultValidator = [
   body('goals.*.scoringSide').optional({ checkFalsy: true }).isIn(['team', 'opponent']).withMessage('Goal side must be team or opponent.'),
   body('goals.*.playerId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Selected goal scorer is invalid.'),
   body('goals.*.assistPlayerId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Selected assist player is invalid.'),
-  body('goals.*.temporaryOpponentPlayerName').optional().isString().trim().isLength({ max: 100 }).withMessage('Opponent scorer name is too long.'),
+  body('goals.*.opponentPlayerId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Selected opponent goal scorer is invalid.'),
+  body('goals.*.opponentAssistPlayerId').optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage('Selected opponent assist player is invalid.'),
+  body('goals.*.temporaryOpponentPlayerName').optional({ nullable: true, checkFalsy: true }).isString().trim().isLength({ max: 100 }).withMessage('Opponent scorer name is too long.'),
   ...minuteValidator('goals.*'),
   body('yellowCards').optional().isArray({ max: 40 }).withMessage('Yellow cards must be an array.'),
   ...cardValidator('yellowCards'),

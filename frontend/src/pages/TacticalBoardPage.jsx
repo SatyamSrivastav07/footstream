@@ -1,4 +1,4 @@
-import { ArrowLeft, CheckCircle2, Eraser, Goal, Move, RotateCcw, Save, Sparkles, UsersRound } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Eraser, Goal, Move, RotateCcw, Save, Search, Sparkles, Star, Trash2, UsersRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client.js';
@@ -10,8 +10,17 @@ import PlayerAvatar from '../features/squad/PlayerAvatar.jsx';
 import { availabilityLabel } from '../features/squad/constants.js';
 import { autoArrangeTacticalPlan } from '../features/tactical/tacticalAutoArrange.js';
 import { FORMATION_DEFINITIONS, getFormationDefinition, isManualFormation } from '../features/tactical/formationDefinitions.js';
-import { createEmptyPlan, loadTacticalPlan, saveTacticalPlan } from '../features/tactical/tacticalBoardStorage.js';
+import {
+  createLibraryItem,
+  createEmptyPlan,
+  loadTacticalLibrary,
+  loadTacticalPlan,
+  removeTacticalLibraryItem,
+  saveTacticalPlan,
+  upsertTacticalLibraryItem,
+} from '../features/tactical/tacticalBoardStorage.js';
 import { normalizePlan, playerIdOf, validateTacticalPlan } from '../features/tactical/tacticalBoardValidation.js';
+import { suggestReplacements } from '../features/tactical/tacticalSuggestions.js';
 
 const playerImageUrl = (player) => player?.photoUrl || (typeof player?.photo === 'string' ? player.photo : player?.photo?.imageUrl || player?.photo?.url || '');
 const pctFromEvent = (event, element) => {
@@ -33,13 +42,21 @@ export default function TacticalBoardPage() {
   const [notice, setNotice] = useState('');
   const [dirty, setDirty] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState('');
+  const [library, setLibrary] = useState([]);
+  const [planTitle, setPlanTitle] = useState('Matchday plan');
+  const [librarySearch, setLibrarySearch] = useState('');
+  const [librarySort, setLibrarySort] = useState('recentlyModified');
 
   const playerMap = useMemo(() => new Map(players.map((player) => [playerIdOf(player), player])), [players]);
   const formation = getFormationDefinition(plan?.formation);
   const manual = isManualFormation(plan?.formation);
   const validationErrors = useMemo(() => (plan ? validateTacticalPlan(plan, players) : []), [plan, players]);
-  const pitchEntries = plan?.pitchPlayers || [];
-  const benchIds = plan?.benchPlayerIds || [];
+  const pitchEntries = useMemo(() => plan?.pitchPlayers || [], [plan?.pitchPlayers]);
+  const benchIds = useMemo(() => plan?.benchPlayerIds || [], [plan?.benchPlayerIds]);
+  const selectedPitchPlayer = useMemo(() => {
+    if (!selectedPlayerId || !pitchEntries.some((entry) => entry.playerId === selectedPlayerId)) return null;
+    return playerMap.get(selectedPlayerId) || null;
+  }, [pitchEntries, playerMap, selectedPlayerId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,8 +64,11 @@ export default function TacticalBoardPage() {
       const response = await api.get('/team/players', { params: { isActive: true } });
       const loadedPlayers = response.data.data.players || [];
       const restored = loadTacticalPlan(teamId, loadedPlayers);
+      const restoredLibrary = loadTacticalLibrary(teamId, loadedPlayers);
       setPlayers(loadedPlayers);
       setPlan(restored);
+      setLibrary(restoredLibrary);
+      setPlanTitle(restoredLibrary[0]?.title || 'Matchday plan');
       setLastSavedAt(restored.updatedAt || '');
       setError('');
     } catch (requestError) {
@@ -142,6 +162,18 @@ export default function TacticalBoardPage() {
     }));
   };
 
+  const replacePitchPlayer = (sourcePlayerId, benchPlayerId) => {
+    if (!sourcePlayerId || !benchPlayerId || sourcePlayerId === benchPlayerId) return;
+    mutatePlan((current) => ({
+      ...current,
+      pitchPlayers: (current.pitchPlayers || []).map((entry) => (entry.playerId === sourcePlayerId ? { ...entry, playerId: benchPlayerId } : entry)),
+      benchPlayerIds: [...(current.benchPlayerIds || []).filter((id) => id !== benchPlayerId && id !== sourcePlayerId), sourcePlayerId],
+      goalkeeperId: current.goalkeeperId === sourcePlayerId ? benchPlayerId : current.goalkeeperId,
+    }));
+    setSelectedPlayerId(benchPlayerId);
+    setNotice('Replacement suggested and applied on the tactical pitch.');
+  };
+
   const setRole = (field, playerId) => {
     mutatePlan((current) => ({
       ...current,
@@ -197,11 +229,65 @@ export default function TacticalBoardPage() {
       return;
     }
     setPlan(result.plan);
+    const item = createLibraryItem(teamId, result.plan, players, planTitle);
+    setLibrary((current) => upsertTacticalLibraryItem(teamId, current, item));
     setLastSavedAt(result.plan.updatedAt);
     setDirty(false);
     setError('');
     setNotice('Tactical plan saved on this browser.');
   };
+
+  const loadLibraryItem = (item) => {
+    if (dirty && !window.confirm('Load this formation and discard unsaved changes?')) return;
+    const loaded = { ...item.plan, updatedAt: item.plan.updatedAt || item.updatedAt };
+    setPlan(normalizePlan(loaded, players, teamId));
+    setPlanTitle(item.title);
+    setLastSavedAt(item.updatedAt || loaded.updatedAt || '');
+    setDirty(false);
+    setNotice(`Loaded ${item.title}.`);
+    const updated = { ...item, lastUsedAt: new Date().toISOString() };
+    setLibrary((current) => upsertTacticalLibraryItem(teamId, current, updated));
+  };
+
+  const renameLibraryItem = (item) => {
+    const title = window.prompt('Rename formation', item.title);
+    if (!title?.trim()) return;
+    const updated = { ...item, title: title.trim().slice(0, 80), updatedAt: new Date().toISOString() };
+    setLibrary((current) => upsertTacticalLibraryItem(teamId, current, updated));
+    if (planTitle === item.title) setPlanTitle(updated.title);
+  };
+
+  const duplicateLibraryItem = (item) => {
+    if (library.length >= 10) {
+      setError('You can save up to 10 tactical formations.');
+      return;
+    }
+    const copy = createLibraryItem(teamId, { ...item.plan, favourite: false }, players, `${item.title} copy`);
+    setLibrary((current) => upsertTacticalLibraryItem(teamId, current, copy));
+    setNotice('Formation duplicated.');
+  };
+
+  const toggleFavourite = (item) => {
+    const updated = { ...item, favourite: !item.favourite, updatedAt: new Date().toISOString() };
+    setLibrary((current) => upsertTacticalLibraryItem(teamId, current, updated));
+  };
+
+  const deleteLibraryItem = (item) => {
+    if (!window.confirm(`Delete "${item.title}" from your tactical library?`)) return;
+    setLibrary((current) => removeTacticalLibraryItem(teamId, current, item.id));
+    setNotice('Formation deleted from library.');
+  };
+
+  const filteredLibrary = useMemo(() => {
+    const needle = librarySearch.trim().toLowerCase();
+    const filtered = needle ? library.filter((item) => item.title.toLowerCase().includes(needle) || item.plan.formation.toLowerCase().includes(needle)) : library;
+    return [...filtered].sort((a, b) => {
+      if (librarySort === 'alphabetical') return a.title.localeCompare(b.title);
+      if (librarySort === 'favourite') return Number(b.favourite) - Number(a.favourite) || a.title.localeCompare(b.title);
+      if (librarySort === 'recentlyUsed') return new Date(b.lastUsedAt || 0) - new Date(a.lastUsedAt || 0);
+      return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+    });
+  }, [library, librarySearch, librarySort]);
 
   if (loading) return <LoadingScreen />;
   if (error && !plan) return <div className="rounded-2xl border border-red-300/20 bg-red-300/10 p-5 text-red-100">{error}</div>;
@@ -234,6 +320,7 @@ export default function TacticalBoardPage() {
                 <div><h2 className="panel-title">Formation planner</h2><p className="mt-1 text-sm text-emerald-100/45">Choose a preset or Manual mode. Click a bench player, then a slot or pitch area. Dragging works on the manual board.</p></div>
                 <span className="count-pill">{pitchEntries.length}/{formation.playerCount} on pitch</span>
               </div>
+              <label className="mt-5 block text-sm font-bold text-white">Formation title<input className="field-input mt-2" value={planTitle} maxLength={80} onChange={(event) => { setPlanTitle(event.target.value); setDirty(true); }} /></label>
               <FormationSelector value={plan.formation} onChange={changeFormation} />
               <Toolbar onSave={save} onAutoArrange={autoArrange} onClear={clearPitch} onReset={resetFormation} onRestore={restoreSaved} disabled={validationErrors.length > 0} />
               <TacticalPitch
@@ -250,7 +337,8 @@ export default function TacticalBoardPage() {
             </section>
           </main>
           <aside className="space-y-7">
-            <BenchPanel players={benchIds.map((id) => playerMap.get(id)).filter(Boolean)} selectedPlayerId={selectedPlayerId} onSelect={setSelectedPlayerId} onRole={setRole} plan={plan} />
+            <TacticalLibraryPanel items={filteredLibrary} total={library.length} search={librarySearch} sort={librarySort} onSearch={setLibrarySearch} onSort={setLibrarySort} onLoad={loadLibraryItem} onRename={renameLibraryItem} onDuplicate={duplicateLibraryItem} onFavourite={toggleFavourite} onDelete={deleteLibraryItem} />
+            <BenchPanel players={benchIds.map((id) => playerMap.get(id)).filter(Boolean)} selectedPlayerId={selectedPlayerId} sourcePlayer={selectedPitchPlayer} onSelect={setSelectedPlayerId} onReplace={replacePitchPlayer} onRole={setRole} plan={plan} />
             <RolePanel plan={plan} playerMap={playerMap} />
           </aside>
         </div>
@@ -356,8 +444,99 @@ function CardActions({ playerId, onBench, onRole }) {
   return <div className="mt-2 grid grid-cols-2 gap-1"><button type="button" aria-label="Captain" className="rounded bg-black/20 px-1 py-1 text-[9px]" onClick={action(() => onRole('captainId', playerId))}>C</button><button type="button" aria-label="Vice Captain" className="rounded bg-black/20 px-1 py-1 text-[9px]" onClick={action(() => onRole('viceCaptainId', playerId))}>VC</button><button type="button" aria-label="Goalkeeper" className="rounded bg-black/20 px-1 py-1 text-[9px]" onClick={action(() => onRole('goalkeeperId', playerId))}>GK</button><button type="button" className="rounded bg-red-500/25 px-1 py-1 text-[9px]" onClick={action(() => onBench(playerId))}>Bench</button></div>;
 }
 
-function BenchPanel({ players, selectedPlayerId, onSelect, onRole, plan }) {
-  return <section className="panel xl:sticky xl:top-6"><div className="panel-heading"><div><h2 className="panel-title">Bench</h2><p className="mt-1 text-sm text-emerald-100/45">Unplaced squad players. Click or drag a player to the pitch.</p></div><span className="count-pill">{players.length}</span></div><div className="mt-4 max-h-[620px] space-y-3 overflow-y-auto pr-1">{players.length ? players.map((player) => { const id = playerIdOf(player); return <article key={id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', id)} className={`rounded-2xl border p-3 ${selectedPlayerId === id ? 'border-lime-300/45 bg-lime-300/[0.09]' : 'border-white/[0.07] bg-black/10'}`}><button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => onSelect(selectedPlayerId === id ? '' : id)}><PlayerAvatar src={playerImageUrl(player)} name={player.name} className="size-12 rounded-xl" /><span className="min-w-0 flex-1"><span className="block truncate font-bold text-white">{player.name}</span><span className="text-xs text-white/45">#{player.jerseyNumber || '—'} · {player.position || 'Position'} · {availabilityLabel(player.availabilityStatus || 'available')}</span></span></button>{selectedPlayerId === id && <div className="mt-3 flex flex-wrap gap-2"><button className="secondary-button px-2 py-1 text-xs" type="button" onClick={() => onRole('captainId', id)}>Captain</button><button className="secondary-button px-2 py-1 text-xs" type="button" onClick={() => onRole('viceCaptainId', id)}>Vice</button><button className="secondary-button px-2 py-1 text-xs" type="button" onClick={() => onRole('goalkeeperId', id)}>GK</button></div>}<div className="mt-2 flex gap-1 text-[10px] font-black">{plan.captainId === id && <span className="rounded bg-lime-300 px-1 text-slate-950">C</span>}{plan.viceCaptainId === id && <span className="rounded bg-emerald-200 px-1 text-slate-950">VC</span>}{plan.goalkeeperId === id && <span className="rounded bg-sky-300 px-1 text-slate-950">GK</span>}</div></article>; }) : <p className="rounded-2xl bg-white/[0.025] p-4 text-sm text-emerald-100/40">No bench players. Clear or move players back from the pitch.</p>}</div></section>;
+function BenchPanel({ players, selectedPlayerId, sourcePlayer, onSelect, onReplace, onRole, plan }) {
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => { setShowAll(false); }, [sourcePlayer?.id, sourcePlayer?._id, sourcePlayer?.playerId]);
+  const suggestions = sourcePlayer ? suggestReplacements(sourcePlayer, players) : [];
+  const visiblePlayers = sourcePlayer && !showAll ? suggestions : players;
+  return (
+    <section className="panel xl:sticky xl:top-6">
+      <div className="panel-heading">
+        <div>
+          <h2 className="panel-title">{sourcePlayer ? 'Suggested replacements' : 'Bench'}</h2>
+          <p className="mt-1 text-sm text-emerald-100/45">
+            {sourcePlayer ? `Natural bench options for ${sourcePlayer.name}.` : 'Unplaced squad players. Click or drag a player to the pitch.'}
+          </p>
+        </div>
+        <span className="count-pill">{players.length}</span>
+      </div>
+      {sourcePlayer && (
+        <div className="mt-4 rounded-2xl border border-lime-300/15 bg-lime-300/[0.06] p-3 text-sm text-lime-50">
+          <p className="font-bold">Replacing {sourcePlayer.name}</p>
+          {!suggestions.length && <p className="mt-1 text-emerald-100/55">No natural replacement found.</p>}
+          <button className="secondary-button mt-3 px-3 py-1.5 text-xs" type="button" onClick={() => setShowAll((current) => !current)}>
+            {showAll ? 'Show suggested players' : 'Show All Players'}
+          </button>
+        </div>
+      )}
+      <div className="mt-4 max-h-[620px] space-y-3 overflow-y-auto pr-1">
+        {visiblePlayers.length ? visiblePlayers.map((player) => {
+          const id = playerIdOf(player);
+          return (
+            <article key={id} draggable onDragStart={(event) => event.dataTransfer.setData('text/plain', id)} className={`rounded-2xl border p-3 ${selectedPlayerId === id ? 'border-lime-300/45 bg-lime-300/[0.09]' : 'border-white/[0.07] bg-black/10'}`}>
+              <button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => onSelect(selectedPlayerId === id ? '' : id)}>
+                <PlayerAvatar src={playerImageUrl(player)} name={player.name} className="size-12 rounded-xl" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-bold text-white">{player.name}</span>
+                  <span className="text-xs text-white/45">#{player.jerseyNumber || '—'} · {player.position || 'Position'} · {availabilityLabel(player.availabilityStatus || 'available')}</span>
+                </span>
+              </button>
+              {sourcePlayer && (
+                <button className="primary-button mt-3 w-full justify-center px-3 py-1.5 text-xs" type="button" onClick={() => onReplace(playerIdOf(sourcePlayer), id)}>
+                  Replace {sourcePlayer.name}
+                </button>
+              )}
+              {selectedPlayerId === id && !sourcePlayer && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="secondary-button px-2 py-1 text-xs" type="button" onClick={() => onRole('captainId', id)}>Captain</button>
+                  <button className="secondary-button px-2 py-1 text-xs" type="button" onClick={() => onRole('viceCaptainId', id)}>Vice</button>
+                  <button className="secondary-button px-2 py-1 text-xs" type="button" onClick={() => onRole('goalkeeperId', id)}>GK</button>
+                </div>
+              )}
+              <div className="mt-2 flex gap-1 text-[10px] font-black">{plan.captainId === id && <span className="rounded bg-lime-300 px-1 text-slate-950">C</span>}{plan.viceCaptainId === id && <span className="rounded bg-emerald-200 px-1 text-slate-950">VC</span>}{plan.goalkeeperId === id && <span className="rounded bg-sky-300 px-1 text-slate-950">GK</span>}</div>
+            </article>
+          );
+        }) : <p className="rounded-2xl bg-white/[0.025] p-4 text-sm text-emerald-100/40">{sourcePlayer ? 'No natural replacement found. Use Show All Players to view the full bench.' : 'No bench players. Clear or move players back from the pitch.'}</p>}
+      </div>
+    </section>
+  );
+}
+
+function TacticalLibraryPanel({ items, total, search, sort, onSearch, onSort, onLoad, onRename, onDuplicate, onFavourite, onDelete }) {
+  return (
+    <section className="panel">
+      <div className="panel-heading">
+        <div><h2 className="panel-title">Tactical Library</h2><p className="mt-1 text-sm text-emerald-100/45">Save up to 10 reusable formations.</p></div>
+        <span className="count-pill">{total}/10</span>
+      </div>
+      <label className="mt-4 flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-3 py-2 text-sm text-white/50">
+        <Search size={15} /><span className="sr-only">Search tactical formations</span>
+        <input className="w-full bg-transparent text-white outline-none" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search formations" />
+      </label>
+      <label className="field-label mt-3">Sort by<select className="field-input mt-2" value={sort} onChange={(event) => onSort(event.target.value)}><option value="recentlyModified">Recently Modified</option><option value="recentlyUsed">Recently Used</option><option value="alphabetical">Alphabetical</option><option value="favourite">Favourite</option></select></label>
+      <div className="mt-4 max-h-[520px] space-y-3 overflow-y-auto pr-1">
+        {items.length ? items.map((item) => (
+          <article key={item.id} className="rounded-2xl border border-white/[0.07] bg-black/10 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0"><h3 className="truncate font-bold text-white">{item.title}</h3><p className="text-xs text-white/40">{item.plan.formation} · {item.plan.pitchPlayers.length} on pitch</p></div>
+              <button type="button" className={`rounded-full p-1 ${item.favourite ? 'text-amber-200' : 'text-white/35'}`} onClick={() => onFavourite(item)} aria-label={item.favourite ? `Remove ${item.title} from favourites` : `Favourite ${item.title}`}><Star size={16} fill={item.favourite ? 'currentColor' : 'none'} /></button>
+            </div>
+            <FormationMiniPreview item={item} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" className="primary-button px-3 py-1.5 text-xs" onClick={() => onLoad(item)}>Load</button>
+              <button type="button" className="secondary-button px-3 py-1.5 text-xs" onClick={() => onRename(item)}>Rename</button>
+              <button type="button" className="secondary-button px-3 py-1.5 text-xs" onClick={() => onDuplicate(item)}><Copy size={13} /> Duplicate</button>
+              <button type="button" className="secondary-button border-red-300/20 px-3 py-1.5 text-xs text-red-100" onClick={() => onDelete(item)}><Trash2 size={13} /> Delete</button>
+            </div>
+          </article>
+        )) : <p className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-white/45">No saved formations yet. Save your current tactical plan to start the library.</p>}
+      </div>
+    </section>
+  );
+}
+
+function FormationMiniPreview({ item }) {
+  return <div className="relative mt-3 h-24 overflow-hidden rounded-xl border border-lime-300/10 bg-emerald-950/45">{(item.preview?.pitchPlayers || []).slice(0, 11).map((entry, index) => <span key={`${item.id}-${entry.playerId || index}`} className="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lime-300" style={{ left: `${entry.x || 50}%`, top: `${entry.y || 50}%` }} />)}</div>;
 }
 
 function RolePanel({ plan, playerMap }) {

@@ -32,7 +32,7 @@ export default function TeamIdentity({
           src={logo}
           alt=""
           aria-hidden="true"
-          className={`shrink-0 object-cover ${logoClassName}`}
+          className={`shrink-0 bg-black/20 object-contain ${logoClassName}`}
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}

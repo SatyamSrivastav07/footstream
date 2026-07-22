@@ -16,6 +16,7 @@ import {
 } from '../services/liveMatchService.js';
 import { emitToMatch } from '../realtime/realtimeHub.js';
 import { queueFullTimePush, queueGoalPush, queueHalfTimePush, queueMatchStartedPush } from '../services/pushService.js';
+import { ensureCollaborationRequest } from '../services/matchCollaborationService.js';
 
 const ownedTeamId = (req) => req.user.team?._id || req.user.team;
 
@@ -47,7 +48,8 @@ const broadcastState = async (matchId, eventName, extra = {}) => {
 };
 
 const transitionController = (service, afterTransition) => asyncHandler(async (req, res) => {
-  await service({ teamId: ownedTeamId(req), matchId: req.params.matchId, userId: req.user._id });
+  const match = await service({ teamId: ownedTeamId(req), matchId: req.params.matchId, userId: req.user._id });
+  if (match?.status === 'completed') await ensureCollaborationRequest({ match, userId: req.user._id });
   const bundle = await broadcastState(req.params.matchId, 'match:transition');
   if (afterTransition) afterTransition(req.params.matchId);
   res.json({ success: true, data: { state: bundle.state } });

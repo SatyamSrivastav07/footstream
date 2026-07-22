@@ -101,6 +101,11 @@ export default function PublicTeamCollectionPage({ kind }) {
                 "result",
                 "man_of_the_match",
                 "other",
+                "match_day",
+                "practice",
+                "tournament",
+                "training_camp",
+                "general_post",
               ].map((value) => (
                 <option key={value} value={value}>
                   {value.replaceAll("_", " ")}
@@ -197,7 +202,7 @@ function Gallery({ photos, team }) {
           key={`${photo.imageUrl}-${index}`}
         >
           <img
-            className="w-full object-cover"
+            className="w-full bg-black/20 object-contain"
             src={photo.imageUrl}
             alt={photo.caption || `${team.name} match photo`}
             loading="lazy"

@@ -5,6 +5,7 @@ import { autoArrangeTacticalPlan } from './tacticalAutoArrange.js';
 import { clampCoordinate } from './formationDefinitions.js';
 import { createEmptyPlan, loadTacticalPlan, saveTacticalPlan, tacticalBoardKey } from './tacticalBoardStorage.js';
 import { normalizePlan, validateTacticalPlan } from './tacticalBoardValidation.js';
+import { positionGroup, suggestReplacements } from './tacticalSuggestions.js';
 
 const players = [
   { _id: 'p1', name: 'Keeper', position: 'GK', jerseyNumber: 1, isActive: true },
@@ -75,4 +76,17 @@ test('tactical storage recovers from malformed data and removed players', () => 
   assert.equal(restored.pitchPlayers.length, 0);
   assert.ok(restored.benchPlayerIds.includes('p1'));
   window.localStorage.removeItem(tacticalBoardKey('t1'));
+});
+
+test('tactical suggestions show natural replacements before all bench players', () => {
+  const source = { _id: 'starter', name: 'Centre Back', position: 'CB' };
+  const bench = [
+    { _id: 'mid', name: 'Mid Option', position: 'CM' },
+    { _id: 'def', name: 'Def Option', position: 'RB' },
+    { _id: 'striker', name: 'Striker Option', position: 'ST' },
+  ];
+
+  assert.equal(positionGroup('left back'), 'defender');
+  assert.deepEqual(suggestReplacements(source, bench).map((player) => player._id), ['def']);
+  assert.deepEqual(suggestReplacements({ position: '' }, bench), []);
 });

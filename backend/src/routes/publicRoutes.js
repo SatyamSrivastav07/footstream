@@ -31,10 +31,22 @@ import { followActionValidator, followPreferencesValidator, followStatusValidato
 import { publicTeamRegistrationStatus, submitPublicTeamRegistration } from '../controllers/teamRegistrationController.js';
 import { submitTeamRegistrationValidator, teamRegistrationCodeValidator } from '../validators/teamRegistrationValidators.js';
 import { uploadTeamRegistrationMedia, validateTeamRegistrationMediaSignatures } from '../middleware/photoUpload.js';
-import { publicTournamentDetail, publicTournaments } from '../controllers/tournamentController.js';
+import {
+  publicTournamentAwards,
+  publicTournamentBracket,
+  publicTournamentDetail,
+  publicTournamentFixtures,
+  publicTournamentReport,
+  publicTournamentResults,
+  publicTournamentStandings,
+  publicTournamentStatistics,
+  publicTournaments,
+} from '../controllers/tournamentController.js';
 import { publicTournamentSlugValidator, tournamentListValidator } from '../validators/tournamentValidators.js';
 import { publicParticipantSquad } from '../controllers/tournamentSquadController.js';
 import { publicTournamentSquadValidator } from '../validators/tournamentSquadValidators.js';
+import { getPublicTeamAchievement, getPublicTeamAchievements, getPublicTeamGalleryPosts } from '../controllers/phaseSixFiveController.js';
+import { achievementParamsValidator, galleryListValidator } from '../validators/phaseSixFiveValidators.js';
 
 const router = Router();
 const validate = validateWithStatus(400);
@@ -45,6 +57,13 @@ router.get('/results', publicResultsValidator, validate, publicResults);
 router.get('/search', publicSearchValidator, validate, publicSearch);
 router.get('/teams', publicTeamsValidator, validate, publicTeams);
 router.get('/tournaments', tournamentListValidator, validate, publicTournaments);
+router.get('/tournaments/:slug/fixtures', publicTournamentSlugValidator, validate, publicTournamentFixtures);
+router.get('/tournaments/:slug/results', publicTournamentSlugValidator, validate, publicTournamentResults);
+router.get('/tournaments/:slug/standings', publicTournamentSlugValidator, validate, publicTournamentStandings);
+router.get('/tournaments/:slug/bracket', publicTournamentSlugValidator, validate, publicTournamentBracket);
+router.get('/tournaments/:slug/awards', publicTournamentSlugValidator, validate, publicTournamentAwards);
+router.get('/tournaments/:slug/statistics', publicTournamentSlugValidator, validate, publicTournamentStatistics);
+router.get('/tournaments/:slug/report', publicTournamentSlugValidator, validate, publicTournamentReport);
 router.get('/tournaments/:slug/participants/:participantSlug/squad', publicTournamentSquadValidator, validate, publicParticipantSquad);
 router.get('/tournaments/:slug', publicTournamentSlugValidator, validate, publicTournamentDetail);
 router.get('/push/config', publicPushConfig);
@@ -62,6 +81,9 @@ router.get('/teams/:teamSlug/squad', publicTeamSlugValidator, validate, publicTe
 router.get('/teams/:teamSlug/fixtures', publicTeamMatchesValidator, validate, publicTeamFixtures);
 router.get('/teams/:teamSlug/results', publicTeamMatchesValidator, validate, publicTeamResults);
 router.get('/teams/:teamSlug/gallery', publicTeamGalleryValidator, validate, publicTeamGallery);
+router.get('/teams/:teamSlug/community-gallery', publicTeamSlugValidator, galleryListValidator, validate, getPublicTeamGalleryPosts);
+router.get('/teams/:teamSlug/achievements/:achievementId', publicTeamSlugValidator, achievementParamsValidator, validate, getPublicTeamAchievement);
+router.get('/teams/:teamSlug/achievements', publicTeamSlugValidator, validate, getPublicTeamAchievements);
 router.get('/teams/:teamSlug', publicTeamSlugValidator, validate, publicTeamProfile);
 router.get('/players/:playerId/profile', publicPlayerProfileValidator, validate, publicPlayerProfile);
 router.get('/matches/:matchId', publicMatchValidator, validate, publicMatch);

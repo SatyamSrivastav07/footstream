@@ -55,11 +55,18 @@ export default function PublicMatchPage() {
       />
       <header className="rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(190,242,100,.09),transparent_55%),rgba(255,255,255,.02)] p-6 sm:p-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span
-            className={`status-badge ${match.status === "cancelled" ? "status-off" : live ? "border-red-300/20 bg-red-300/10 text-red-100" : "status-active"}`}
-          >
-            {label(match.status)}
-          </span>
+          <div className="flex flex-wrap gap-2">
+            <span
+              className={`status-badge ${match.status === "cancelled" ? "status-off" : live ? "border-red-300/20 bg-red-300/10 text-red-100" : "status-active"}`}
+            >
+              {label(match.status)}
+            </span>
+            {match.collaborationBadge && (
+              <span className="status-badge border-lime-300/20 bg-lime-300/10 text-lime-100">
+                {match.collaborationBadge}
+              </span>
+            )}
+          </div>
           {streamLabel && (
             <span className="status-badge status-active">
               <Radio size={11} /> {streamLabel}

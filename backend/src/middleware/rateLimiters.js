@@ -57,3 +57,8 @@ export const publicChatPostLimiter = makeLimiter({
   limit: env.rateLimits.chatMax,
   keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.body?.guestSessionId || 'anonymous'}`,
 });
+export const teamChatPostLimiter = makeLimiter({
+  windowMs: env.rateLimits.teamChatWindowMs,
+  limit: env.rateLimits.teamChatMax,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip)}:${req.user?._id || 'anonymous'}`,
+});

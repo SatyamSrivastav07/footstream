@@ -57,7 +57,7 @@ export const validateTournamentFormation = ({ formation, customFormation, player
   if (formation === 'custom') {
     const total = parseFormationTotal(customFormation);
     if (total !== Number(playersOnField)) {
-      throw new AppError(`Custom formation lines plus one goalkeeper must equal ${playersOnField} starters.`, 400, 'INVALID_TOURNAMENT_FORMATION');
+      throw new AppError(`Custom formation total must equal ${playersOnField} starters.`, 400, 'INVALID_TOURNAMENT_FORMATION');
     }
     return;
   }
@@ -180,7 +180,6 @@ const setLeadership = async ({ lineup, side, squadPlayerId, actor, kind }) => {
   ensureEditable(lineup);
   const starter = (lineup[side].startingPlayers || []).find((player) => idString(player.squadPlayer) === idString(squadPlayerId));
   if (!starter) throw new AppError(`${kind === 'captain' ? 'Captain' : 'Goalkeeper'} must be selected from starters.`, 400, `TOURNAMENT_LINEUP_${kind.toUpperCase()}_INVALID`);
-  if (kind === 'goalkeeper' && starter.position !== 'GK') throw new AppError('Goalkeeper must have GK position.', 400, 'TOURNAMENT_LINEUP_GOALKEEPER_REQUIRED');
   lineup[side][kind] = starter;
   lineup.updatedBy = actor._id;
   await lineup.save();
@@ -208,9 +207,6 @@ const assignStarterSlot = async ({ tournament, lineup, side, squadPlayerId, slot
   const starters = sideData.startingPlayers || [];
   const playerIndex = starters.findIndex((player) => idString(player.squadPlayer) === idString(squadPlayerId));
   if (playerIndex === -1) throw new AppError('Only selected starters can be placed on the pitch.', 400, 'TOURNAMENT_LINEUP_SLOT_PLAYER_INVALID');
-  if (slot.slotId === 'GK' && idString(sideData.goalkeeper?.squadPlayer) !== idString(squadPlayerId)) {
-    throw new AppError('Only the selected goalkeeper can occupy the GK slot.', 400, 'TOURNAMENT_LINEUP_GK_SLOT_INVALID');
-  }
   const existingIndex = starters.findIndex((player) => player.slotId === slot.slotId);
   if (existingIndex !== -1 && existingIndex !== playerIndex) {
     const currentSlot = starters[playerIndex].slotId;
@@ -244,16 +240,17 @@ export const autoPlaceStarters = ({ sideData = {}, playersOnField }) => {
   const starters = sideData.startingPlayers || [];
   const used = new Set(starters.map((player) => player.slotId).filter(Boolean));
   const available = slots.filter((slot) => !used.has(slot.slotId));
+  const goalkeeperId = idString(sideData.goalkeeper?.squadPlayer);
   return starters.map((player) => {
     if (player.slotId) return player;
-    if (idString(player.squadPlayer) === idString(sideData.goalkeeper?.squadPlayer)) {
+    if (goalkeeperId && idString(player.squadPlayer) === goalkeeperId) {
       const gk = slots.find((slot) => slot.slotId === 'GK');
       if (gk && !used.has('GK')) {
         used.add('GK');
         return { ...player, ...gk };
       }
     }
-    const slot = available.find((item) => item.slotId !== 'GK');
+    const slot = available.find((item) => item.slotId !== 'GK') || available[0];
     if (!slot) return player;
     available.splice(available.indexOf(slot), 1);
     used.add(slot.slotId);
@@ -271,19 +268,13 @@ const validateSideComplete = (lineup, side, tournament) => {
   if (new Set(ids).size !== ids.length) throw new AppError(`${side} lineup contains duplicate players.`, 400, 'TOURNAMENT_LINEUP_PLAYER_DUPLICATE');
   const captainId = idString(data.captain?.squadPlayer);
   if (!captainId || !starters.some((player) => idString(player.squadPlayer) === captainId)) throw new AppError(`${side} captain must be a starter.`, 400, 'TOURNAMENT_LINEUP_CAPTAIN_INVALID');
-  const goalkeeperId = idString(data.goalkeeper?.squadPlayer);
-  if (!goalkeeperId || !starters.some((player) => idString(player.squadPlayer) === goalkeeperId && player.position === 'GK')) throw new AppError(`${side} requires a starting goalkeeper.`, 400, 'TOURNAMENT_LINEUP_GOALKEEPER_REQUIRED');
   if (!data.formation) throw new AppError(`${side} formation is required.`, 400, 'TOURNAMENT_LINEUP_FORMATION_REQUIRED');
   validateTournamentFormation({ formation: data.formation, customFormation: data.customFormation, playersOnField: tournament.playersOnField });
   const slots = formationSlots({ formation: data.formation, customFormation: data.customFormation, playersOnField: tournament.playersOnField });
   const validSlotIds = new Set(slots.map((slot) => slot.slotId));
   const assignedSlotIds = starters.map((player) => player.slotId).filter(Boolean);
-  if (assignedSlotIds.length !== starters.length) throw new AppError(`${side} lineup must place every starter on the pitch.`, 400, 'TOURNAMENT_LINEUP_PLACEMENT_REQUIRED');
   if (new Set(assignedSlotIds).size !== assignedSlotIds.length) throw new AppError(`${side} lineup contains duplicate pitch slots.`, 400, 'TOURNAMENT_LINEUP_SLOT_DUPLICATE');
   if (assignedSlotIds.some((slotId) => !validSlotIds.has(slotId))) throw new AppError(`${side} lineup contains a slot that does not belong to this formation.`, 400, 'TOURNAMENT_LINEUP_SLOT_INVALID');
-  if (!starters.some((player) => idString(player.squadPlayer) === goalkeeperId && player.slotId === 'GK')) {
-    throw new AppError(`${side} goalkeeper must occupy the GK slot.`, 400, 'TOURNAMENT_LINEUP_GK_SLOT_INVALID');
-  }
 };
 
 const validateComplete = async ({ tournament, lineup }) => {
@@ -416,6 +407,28 @@ export const setGoalkeeper = async ({ tournamentId, lineupId, side, user, squadP
 export const assignSlot = async ({ tournamentId, lineupId, side, user, squadPlayerId, slotId }) => {
   const { tournament, lineup } = await mutationContext({ tournamentId, lineupId, user });
   return { lineup: await assignStarterSlot({ tournament, lineup, side, user, actor: user, squadPlayerId, slotId }) };
+};
+
+export const autoPlaceLineupSide = async ({ tournamentId, lineupId, side, user }) => {
+  const { tournament, lineup } = await mutationContext({ tournamentId, lineupId, user });
+  ensureEditable(lineup);
+  const sideData = lineup[side] || {};
+  validateTournamentFormation({
+    formation: sideData.formation,
+    customFormation: sideData.customFormation,
+    playersOnField: tournament.playersOnField,
+  });
+  const startingPlayers = autoPlaceStarters({ sideData, playersOnField: tournament.playersOnField });
+  return {
+    lineup: await setSide({
+      lineup,
+      side,
+      updates: { startingPlayers },
+      actor: user,
+      action: 'formation_changed',
+      message: `${side} starters auto-placed on the tactical pitch.`,
+    }),
+  };
 };
 
 export const clearSlot = async ({ tournamentId, lineupId, side, user, squadPlayerId }) => {

@@ -15,10 +15,15 @@ const toTimestamp = (value) => {
 };
 
 export const compactSnapshot = (snapshot) => ({
-  player: snapshot.player,
+  player: snapshot.player || snapshot.registeredPlayer,
+  registeredPlayer: snapshot.registeredPlayer || null,
   name: snapshot.name,
   jerseyNumber: snapshot.jerseyNumber ?? null,
   position: snapshot.position,
+  photoUrl: snapshot.photoUrl || '',
+  isCaptain: Boolean(snapshot.isCaptain),
+  isViceCaptain: Boolean(snapshot.isViceCaptain),
+  sourceType: snapshot.sourceType || '',
   slotId: snapshot.slotId || '',
   lineIndex: snapshot.lineIndex ?? null,
   positionIndex: snapshot.positionIndex ?? null,
@@ -51,9 +56,9 @@ export const calculateScore = (events, teamSide) => {
     : { homeScore: opponentGoals, awayScore: teamGoals, teamScore: teamGoals, opponentScore: opponentGoals };
 };
 
-export const buildCurrentLineup = (match, events) => {
-  const starting = new Map(match.startingXI.map((entry) => [idString(entry.player), compactSnapshot(entry)]));
-  const bench = new Map(match.substitutes.map((entry) => [idString(entry.player), compactSnapshot(entry)]));
+const buildCurrentLineupFromSnapshots = ({ startingSnapshots = [], substituteSnapshots = [], events = [] }) => {
+  const starting = new Map(startingSnapshots.map((entry) => [idString(entry.player || entry.registeredPlayer), compactSnapshot(entry)]));
+  const bench = new Map(substituteSnapshots.map((entry) => [idString(entry.player || entry.registeredPlayer), compactSnapshot(entry)]));
   const onField = new Map(starting);
   const sentOff = new Map();
   const substitutedOut = new Set();
@@ -64,6 +69,7 @@ export const buildCurrentLineup = (match, events) => {
     if (event.type === 'substitution') {
       const outId = idString(event.playerOut);
       const inId = idString(event.playerIn);
+      if (!onField.has(outId) && !bench.has(inId)) continue;
       const outgoing = onField.get(outId) || event.playerOutSnapshot;
       const incoming = {
         ...event.playerInSnapshot,
@@ -88,6 +94,7 @@ export const buildCurrentLineup = (match, events) => {
     }
     if (event.type === 'red_card' && event.player) {
       const playerId = idString(event.player);
+      if (!onField.has(playerId) && !bench.has(playerId)) continue;
       const snapshot = event.playerSnapshot;
       onField.delete(playerId);
       bench.delete(playerId);
@@ -115,36 +122,56 @@ export const findLineupSnapshot = (match, playerId) => {
   return compactSnapshot(snapshot);
 };
 
+export const findOpponentLineupSnapshot = (match, playerId, field = 'opponentPlayerId') => {
+  const selectedId = idString(playerId);
+  const snapshot = [...(match.registeredOpponentStartingXI || []), ...(match.registeredOpponentSubstitutes || [])]
+    .find((entry) => idString(entry.registeredPlayer || entry.player) === selectedId);
+  if (!snapshot) throw new AppError('Selected opponent player is not in the registered opponent match-day squad.', 400, 'OPPONENT_PLAYER_NOT_IN_LINEUP', [
+    { field, message: 'Choose an opponent player from the selected opponent Starting XI/current on-field players.' },
+  ]);
+  return compactSnapshot(snapshot);
+};
+
 export const currentLineupEligibility = (match, events) => {
   const state = buildCurrentLineup(match, events);
+  const opponentState = buildCurrentOpponentLineup(match, events);
   const currentGoalkeepers = state.onField.filter((player) => String(player.position || '').toLowerCase().includes('gk') || String(player.position || '').toLowerCase().includes('goalkeeper'));
-  const requireOnField = (playerId, field = 'playerId') => {
+  const requireOnFieldFromState = (lineupState, playerId, field = 'playerId', labelText = 'player') => {
     const selectedId = idString(playerId);
-    if (!selectedId) throw new AppError('Select a current on-field player.', 400, 'PLAYER_REQUIRED', [{ field, message: 'Select a current on-field player.' }]);
-    if (state.sentOffIds.has(selectedId)) throw new AppError('This player is no longer eligible after receiving a red card.', 400, 'PLAYER_RED_CARDED', [{ field, message: 'This player is no longer eligible after receiving a red card.' }]);
-    if (state.substitutedOut.has(selectedId)) throw new AppError('This player has already left the field.', 400, 'PLAYER_ALREADY_SUBSTITUTED_OUT', [{ field, message: 'This player has already left the field.' }]);
-    if (!state.onFieldIds.has(selectedId)) throw new AppError('Selected player is not currently on the field.', 400, 'PLAYER_NOT_ON_FIELD', [{ field, message: 'Selected player is not currently on the field.' }]);
-    return state.onField.find((player) => idString(player.player) === selectedId);
+    if (!selectedId) throw new AppError(`Select a current on-field ${labelText}.`, 400, 'PLAYER_REQUIRED', [{ field, message: `Select a current on-field ${labelText}.` }]);
+    if (lineupState.sentOffIds.has(selectedId)) throw new AppError('This player is no longer eligible after receiving a red card.', 400, 'PLAYER_RED_CARDED', [{ field, message: 'This player is no longer eligible after receiving a red card.' }]);
+    if (lineupState.substitutedOut.has(selectedId)) throw new AppError('This player has already left the field.', 400, 'PLAYER_ALREADY_SUBSTITUTED_OUT', [{ field, message: 'This player has already left the field.' }]);
+    if (!lineupState.onFieldIds.has(selectedId)) throw new AppError('Selected player is not currently on the field.', 400, 'PLAYER_NOT_ON_FIELD', [{ field, message: 'Selected player is not currently on the field.' }]);
+    return lineupState.onField.find((player) => idString(player.player) === selectedId);
   };
-  const requireBench = (playerId, field = 'playerInId') => {
+  const requireBenchFromState = (lineupState, playerId, field = 'playerInId', labelText = 'bench player') => {
     const selectedId = idString(playerId);
-    if (!selectedId) throw new AppError('Select a current bench player.', 400, 'PLAYER_REQUIRED', [{ field, message: 'Select a current bench player.' }]);
-    if (state.sentOffIds.has(selectedId)) throw new AppError('This player is no longer eligible after receiving a red card.', 400, 'PLAYER_RED_CARDED', [{ field, message: 'This player is no longer eligible after receiving a red card.' }]);
-    if (state.entered.has(selectedId)) throw new AppError('A player cannot enter twice.', 400, 'PLAYER_ALREADY_ENTERED', [{ field, message: 'A player cannot enter twice.' }]);
-    if (state.substitutedOut.has(selectedId)) throw new AppError('This player has already left the field.', 400, 'PLAYER_ALREADY_SUBSTITUTED_OUT', [{ field, message: 'This player has already left the field.' }]);
-    if (!state.benchIds.has(selectedId)) throw new AppError('Selected substitute is not currently available on the bench.', 400, 'PLAYER_NOT_ON_BENCH', [{ field, message: 'Selected substitute is not currently available on the bench.' }]);
-    return state.bench.find((player) => idString(player.player) === selectedId);
+    if (!selectedId) throw new AppError(`Select a current ${labelText}.`, 400, 'PLAYER_REQUIRED', [{ field, message: `Select a current ${labelText}.` }]);
+    if (lineupState.sentOffIds.has(selectedId)) throw new AppError('This player is no longer eligible after receiving a red card.', 400, 'PLAYER_RED_CARDED', [{ field, message: 'This player is no longer eligible after receiving a red card.' }]);
+    if (lineupState.entered.has(selectedId)) throw new AppError('A player cannot enter twice.', 400, 'PLAYER_ALREADY_ENTERED', [{ field, message: 'A player cannot enter twice.' }]);
+    if (lineupState.substitutedOut.has(selectedId)) throw new AppError('This player has already left the field.', 400, 'PLAYER_ALREADY_SUBSTITUTED_OUT', [{ field, message: 'This player has already left the field.' }]);
+    if (!lineupState.benchIds.has(selectedId)) throw new AppError('Selected substitute is not currently available on the bench.', 400, 'PLAYER_NOT_ON_BENCH', [{ field, message: 'Selected substitute is not currently available on the bench.' }]);
+    return lineupState.bench.find((player) => idString(player.player) === selectedId);
   };
+  const requireOnField = (playerId, field = 'playerId') => requireOnFieldFromState(state, playerId, field, 'player');
+  const requireBench = (playerId, field = 'playerInId') => requireBenchFromState(state, playerId, field, 'bench player');
+  const requireOpponentOnField = (playerId, field = 'opponentPlayerId') => requireOnFieldFromState(opponentState, playerId, field, 'opponent player');
+  const requireOpponentBench = (playerId, field = 'opponentPlayerInId') => requireBenchFromState(opponentState, playerId, field, 'opponent bench player');
   return {
     currentOnFieldPlayers: state.onField,
     currentBenchPlayers: state.bench,
+    currentOpponentOnFieldPlayers: opponentState.onField,
+    currentOpponentBenchPlayers: opponentState.bench,
     substitutedOutPlayers: [...state.substitutedOut],
     redCardedPlayers: state.sentOff,
     appearedPlayers: [...state.appeared],
     currentGoalkeepers,
     state,
+    opponentState,
     requireOnField,
     requireBench,
+    requireOpponentOnField,
+    requireOpponentBench,
   };
 };
 
@@ -236,12 +263,17 @@ const ownPlayerFields = (match, playerId, prefix = 'player', eligibility) => {
   return { [prefix]: snapshot.player, [`${prefix}Snapshot`]: snapshot };
 };
 
-const actorFields = (match, input, eligibility) => {
+const actorFields = (match, input, eligibility, options = {}) => {
   if (input.scoringSide === 'team' || input.side === 'team') {
     return { team: match.team, ...ownPlayerFields(match, input.playerId, 'player', eligibility) };
   }
-  if (!input.temporaryOpponentPlayerName?.trim()) throw new AppError('Enter the opponent player name.', 400, 'OPPONENT_PLAYER_REQUIRED');
-  return { team: null, temporaryOpponentPlayerName: input.temporaryOpponentPlayerName.trim() };
+  if (input.opponentPlayerId) {
+    const snapshot = eligibility ? eligibility.requireOpponentOnField(input.opponentPlayerId) : findOpponentLineupSnapshot(match, input.opponentPlayerId);
+    return { team: null, player: snapshot.player, playerSnapshot: snapshot, temporaryOpponentPlayerName: '' };
+  }
+  if (input.temporaryOpponentPlayerName?.trim()) return { team: null, temporaryOpponentPlayerName: input.temporaryOpponentPlayerName.trim() };
+  if (options.allowOpponentTeamFallback) return { team: null, temporaryOpponentPlayerName: match.opponent?.name || 'Opponent' };
+  throw new AppError('Enter the opponent player name.', 400, 'OPPONENT_PLAYER_REQUIRED');
 };
 
 export const buildEventData = ({ match, events, type, input, now = new Date() }) => {
@@ -257,12 +289,19 @@ export const buildEventData = ({ match, events, type, input, now = new Date() })
 
   if (type === 'goal') {
     if (!input.scoringSide) throw new AppError('Choose which side scored.', 400, 'SCORING_SIDE_REQUIRED');
-    const actor = actorFields(match, input, eligibility);
+    const actor = actorFields(match, input, eligibility, { allowOpponentTeamFallback: input.scoringSide === 'opponent' });
     const data = { ...common, ...actor, scoringSide: input.scoringSide };
     if (input.assistPlayerId) {
       if (input.scoringSide !== 'team') throw new AppError('Opponent assists use the temporary opponent description.', 400, 'INVALID_ASSIST');
       if (String(input.assistPlayerId) === String(input.playerId)) throw new AppError('A player cannot assist their own goal.', 400, 'ASSIST_EQUALS_SCORER');
       Object.assign(data, ownPlayerFields(match, input.assistPlayerId, 'assistPlayer', eligibility));
+    }
+    if (input.opponentAssistPlayerId) {
+      if (input.scoringSide !== 'opponent') throw new AppError('Opponent assists can only be used for opponent goals.', 400, 'INVALID_ASSIST');
+      if (!input.opponentPlayerId) throw new AppError('Select the opponent scorer before selecting an opponent assist.', 400, 'OPPONENT_SCORER_REQUIRED');
+      if (String(input.opponentAssistPlayerId) === String(input.opponentPlayerId)) throw new AppError('A player cannot assist their own goal.', 400, 'ASSIST_EQUALS_SCORER');
+      const assist = eligibility.requireOpponentOnField(input.opponentAssistPlayerId, 'opponentAssistPlayerId');
+      Object.assign(data, { assistPlayer: assist.player, assistPlayerSnapshot: assist });
     }
     return data;
   }
@@ -271,11 +310,12 @@ export const buildEventData = ({ match, events, type, input, now = new Date() })
 
   if (type === 'substitution') {
     if (String(input.playerInId) === String(input.playerOutId)) throw new AppError('Choose one current on-field player to leave and one current bench player to enter.', 400, 'INVALID_SUBSTITUTION');
-    const playerIn = eligibility.requireBench(input.playerInId, 'playerInId');
-    const playerOut = eligibility.requireOnField(input.playerOutId, 'playerOutId');
+    const substitutionSide = input.side === 'opponent' ? 'opponent' : 'team';
+    const playerIn = substitutionSide === 'opponent' ? eligibility.requireOpponentBench(input.playerInId, 'playerInId') : eligibility.requireBench(input.playerInId, 'playerInId');
+    const playerOut = substitutionSide === 'opponent' ? eligibility.requireOpponentOnField(input.playerOutId, 'playerOutId') : eligibility.requireOnField(input.playerOutId, 'playerOutId');
     return {
       ...common,
-      team: match.team,
+      team: substitutionSide === 'opponent' ? null : match.team,
       playerIn: playerIn.player,
       playerInSnapshot: playerIn,
       playerOut: playerOut.player,
@@ -285,17 +325,18 @@ export const buildEventData = ({ match, events, type, input, now = new Date() })
 
   if (type.startsWith('penalty_')) {
     if (!input.scoringSide) throw new AppError('Choose the penalty side.', 400, 'SCORING_SIDE_REQUIRED');
-    return { ...common, ...actorFields(match, input, eligibility), scoringSide: input.scoringSide, penaltyOutcome: type.replace('penalty_', '') };
+    return { ...common, ...actorFields(match, input, eligibility, { allowOpponentTeamFallback: input.scoringSide === 'opponent' }), scoringSide: input.scoringSide, penaltyOutcome: type.replace('penalty_', '') };
   }
 
   if (type === 'own_goal') {
     if (!['team', 'opponent'].includes(input.ownGoalBySide)) throw new AppError('Choose the own-goal actor side.', 400, 'OWN_GOAL_SIDE_REQUIRED');
     const scoringSide = input.ownGoalBySide === 'team' ? 'opponent' : 'team';
     const ownTeamPlayer = input.ownGoalBySide === 'team' ? eligibility.requireOnField(input.playerId) : null;
+    const opponentPlayer = input.ownGoalBySide === 'opponent' && input.opponentPlayerId ? eligibility.requireOpponentOnField(input.opponentPlayerId) : null;
     const ownGoalBy = input.ownGoalBySide === 'team'
       ? { side: 'team', player: ownTeamPlayer.player, playerSnapshot: ownTeamPlayer, temporaryOpponentPlayerName: '' }
-      : { side: 'opponent', player: null, playerSnapshot: null, temporaryOpponentPlayerName: input.temporaryOpponentPlayerName?.trim() || '' };
-    if (input.ownGoalBySide === 'opponent' && !ownGoalBy.temporaryOpponentPlayerName) throw new AppError('Enter the opponent own-goal player.', 400, 'OPPONENT_PLAYER_REQUIRED');
+      : { side: 'opponent', player: opponentPlayer?.player || null, playerSnapshot: opponentPlayer || null, temporaryOpponentPlayerName: opponentPlayer ? '' : input.temporaryOpponentPlayerName?.trim() || '' };
+    if (input.ownGoalBySide === 'opponent' && !ownGoalBy.player && !ownGoalBy.temporaryOpponentPlayerName) throw new AppError('Enter the opponent own-goal player.', 400, 'OPPONENT_PLAYER_REQUIRED');
     return { ...common, team: input.ownGoalBySide === 'team' ? match.team : null, scoringSide, ownGoalBy };
   }
 
@@ -371,6 +412,7 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
   const elapsedSeconds = calculateElapsedSeconds(match, now);
   const scores = calculateScore(events, match.teamSide);
   const lineup = buildCurrentLineup(match, events);
+  const opponentLineup = buildCurrentOpponentLineup(match, events);
   const team = match.team?.name ? { _id: match.team._id, name: match.team.name, slug: match.team.slug, logo: publicImage(match.team.logo).imageUrl } : { _id: match.team };
   const activeEventCount = events.filter((event) => !event.isUndone).length;
   const updatedAt = match.updatedAt || match.createdAt || null;
@@ -381,6 +423,11 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
     revision: `${match.lastEventSequence || 0}:${activeEventCount}:${updatedAt ? new Date(updatedAt).getTime() : 0}`,
     matchFormat: match.matchFormat || '11v11',
     opponent: match.opponent,
+    registeredOpponentTeam: match.registeredOpponentTeam,
+    registeredOpponentStartingXI: match.registeredOpponentStartingXI || [],
+    registeredOpponentSubstitutes: match.registeredOpponentSubstitutes || [],
+    registeredOpponentFormation: match.registeredOpponentFormation,
+    registeredOpponentCustomFormation: match.registeredOpponentCustomFormation,
     status: match.status,
     currentPeriod: match.currentPeriod,
     homeScore: scores.homeScore,
@@ -398,10 +445,25 @@ export const serializeLiveState = ({ match, events = [], now = new Date() }) => 
     startingXI: match.startingXI,
     substitutes: match.substitutes,
     currentLineup: { onField: lineup.onField, bench: lineup.bench, sentOff: lineup.sentOff, substitutions: lineup.substitutions },
+    currentOpponentLineup: { onField: opponentLineup.onField, bench: opponentLineup.bench, sentOff: opponentLineup.sentOff, substitutions: opponentLineup.substitutions },
     currentOnFieldPlayers: lineup.onField,
     currentBenchPlayers: lineup.bench,
+    currentOpponentOnFieldPlayers: opponentLineup.onField,
+    currentOpponentBenchPlayers: opponentLineup.bench,
     appearedPlayers: [...lineup.appeared],
     latestEventSequence: match.lastEventSequence,
     activeEventCount,
   };
 };
+
+export const buildCurrentLineup = (match, events) => buildCurrentLineupFromSnapshots({
+  startingSnapshots: match.startingXI || [],
+  substituteSnapshots: match.substitutes || [],
+  events,
+});
+
+export const buildCurrentOpponentLineup = (match, events) => buildCurrentLineupFromSnapshots({
+  startingSnapshots: match.registeredOpponentStartingXI || [],
+  substituteSnapshots: match.registeredOpponentSubstitutes || [],
+  events,
+});

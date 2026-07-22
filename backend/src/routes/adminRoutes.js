@@ -84,6 +84,13 @@ import {
   adminUnsuspendTournament,
 } from '../controllers/tournamentAdminController.js';
 import {
+  adminTournamentAwards,
+  adminTournamentFixtures,
+  adminTournamentReport,
+  adminTournamentStandings,
+  adminTournamentStatistics,
+} from '../controllers/tournamentController.js';
+import {
   adminParticipantSquad,
   adminParticipantSquadHistory,
   adminTournamentSquads,
@@ -103,6 +110,8 @@ import {
 import { squadParamsValidator, squadListValidator } from '../validators/tournamentSquadValidators.js';
 import { lineupListValidator, lineupParamsValidator } from '../validators/tournamentLineupValidators.js';
 import { tournamentAdminReviewLimiter, tournamentApprovalLimiter } from '../middleware/rateLimiters.js';
+import { getAdminMatchReport, getAdminWhatsAppSetting, putAdminWhatsAppSetting } from '../controllers/phaseSixFiveController.js';
+import { whatsappSettingValidator } from '../validators/phaseSixFiveValidators.js';
 
 const router = Router();
 
@@ -133,8 +142,12 @@ router.patch('/team-registration-requests/:requestId/approve', approveTeamRegist
 router.patch('/team-registration-requests/:requestId/reject', rejectTeamRegistrationValidator, validate, rejectAdminTeamRegistrationRequest);
 router.patch('/team-registration-requests/:requestId/request-changes', requestChangesTeamRegistrationValidator, validate, requestChangesAdminTeamRegistrationRequest);
 router.get('/tournaments', tournamentListValidator, validate, adminListTournaments);
-router.get('/tournaments/:tournamentId', tournamentIdValidator, validate, adminGetTournament);
 router.get('/tournaments/:tournamentId/review-history', tournamentIdValidator, validate, adminTournamentReviewHistory);
+router.get('/tournaments/:tournamentId/fixtures', tournamentIdValidator, validate, adminTournamentFixtures);
+router.get('/tournaments/:tournamentId/standings', tournamentIdValidator, validate, adminTournamentStandings);
+router.get('/tournaments/:tournamentId/awards', tournamentIdValidator, validate, adminTournamentAwards);
+router.get('/tournaments/:tournamentId/statistics', tournamentIdValidator, validate, adminTournamentStatistics);
+router.get('/tournaments/:tournamentId/report', tournamentIdValidator, validate, adminTournamentReport);
 router.get('/tournaments/:tournamentId/squads', squadListValidator, validate, adminTournamentSquads);
 router.get('/tournaments/:tournamentId/lineups', lineupListValidator, validate, adminLineups);
 router.get('/tournaments/:tournamentId/lineups/:lineupId', lineupParamsValidator, validate, adminLineup);
@@ -147,8 +160,12 @@ router.patch('/tournaments/:tournamentId/request-changes', tournamentApprovalLim
 router.patch('/tournaments/:tournamentId/suspend', tournamentAdminReviewLimiter, requiredReasonValidator, validate, adminSuspendTournament);
 router.patch('/tournaments/:tournamentId/unsuspend', tournamentAdminReviewLimiter, reviewActionValidator, validate, adminUnsuspendTournament);
 router.patch('/tournaments/:tournamentId/archive', tournamentAdminReviewLimiter, reviewActionValidator, validate, adminArchiveTournament);
+router.get('/tournaments/:tournamentId', tournamentIdValidator, validate, adminGetTournament);
 router.route('/team-admins').get(getTeamAdmins).post(createTeamAdminValidator, validate, createTeamAdmin);
 router.patch('/team-admins/:userId/status', statusValidator, validate, setTeamAdminStatus);
+router.route('/settings/team-admin-whatsapp')
+  .get(getAdminWhatsAppSetting)
+  .put(whatsappSettingValidator, validate, putAdminWhatsAppSetting);
 const validateMatch = validateWithStatus(400);
 router.get('/matches', adminListMatchesValidator, validateMatch, listAdminMatches);
 router.get('/matches/:matchId', matchIdValidator, validateMatch, getAdminMatch);
@@ -156,6 +173,7 @@ router.get('/matches/:matchId/live-state', matchIdValidator, validateMatch, getA
 router.get('/matches/:matchId/events', matchIdValidator, validateMatch, getAdminEvents);
 router.get('/matches/:matchId/stream', streamIdValidator, validateMatch, readAdminStream);
 router.get('/matches/:matchId/result', resultIdValidator, validateMatch, getAnyResult);
+router.get('/matches/:matchId/report', matchIdValidator, validateMatch, getAdminMatchReport);
 router.route('/matches/:matchId/direct-result')
   .get(directResultIdValidator, validateMatch, getAdminDirectResult)
   .post(directResultValidator, validateMatch, putAdminDirectResult)

@@ -95,6 +95,8 @@ const env = Object.freeze({
     authMax: parsePositiveInteger('AUTH_RATE_LIMIT_MAX', 10 * developmentMultiplier, { min: 1, max: 10_000 }),
     publicReadMax: parsePositiveInteger('PUBLIC_READ_RATE_LIMIT_MAX', 500 * developmentMultiplier, { min: 10, max: 100_000 }),
     chatMax: parsePositiveInteger('CHAT_RATE_LIMIT_MAX', 8, { min: 1, max: 1_000 }),
+    teamChatWindowMs: parsePositiveInteger('TEAM_CHAT_RATE_LIMIT_WINDOW_MS', 3 * 1000, { min: 1000, max: 60 * 1000 }),
+    teamChatMax: parsePositiveInteger('TEAM_CHAT_RATE_LIMIT_MAX', 5, { min: 1, max: 100 }),
     searchMax: parsePositiveInteger('SEARCH_RATE_LIMIT_MAX', 120 * developmentMultiplier, { min: 10, max: 100_000 }),
     uploadMax: parsePositiveInteger('UPLOAD_RATE_LIMIT_MAX', 60 * developmentMultiplier, { min: 1, max: 10_000 }),
     joinRequestMax: parsePositiveInteger('JOIN_REQUEST_RATE_LIMIT_MAX', 5 * (isDevelopment ? 3 : 1), { min: 1, max: 10_000 }),

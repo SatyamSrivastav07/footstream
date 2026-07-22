@@ -26,7 +26,7 @@ import { manualParticipantValidator, registeredParticipantValidator } from '../s
 import { registeredSquadPlayerValidator } from '../src/validators/tournamentSquadValidators.js';
 import { createLineupValidator, updateLineupSideValidator } from '../src/validators/tournamentLineupValidators.js';
 import { serializeTournamentSquadPublic } from '../src/serializers/tournamentSerializers.js';
-import { formationSlots, validateTournamentFormation } from '../src/services/tournamentLineupService.js';
+import { autoPlaceStarters, formationSlots, validateTournamentFormation } from '../src/services/tournamentLineupService.js';
 import { validateWithStatus } from '../src/middleware/validate.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 const runValidators = async (validators, req) => {
@@ -102,10 +102,11 @@ test('tournament notification and review-history contracts include Phase 8A Part
   ].forEach((action) => assert.ok(TOURNAMENT_REVIEW_ACTIONS.includes(action)));
 });
 
-test('tournament squad routes validators and serializers stay Phase 8B Part 1 scoped', async () => {
+test('tournament squad routes validators serializers and fixture endpoints stay bounded', async () => {
   const teamRoutes = readFileSync(resolve('src/routes/teamRoutes.js'), 'utf8');
   const adminRoutes = readFileSync(resolve('src/routes/adminRoutes.js'), 'utf8');
   const publicRoutes = readFileSync(resolve('src/routes/publicRoutes.js'), 'utf8');
+  const squadService = readFileSync(resolve('src/services/tournamentSquadService.js'), 'utf8');
   [
     'squad_created',
     'player_added',
@@ -120,9 +121,12 @@ test('tournament squad routes validators and serializers stay Phase 8B Part 1 sc
   assert.match(teamRoutes, /squad\/players\/registered/);
   assert.match(teamRoutes, /squad\/players\/manual/);
   assert.match(teamRoutes, /squad\/captain/);
+  assert.doesNotMatch(squadService, /Registered participants must select permanent registered players/);
   assert.match(adminRoutes, /participants\/:participantId\/squad/);
   assert.match(publicRoutes, /participants\/:participantSlug\/squad/);
-  assert.doesNotMatch(teamRoutes, /playing-xi|fixtures\/generate|standings/i);
+  assert.match(teamRoutes, /fixtures\/generate/);
+  assert.match(teamRoutes, /standings/);
+  assert.doesNotMatch(teamRoutes, /playing-xi|challenges/i);
 
   const invalid = await runValidators(registeredSquadPlayerValidator, {
     params: { tournamentId: '650000000000000000000001', participantId: '650000000000000000000002' },
@@ -141,7 +145,7 @@ test('tournament squad routes validators and serializers stay Phase 8B Part 1 sc
   assert.equal(safe.players[0].registeredPlayer, undefined);
 });
 
-test('tournament matchday lineup foundation stays Phase 8B Part 2 scoped', async () => {
+test('tournament matchday lineup and competition routes stay challenge-free', async () => {
   const teamRoutes = readFileSync(resolve('src/routes/teamRoutes.js'), 'utf8');
   const adminRoutes = readFileSync(resolve('src/routes/adminRoutes.js'), 'utf8');
   const packageJson = readFileSync(resolve('package.json'), 'utf8');
@@ -162,9 +166,13 @@ test('tournament matchday lineup foundation stays Phase 8B Part 2 scoped', async
   assert.match(teamRoutes, /lineups\/:lineupId\/home\/eligible-players/);
   assert.match(teamRoutes, /lineups\/:lineupId\/away\/eligible-players/);
   assert.match(adminRoutes, /tournaments\/:tournamentId\/lineups/);
-  assert.doesNotMatch(teamRoutes, /fixtures\/generate|standings|tournament-matches|playing-xi/i);
+  assert.match(teamRoutes, /fixtures\/generate/);
+  assert.match(teamRoutes, /create-match/);
+  assert.match(teamRoutes, /standings/);
+  assert.doesNotMatch(teamRoutes, /tournament-matches|playing-xi|challenges/i);
   assert.match(packageJson, /TournamentMatchdayLineup\.js/);
   assert.match(packageJson, /tournamentLineupService\.js/);
+  assert.match(packageJson, /tournamentCompetitionService\.js/);
 
   const result = await runValidators(createLineupValidator, {
     params: { tournamentId: '64b000000000000000000001' },
@@ -183,6 +191,12 @@ test('tournament matchday lineup foundation stays Phase 8B Part 2 scoped', async
     body: { action: 'assignSlot', squadPlayerId: '64b000000000000000000005', slotId: 'L1-P1' },
   });
   assert.equal(slotAction.isEmpty(), true);
+
+  const autoPlaceAction = await runValidators(updateLineupSideValidator, {
+    params: { tournamentId: '64b000000000000000000001', lineupId: '64b000000000000000000004' },
+    body: { action: 'autoPlace' },
+  });
+  assert.equal(autoPlaceAction.isEmpty(), true);
 });
 
 test('tournament lineup model and formation validation enforce matchday contracts', async () => {
@@ -196,11 +210,24 @@ test('tournament lineup model and formation validation enforce matchday contract
   assert.doesNotThrow(() => validateTournamentFormation({ formation: '2-2-1', playersOnField: 6 }));
   assert.doesNotThrow(() => validateTournamentFormation({ formation: 'custom', customFormation: '4-3-3', playersOnField: 11 }));
   assert.throws(() => validateTournamentFormation({ formation: '4-3-3', playersOnField: 7 }), /compatible/);
-  assert.throws(() => validateTournamentFormation({ formation: 'custom', customFormation: '2-2-2', playersOnField: 11 }), /one goalkeeper/);
+  assert.throws(() => validateTournamentFormation({ formation: 'custom', customFormation: '2-2-2', playersOnField: 11 }), /total must equal/);
   const slots = formationSlots({ formation: '2-2-1', playersOnField: 6 });
   assert.equal(slots.length, 6);
   assert.equal(slots[0].slotId, 'GK');
   assert.equal(slots.filter((slot) => slot.slotId !== 'GK').length, 5);
+  const placedWithoutGoalkeeper = autoPlaceStarters({
+    sideData: {
+      formation: '2-2-1',
+      startingPlayers: Array.from({ length: 6 }, (_, index) => ({
+        squadPlayer: `64b00000000000000000001${index}`,
+        name: `Player ${index}`,
+        position: 'CM',
+      })),
+    },
+    playersOnField: 6,
+  });
+  assert.equal(placedWithoutGoalkeeper.every((player) => player.slotId), true);
+  assert.equal(new Set(placedWithoutGoalkeeper.map((player) => player.slotId)).size, 6);
 
   const sameParticipants = new TournamentMatchdayLineup({
     tournament: '64b000000000000000000001',
@@ -246,6 +273,12 @@ test('host editability and protected tournament fields are enforced by service h
     lifecycleStatus: 'draft',
     isArchived: false,
   }, { team: 'team1' }));
+  assert.doesNotThrow(() => ensureTournamentEditableByHost({
+    hostTeam: { _id: 'team1' },
+    approvalStatus: 'draft',
+    lifecycleStatus: 'draft',
+    isArchived: false,
+  }, { team: { _id: 'team1' } }));
   assert.throws(() => ensureTournamentEditableByHost({
     hostTeam: 'team2',
     approvalStatus: 'draft',
@@ -260,15 +293,17 @@ test('host editability and protected tournament fields are enforced by service h
   }, { team: 'team1' }), /not editable/);
 });
 
-test('draft delete hard-removes draft tournament scoped records and assets', async () => {
+test('tournament delete hard-removes non-completed tournament scoped records and detaches matches', async () => {
   const tournament = tournamentDoc({
+    approvalStatus: 'approved',
+    lifecycleStatus: 'ongoing',
     logo: { publicId: 'logo-secret' },
     coverImage: { publicId: 'cover-secret' },
   });
   const deleted = [];
   const destroyed = [];
+  const matchUpdates = [];
   const modelWithDelete = (rows = []) => ({
-    countDocuments: async () => 0,
     find: () => leanSelectChain(rows),
     deleteMany: async (filter) => { deleted.push(filter); },
   });
@@ -283,30 +318,24 @@ test('draft delete hard-removes draft tournament scoped records and assets', asy
     lineupModel: modelWithDelete([{ _id: '650000000000000000000020' }]),
     lineupHistoryModel: modelWithDelete(),
     reviewModel: modelWithDelete(),
-    matchModel: { countDocuments: async () => 0 },
+    matchModel: { updateMany: async (filter, update) => { matchUpdates.push({ filter, update }); } },
     storage: { destroy: async (publicId) => { destroyed.push(publicId); return { result: 'ok' }; } },
   });
   assert.deepEqual(result, { deleted: true });
   assert.equal(tournament.deleted, true);
+  assert.equal(matchUpdates.length, 1);
+  assert.deepEqual(matchUpdates[0].filter, { tournamentCompetition: tournament._id });
+  assert.equal(Object.hasOwn(matchUpdates[0].update.$unset, 'tournamentCompetition'), true);
   assert.ok(deleted.length >= 6);
   assert.deepEqual(destroyed.sort(), ['cover-secret', 'logo-secret', 'participant-logo', 'player-photo'].sort());
 });
 
-test('draft delete blocks submitted approved match and locked dependencies', async () => {
+test('tournament delete blocks completed tournaments only', async () => {
   await assert.rejects(deleteHostedTournamentDraft({
     user: { _id: '650000000000000000000013', team: '650000000000000000000011' },
     tournamentId: '650000000000000000000010',
-    tournamentModel: { findOne: async () => tournamentDoc({ submittedAt: new Date() }) },
-  }), (error) => error.code === 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
-
-  await assert.rejects(deleteHostedTournamentDraft({
-    user: { _id: '650000000000000000000013', team: '650000000000000000000011' },
-    tournamentId: '650000000000000000000010',
-    tournamentModel: { findOne: async () => tournamentDoc() },
-    matchModel: { countDocuments: async () => 1 },
-    squadModel: { countDocuments: async () => 0 },
-    lineupModel: { countDocuments: async () => 0 },
-  }), (error) => error.code === 'TOURNAMENT_DRAFT_DELETE_BLOCKED');
+    tournamentModel: { findOne: async () => tournamentDoc({ lifecycleStatus: 'completed' }) },
+  }), (error) => error.code === 'TOURNAMENT_DELETE_BLOCKED');
 });
 
 test('submission rules split intra-college and inter-college requirements', async () => {

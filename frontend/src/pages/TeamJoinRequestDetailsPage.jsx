@@ -86,10 +86,11 @@ function RejectModal({ open, request, onClose, onDone }) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  useEffect(() => { if (open) { setReason(''); setError(''); } }, [open]);
   const submit = async (event) => {
     event.preventDefault();
     setSaving(true); setError('');
-    try { await api.patch(`/team/join-requests/${request._id}/reject`, { rejectionReason: reason }); await onDone(); }
+    try { await api.patch(`/team/join-requests/${request._id}/reject`, { rejectionReason: reason.trim() }); await onDone(); }
     catch (requestError) { setError(requestError.userMessage); }
     finally { setSaving(false); }
   };

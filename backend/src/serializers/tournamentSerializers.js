@@ -1,3 +1,5 @@
+import { startersForMatchFormat } from '../constants/tournamentConstants.js';
+
 const asObject = (document) => {
   if (!document) return null;
   if (typeof document.toObject === 'function') return document.toObject();
@@ -18,6 +20,9 @@ const publicImage = (image) => {
 
 const removeEmpty = (payload) =>
   Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
+
+const effectiveMinimumSquad = (tournament = {}) =>
+  startersForMatchFormat(tournament.matchFormat, tournament.playersOnField) || Number(tournament.minimumSquad) || 1;
 
 export const serializeTournamentPublic = (tournamentDocument) => {
   const tournament = asObject(tournamentDocument);
@@ -54,7 +59,7 @@ export const serializeTournamentPublic = (tournamentDocument) => {
     visibility: tournament.visibility,
     isPublished: tournament.isPublished,
     playersOnField: tournament.playersOnField,
-    minimumSquad: tournament.minimumSquad,
+    minimumSquad: effectiveMinimumSquad(tournament),
     maximumSquad: tournament.maximumSquad,
     maximumMatchdaySquad: tournament.maximumMatchdaySquad,
     maximumSubstitutes: tournament.maximumSubstitutes,
@@ -231,8 +236,15 @@ export const serializeTournamentLineupHost = (lineupDocument, participantsById =
     id: idOf(lineup._id),
     tournament: idOf(lineup.tournament),
     provisionalFixtureKey: lineup.provisionalFixtureKey,
+    fixtureNumber: lineup.fixtureNumber,
+    scheduledAt: lineup.scheduledAt,
+    venue: lineup.venue,
+    officials: lineup.officials,
+    stage: lineup.stage,
+    round: lineup.round,
     status: lineup.status,
     matchCreated: lineup.matchCreated,
+    match: idOf(lineup.match),
     homeParticipant: participantsById[homeId] || homeId,
     awayParticipant: participantsById[awayId] || awayId,
     home: serializeLineupSide(lineup.home || {}),

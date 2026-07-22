@@ -4,7 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import EmptyState from '../components/EmptyState.jsx';
 import { tournamentApi, unwrapData } from '../features/tournaments/api.js';
 import { StatusBadge, TournamentLogo, imageUrl } from '../features/tournaments/TournamentUi.jsx';
-import { TOURNAMENT_PARTICIPANT_TYPE, formatTournamentLabel } from '../features/tournaments/constants.js';
+import { TOURNAMENT_PARTICIPANT_TYPE, formatTournamentLabel, startersForMatchFormat } from '../features/tournaments/constants.js';
 
 const positions = ['GK', 'RB', 'CB', 'LB', 'CDM', 'CM', 'CAM', 'RW', 'LW', 'CF', 'ST'];
 
@@ -23,7 +23,7 @@ export default function TeamTournamentSquadPage() {
   const participant = squad?.participant;
   const locked = squad?.status === 'locked';
   const readOnly = ['submitted', 'approved', 'locked'].includes(squad?.status);
-  const external = participant?.participantType === TOURNAMENT_PARTICIPANT_TYPE.EXTERNAL_TEAM;
+  const canUseRegisteredPlayers = participant?.participantType !== TOURNAMENT_PARTICIPANT_TYPE.EXTERNAL_TEAM;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,14 +46,14 @@ export default function TeamTournamentSquadPage() {
   }, [participantId, tournamentId]);
 
   const loadEligible = useCallback(async () => {
-    if (!participant || external) return;
+    if (!participant || !canUseRegisteredPlayers) return;
     try {
       const response = await tournamentApi.eligiblePlayers(tournamentId, participantId, { search });
       setEligible(unwrapData(response).players || []);
     } catch (requestError) {
       setError(requestError.userMessage);
     }
-  }, [external, participant, participantId, search, tournamentId]);
+  }, [canUseRegisteredPlayers, participant, participantId, search, tournamentId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadEligible(); }, [loadEligible]);
@@ -85,6 +85,10 @@ export default function TeamTournamentSquadPage() {
   }[name]);
 
   const countLabel = useMemo(() => `${squad?.playerCount || squad?.players?.length || 0}/${tournament?.maximumSquad || '-'}`, [squad, tournament]);
+  const minimumSquad = useMemo(
+    () => startersForMatchFormat(tournament?.matchFormat, tournament?.playersOnField) || tournament?.minimumSquad || '-',
+    [tournament],
+  );
 
   if (loading) return <div className="skeleton h-96" />;
   if (error && !squad) return <ErrorBox error={error} onRetry={load} />;
@@ -98,7 +102,7 @@ export default function TeamTournamentSquadPage() {
           <div>
             <p className="eyebrow">Tournament squad</p>
             <h1 className="page-title">{participant?.displayName || 'Participant'}</h1>
-            <p className="page-copy">{formatTournamentLabel(participant?.participantType)} · {countLabel} players · minimum {tournament?.minimumSquad}</p>
+            <p className="page-copy">{formatTournamentLabel(participant?.participantType)} · {countLabel} players · minimum {minimumSquad}</p>
           </div>
         </div>
         <Link className="secondary-button" to={`/team/tournaments/${tournamentId}`}>Back to Tournament</Link>
@@ -110,7 +114,7 @@ export default function TeamTournamentSquadPage() {
         <Info title="Status" value={<StatusBadge tone={locked ? 'lime' : 'neutral'}>{formatTournamentLabel(squad.status)}</StatusBadge>} />
         <Info title="Captain" value={squad.captain?.name || 'Required'} />
         <Info title="Vice Captain" value={squad.viceCaptain?.name || 'Optional'} />
-        <Info title="Goalkeeper" value={(squad.players || []).some((player) => player.goalkeeper || player.position === 'GK') ? 'Ready' : 'Required'} />
+        <Info title="Goalkeeper" value={(squad.players || []).some((player) => player.goalkeeper || player.position === 'GK') ? 'Selected' : 'Optional'} />
       </section>
 
       <section className="mt-7 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-6">
@@ -129,17 +133,21 @@ export default function TeamTournamentSquadPage() {
         {readOnly && <p className="mt-4 text-sm text-amber-100/75">Player edits are disabled while this squad is {squad.status}. Unlock or return to draft workflow before changing players.</p>}
       </section>
 
-      {!external ? (
+      {canUseRegisteredPlayers && (
         <section className="mt-7 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-6">
           <h2 className="font-display text-2xl font-black">Eligible registered players</h2>
+          <p className="mt-1 text-sm text-white/45">Use registered players from the eligible pool, then add manual tournament-only players below if needed.</p>
           <div className="mt-4 flex gap-3"><input className="field-input" placeholder="Search players" value={search} onChange={(event) => setSearch(event.target.value)} /><button type="button" className="secondary-button" onClick={loadEligible}>Search</button></div>
           <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {eligible.map((player) => <button key={player.id} type="button" disabled={readOnly || player.alreadySelected || player.allocatedToAnotherIntraTeam || saving} onClick={() => run(() => tournamentApi.addRegisteredSquadPlayer(tournamentId, participantId, { playerId: player.id }))} className="rounded-2xl border border-white/10 p-4 text-left disabled:cursor-not-allowed disabled:opacity-45"><strong>{player.name}</strong><p className="text-sm text-white/45">{player.position} · #{player.jerseyNumber || '-'}</p>{player.allocatedToAnotherIntraTeam && <p className="text-xs text-amber-200">Allocated to another intra team</p>}</button>)}
+            {!eligible.length && <p className="rounded-2xl border border-dashed border-white/10 p-4 text-sm text-white/50">No eligible registered players found. You can still add manual tournament-only players below.</p>}
           </div>
         </section>
-      ) : (
-        <section className="mt-7 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-6">
-          <h2 className="font-display text-2xl font-black">Add manual player</h2>
+      )}
+
+      <section className="mt-7 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-6">
+        <h2 className="font-display text-2xl font-black">Add manual player</h2>
+        <p className="mt-1 text-sm text-white/45">Use this for guest, trialist, replacement, or not-yet-registered tournament players. This does not create a permanent FootStream player.</p>
           <div className="mt-4 grid gap-3 md:grid-cols-[1fr_120px_100px_auto_auto]">
             <input className="field-input" placeholder="Player name" value={manual.name} disabled={readOnly} onChange={(event) => setManual({ ...manual, name: event.target.value })} />
             <select className="field-input" value={manual.position} disabled={readOnly} onChange={(event) => setManual({ ...manual, position: event.target.value })}>{positions.map((position) => <option key={position}>{position}</option>)}</select>
@@ -147,8 +155,7 @@ export default function TeamTournamentSquadPage() {
             <label className="flex items-center gap-2 text-sm text-white/60"><input type="checkbox" checked={manual.isGoalkeeper} disabled={readOnly} onChange={(event) => setManual({ ...manual, isGoalkeeper: event.target.checked })} /> GK</label>
             <button type="button" className="primary-button" disabled={readOnly || !manual.name.trim() || saving} onClick={addManual}><UserPlus size={16} /> Add</button>
           </div>
-        </section>
-      )}
+      </section>
 
       <section className="mt-7 grid gap-4 lg:grid-cols-2">
         {(squad.players || []).length === 0 ? <EmptyState title="No squad players" message="Add players to start building this tournament squad." /> : squad.players.map((player) => (
@@ -176,7 +183,7 @@ function SquadPlayerCard({ player, readOnly, saving, onAction, tournamentId, par
   };
   return <article className="rounded-2xl border border-white/10 p-4">
     <div className="flex items-start gap-4">
-      {photo ? <img src={photo} alt="" className="size-14 rounded-xl object-cover" /> : <div className="grid size-14 place-items-center rounded-xl bg-lime-300/10 font-black text-lime-100">{player.name.slice(0, 2).toUpperCase()}</div>}
+      {photo ? <img src={photo} alt="" className="size-14 rounded-xl bg-black/20 object-contain" /> : <div className="grid size-14 place-items-center rounded-xl bg-lime-300/10 font-black text-lime-100">{player.name.slice(0, 2).toUpperCase()}</div>}
       <div className="min-w-0 flex-1">
         <p className="truncate font-bold">{player.name}</p>
         <p className="text-sm text-white/45">{player.position} · #{player.jersey || '-'}</p>

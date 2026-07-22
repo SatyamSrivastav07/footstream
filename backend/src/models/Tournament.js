@@ -179,6 +179,10 @@ tournamentSchema.pre('validate', function validateTournamentFoundation() {
   if (this.matchFormat !== TOURNAMENT_MATCH_FORMAT_LABEL.CUSTOM) {
     this.playersOnField = starterCountForTournament({ matchFormatLabel: this.matchFormat });
   }
+  const requiredStarters = starterCountForTournament({ matchFormatLabel: this.matchFormat, playersOnField: this.playersOnField });
+  if (requiredStarters && this.minimumSquad <= this.maximumSquad && (!this.minimumSquad || this.minimumSquad > requiredStarters)) {
+    this.minimumSquad = requiredStarters;
+  }
   if (this.minimumSquad > this.maximumSquad) this.invalidate('minimumSquad', 'Minimum squad cannot exceed maximum squad.');
   if (this.maximumMatchdaySquad > this.maximumSquad) this.invalidate('maximumMatchdaySquad', 'Matchday squad cannot exceed maximum squad.');
   if (this.maximumSubstitutes >= this.maximumMatchdaySquad) this.invalidate('maximumSubstitutes', 'Substitutes must be fewer than matchday squad size.');

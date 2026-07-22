@@ -35,6 +35,10 @@ const optionalBool = (field) => body(field).optional({ nullable: true }).isBoole
 const optionalDate = (field) => body(field).optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage(`${field} must be a valid date.`).toDate();
 
 export const tournamentIdValidator = [param('tournamentId').isMongoId().withMessage('Invalid tournament identifier.')];
+export const tournamentFixtureIdValidator = [
+  ...tournamentIdValidator,
+  param('lineupId').isMongoId().withMessage('Invalid tournament fixture identifier.'),
+];
 
 export const tournamentBodyValidator = [
   rejectProtected(),
@@ -150,3 +154,53 @@ export const requiredMessageValidator = [
 ];
 
 export const publicTournamentSlugValidator = [param('slug').trim().matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).withMessage('Invalid tournament slug.')];
+
+export const tournamentFixtureValidator = [
+  ...tournamentIdValidator,
+  body().custom((value = {}) => {
+    const allowed = ['homeParticipant', 'awayParticipant', 'fixtureNumber', 'scheduledAt', 'venue', 'officials', 'stage', 'round'];
+    const unknown = Object.keys(value).filter((field) => !allowed.includes(field));
+    if (unknown.length) throw new Error(`Unsupported fixture fields: ${unknown.join(', ')}.`);
+    return true;
+  }),
+  body('homeParticipant').isMongoId().withMessage('Choose a valid home participant.'),
+  body('awayParticipant').isMongoId().withMessage('Choose a valid away participant.'),
+  body('fixtureNumber').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 10000 }).withMessage('Fixture number must be positive.').toInt(),
+  body('scheduledAt').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Kickoff must be a valid date.').toDate(),
+  body('venue').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 200 }).withMessage('Venue is too long.'),
+  body('officials').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 300 }).withMessage('Officials are too long.'),
+  body('stage').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 60 }).withMessage('Stage is too long.'),
+  body('round').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 80 }).withMessage('Round is too long.'),
+];
+
+export const tournamentFixtureGenerationValidator = [
+  ...tournamentIdValidator,
+  body().custom((value = {}) => {
+    const allowed = ['append', 'startDate', 'intervalDays', 'venue', 'officials', 'stage', 'round'];
+    const unknown = Object.keys(value).filter((field) => !allowed.includes(field));
+    if (unknown.length) throw new Error(`Unsupported fixture generation fields: ${unknown.join(', ')}.`);
+    return true;
+  }),
+  body('append').optional({ nullable: true }).isBoolean().withMessage('Append must be true or false.').toBoolean(),
+  body('startDate').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Start date must be valid.').toDate(),
+  body('intervalDays').optional({ nullable: true, checkFalsy: true }).isInt({ min: 1, max: 30 }).withMessage('Interval days must be 1 to 30.').toInt(),
+  body('venue').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 200 }).withMessage('Venue is too long.'),
+  body('officials').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 300 }).withMessage('Officials are too long.'),
+  body('stage').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 60 }).withMessage('Stage is too long.'),
+  body('round').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 80 }).withMessage('Round is too long.'),
+];
+
+export const tournamentMatchFromFixtureValidator = [
+  ...tournamentFixtureIdValidator,
+  body().custom((value = {}) => {
+    const allowed = ['matchMode', 'scheduledAt', 'venue', 'stage', 'round'];
+    const unknown = Object.keys(value).filter((field) => !allowed.includes(field));
+    if (unknown.length) throw new Error(`Unsupported tournament match fields: ${unknown.join(', ')}.`);
+    return true;
+  }),
+  body('matchMode').optional({ nullable: true, checkFalsy: true }).isIn(['stream', 'direct']).withMessage('Match mode must be stream or direct.'),
+  body('scheduledAt').optional({ nullable: true, checkFalsy: true }).isISO8601().withMessage('Kickoff must be a valid date.').toDate(),
+  body('venue').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 200 }).withMessage('Venue is too long.'),
+  body('stage').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 60 }).withMessage('Stage is too long.'),
+  body('round').optional({ nullable: true, checkFalsy: true }).trim().isLength({ max: 80 }).withMessage('Round is too long.'),
+];

@@ -99,9 +99,14 @@ export default function AdminTeamDetailPage() {
   const runAction = async (event) => {
     event.preventDefault();
     if (!action) return;
+    const cleanReason = reason.trim();
+    if (['reject', 'request-changes', 'suspend'].includes(action) && !cleanReason) {
+      setError('Please write a clear reason/message before confirming.');
+      return;
+    }
     setSaving(true); setError(''); setNotice('');
     try {
-      await api.post(`/admin/teams/${teamId}/${action}`, { reason });
+      await api.post(`/admin/teams/${teamId}/${action}`, { reason: cleanReason });
       setNotice(`Team ${action.replace('-', ' ')} completed.`);
       setAction(null); setReason('');
       await load();

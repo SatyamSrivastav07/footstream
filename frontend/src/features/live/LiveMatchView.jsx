@@ -18,6 +18,26 @@ const actions = [
 ];
 const formatStarters = { '5v5': 5, '7v7': 7, '11v11': 11 };
 
+export const buildGoalEventPayload = (form, commonPayload = {}) => {
+  const scoringSide = form.scoringSide || 'team';
+  if (scoringSide === 'opponent') {
+    return {
+      ...commonPayload,
+      scoringSide,
+      opponentPlayerId: form.opponentPlayerId || undefined,
+      opponentAssistPlayerId: form.opponentAssistPlayerId || undefined,
+      temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined,
+    };
+  }
+
+  return {
+    ...commonPayload,
+    scoringSide,
+    playerId: form.playerId || undefined,
+    assistPlayerId: form.assistPlayerId || undefined,
+  };
+};
+
 export default function LiveMatchView({ matchId, mode = 'public', onViewerCount }) {
   const { state, events, loading, error, connection, viewerCount, refresh, setError, notifications } = useLiveMatch(matchId, mode);
   const [action, setAction] = useState(null);
@@ -44,12 +64,12 @@ export default function LiveMatchView({ matchId, mode = 'public', onViewerCount 
       description: form.description || '',
     };
     try {
-      if (kind === 'goal') await api.post(`/team/matches/${matchId}/events/goal`, { ...cleanCommon, scoringSide: form.scoringSide, playerId: form.playerId || undefined, assistPlayerId: form.assistPlayerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
+      if (kind === 'goal') await api.post(`/team/matches/${matchId}/events/goal`, buildGoalEventPayload(form, cleanCommon));
       if (kind === 'assist') await api.patch(`/team/matches/${matchId}/events/${form.goalEventId}/assist`, { assistPlayerId: form.assistPlayerId });
-      if (kind === 'yellowCard' || kind === 'redCard') await api.post(`/team/matches/${matchId}/events/${kind === 'yellowCard' ? 'yellow-card' : 'red-card'}`, { ...cleanCommon, side: form.side, playerId: form.playerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
-      if (kind === 'substitution') await api.post(`/team/matches/${matchId}/events/substitution`, { ...cleanCommon, playerOutId: form.playerOutId, playerInId: form.playerInId });
-      if (kind === 'penalty') await api.post(`/team/matches/${matchId}/events/penalty`, { ...cleanCommon, scoringSide: form.scoringSide, outcome: form.outcome, playerId: form.playerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
-      if (kind === 'ownGoal') await api.post(`/team/matches/${matchId}/events/own-goal`, { ...cleanCommon, ownGoalBySide: form.ownGoalBySide, playerId: form.playerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
+      if (kind === 'yellowCard' || kind === 'redCard') await api.post(`/team/matches/${matchId}/events/${kind === 'yellowCard' ? 'yellow-card' : 'red-card'}`, { ...cleanCommon, side: form.side, playerId: form.playerId || undefined, opponentPlayerId: form.opponentPlayerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
+      if (kind === 'substitution') await api.post(`/team/matches/${matchId}/events/substitution`, { ...cleanCommon, side: form.side, playerOutId: form.playerOutId, playerInId: form.playerInId });
+      if (kind === 'penalty') await api.post(`/team/matches/${matchId}/events/penalty`, { ...cleanCommon, scoringSide: form.scoringSide, outcome: form.outcome, playerId: form.playerId || undefined, opponentPlayerId: form.opponentPlayerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
+      if (kind === 'ownGoal') await api.post(`/team/matches/${matchId}/events/own-goal`, { ...cleanCommon, ownGoalBySide: form.ownGoalBySide, playerId: form.playerId || undefined, opponentPlayerId: form.opponentPlayerId || undefined, temporaryOpponentPlayerName: form.temporaryOpponentPlayerName || undefined });
       if (kind === 'undo') await api.post(`/team/matches/${matchId}/events/undo-last`, { reason: form.reason || '' });
       setAction(null); await refresh();
     } catch (requestError) { setError(requestError.userMessage); }
@@ -70,6 +90,9 @@ export default function LiveMatchView({ matchId, mode = 'public', onViewerCount 
   const lineupIncomplete = state.startingXI.length !== requiredStarters;
   const lineupWarning = `Complete your ${matchFormat} lineup before starting the match.`;
   const liveFormation = state.formation === 'custom' ? state.customFormation : state.formation;
+  const opponentFormation = state.registeredOpponentFormation === 'custom' ? state.registeredOpponentCustomFormation : state.registeredOpponentFormation;
+  const opponentLineup = state.currentOpponentLineup || { onField: [], bench: [], sentOff: [], substitutions: [] };
+  const hasOpponentTacticalBoard = opponentLineup.onField.length > 0 && (opponentFormation || state.tournament);
 
   return <>
     {mode === 'public' && <LiveEventOverlay notification={notifications.active} onDismiss={notifications.dismiss} />}
@@ -82,19 +105,39 @@ export default function LiveMatchView({ matchId, mode = 'public', onViewerCount 
       {editable && nextTransition && <div className="mt-6 flex justify-center"><button type="button" className="primary-button" disabled={saving || (nextTransition[0] === 'start' && lineupIncomplete)} onClick={() => transition(nextTransition[0], nextTransition[0] === 'complete' ? 'Complete this match and lock new events?' : undefined)}>{nextTransition[1]}</button></div>}
     </section>
 
-      {editable && <section className="panel mt-6"><div className="panel-heading"><div><p className="eyebrow">Match operations</p><h2 className="panel-title">Event controls</h2></div><span className="count-pill">REST secured</span></div>{lineupIncomplete && <p className="mb-4 rounded-xl bg-amber-300/10 p-3 text-sm text-amber-100">{lineupWarning}</p>}<div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">{actions.map(([key, Icon, text]) => { const unavailable = lineupIncomplete || state.status !== 'live' || saving || (key === 'undo' && !events.some((event) => !event.isUndone)) || (key === 'assist' && !events.some((event) => event.type === 'goal' && event.scoringSide === 'team' && !event.isUndone && !event.assistPlayer)) || (key === 'substitution' && state.currentLineup.bench.length === 0); return <button key={key} type="button" disabled={unavailable} onClick={() => { setError(''); setAction(key); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-black/10 p-3 text-center text-xs font-bold text-white/65 transition hover:border-lime-300/20 hover:bg-lime-300/[0.055] hover:text-white disabled:opacity-30"><Icon size={21} className="text-lime-200" />{text}</button>; })}</div></section>}
+      {editable && <section className="panel mt-6"><div className="panel-heading"><div><p className="eyebrow">Match operations</p><h2 className="panel-title">Event controls</h2></div><span className="count-pill">REST secured</span></div>{lineupIncomplete && <p className="mb-4 rounded-xl bg-amber-300/10 p-3 text-sm text-amber-100">{lineupWarning}</p>}<div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">{actions.map(([key, Icon, text]) => { const unavailable = lineupIncomplete || state.status !== 'live' || saving || (key === 'undo' && !events.some((event) => !event.isUndone)) || (key === 'assist' && !events.some((event) => event.type === 'goal' && event.scoringSide === 'team' && !event.isUndone && !event.assistPlayer)) || (key === 'substitution' && state.currentLineup.bench.length === 0 && opponentLineup.bench.length === 0); return <button key={key} type="button" disabled={unavailable} onClick={() => { setError(''); setAction(key); }} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-white/[0.08] bg-black/10 p-3 text-center text-xs font-bold text-white/65 transition hover:border-lime-300/20 hover:bg-lime-300/[0.055] hover:text-white disabled:opacity-30"><Icon size={21} className="text-lime-200" />{text}</button>; })}</div></section>}
 
     {liveFormation && <section className="panel mt-6">
-      <div className="panel-heading"><div><p className="eyebrow">Live formation</p><h2 className="panel-title">Current tactical shape</h2></div><span className="count-pill">{liveFormation}</span></div>
-      <FootballPitchLineup
-        formation={state.formation}
-        customFormation={state.customFormation}
-        starters={state.currentLineup.onField.map((player) => ({ ...player, id: player.player, jersey: player.jerseyNumber }))}
-        goalkeeper={state.currentLineup.onField.find((player) => String(player.position || '').toUpperCase() === 'GK')}
-        captain={state.currentLineup.onField.find((player) => player.isCaptain)}
-        editable={false}
-        compact
-      />
+      <div className="panel-heading"><div><p className="eyebrow">Live formation</p><h2 className="panel-title">Current tactical shape</h2></div><span className="count-pill">{hasOpponentTacticalBoard ? 'Both teams' : liveFormation}</span></div>
+      <div className={`grid gap-5 ${hasOpponentTacticalBoard ? 'xl:grid-cols-2' : ''}`}>
+        <div>
+          <h3 className="mb-3 font-display text-xl font-black">{teamName}</h3>
+          <FootballPitchLineup
+            formation={state.formation}
+            customFormation={state.customFormation}
+            starters={state.currentLineup.onField.map((player) => ({ ...player, id: player.player, jersey: player.jerseyNumber }))}
+            goalkeeper={state.currentLineup.onField.find((player) => String(player.position || '').toUpperCase() === 'GK')}
+            captain={state.currentLineup.onField.find((player) => player.isCaptain)}
+            editable={false}
+            compact
+          />
+        </div>
+        {hasOpponentTacticalBoard && (
+          <div>
+            <h3 className="mb-3 font-display text-xl font-black">{state.opponent?.name || 'Opponent'}</h3>
+            <FootballPitchLineup
+              formation={state.registeredOpponentFormation || state.formation}
+              customFormation={state.registeredOpponentCustomFormation || state.customFormation}
+              starters={opponentLineup.onField.map((player) => ({ ...player, id: player.player, jersey: player.jerseyNumber }))}
+              goalkeeper={opponentLineup.onField.find((player) => String(player.position || '').toUpperCase() === 'GK')}
+              captain={opponentLineup.onField.find((player) => player.isCaptain)}
+              editable={false}
+              compact
+              orientation="attacking-down"
+            />
+          </div>
+        )}
+      </div>
     </section>}
 
     <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_.9fr]">

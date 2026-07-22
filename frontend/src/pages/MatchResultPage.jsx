@@ -233,6 +233,11 @@ export default function MatchResultPage({ audience = "team" }) {
           {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString() : "Date unavailable"} ·{" "}
           {match.venue} · {match.tournament || "No tournament"}
         </p>
+        {match.collaborationBadge && (
+          <span className="status-badge mt-4 border-lime-300/20 bg-lime-300/10 text-lime-100">
+            {match.collaborationBadge}
+          </span>
+        )}
       </header>
       {audience === "public" && (
         <div className="mt-4 flex justify-end">

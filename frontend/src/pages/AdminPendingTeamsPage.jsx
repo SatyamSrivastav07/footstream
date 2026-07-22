@@ -62,7 +62,7 @@ export default function AdminPendingTeamsPage() {
               <article key={request.id} className="rounded-3xl border border-white/[0.08] bg-white/[0.035] p-5">
                 <div className="flex items-start gap-4">
                   <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl border border-lime-300/15 bg-black/25">
-                    {request.logoUrl ? <img src={request.logoUrl} alt="" className="size-full object-cover" /> : <span className="font-display text-lg font-black text-lime-200">{request.teamName.slice(0, 1)}</span>}
+                    {request.logoUrl ? <img src={request.logoUrl} alt="" className="size-full bg-black/20 object-contain" /> : <span className="font-display text-lg font-black text-lime-200">{request.teamName.slice(0, 1)}</span>}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

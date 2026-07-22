@@ -20,7 +20,8 @@ const sideActor = [
   body('scoringSide').optional().isIn(SCORING_SIDES).withMessage('Select team or opponent.'),
   body('side').optional().isIn(SCORING_SIDES).withMessage('Select team or opponent.'),
   body('playerId').optional().isMongoId().withMessage('Invalid player selection.'),
-  body('temporaryOpponentPlayerName').optional().isString().withMessage('Opponent name must be text.').trim().isLength({ min: 2, max: 100 }).withMessage('Opponent name must be 2 to 100 characters.'),
+  body('opponentPlayerId').optional().isMongoId().withMessage('Invalid opponent player selection.'),
+  body('temporaryOpponentPlayerName').optional({ nullable: true, checkFalsy: true }).isString().withMessage('Opponent name must be text.').trim().isLength({ min: 2, max: 100 }).withMessage('Opponent name must be 2 to 100 characters.'),
 ];
 
 const commonFields = ['minute', 'stoppageMinute', 'description'];
@@ -28,7 +29,8 @@ export const goalValidator = [
   ...liveMatchIdValidator, ...common, ...sideActor,
   body('scoringSide').isIn(SCORING_SIDES).withMessage('Choose the scoring side.'),
   body('assistPlayerId').optional().isMongoId().withMessage('Invalid assist player.'),
-  rejectUnknown([...commonFields, 'scoringSide', 'playerId', 'assistPlayerId', 'temporaryOpponentPlayerName']),
+  body('opponentAssistPlayerId').optional().isMongoId().withMessage('Invalid opponent assist player.'),
+  rejectUnknown([...commonFields, 'scoringSide', 'playerId', 'assistPlayerId', 'opponentPlayerId', 'opponentAssistPlayerId', 'temporaryOpponentPlayerName']),
 ];
 
 export const assistValidator = [
@@ -40,29 +42,31 @@ export const assistValidator = [
 export const cardValidator = [
   ...liveMatchIdValidator, ...common, ...sideActor,
   body('side').isIn(SCORING_SIDES).withMessage('Choose the card side.'),
-  rejectUnknown([...commonFields, 'side', 'playerId', 'temporaryOpponentPlayerName']),
+  rejectUnknown([...commonFields, 'side', 'playerId', 'opponentPlayerId', 'temporaryOpponentPlayerName']),
 ];
 
 export const substitutionValidator = [
   ...liveMatchIdValidator, ...common,
+  body('side').optional().isIn(SCORING_SIDES).withMessage('Choose team or opponent.'),
   body('playerOutId').isMongoId().withMessage('Select a valid player leaving the field.'),
   body('playerInId').isMongoId().withMessage('Select a valid player entering the field.'),
-  rejectUnknown([...commonFields, 'playerOutId', 'playerInId']),
+  rejectUnknown([...commonFields, 'side', 'playerOutId', 'playerInId']),
 ];
 
 export const penaltyValidator = [
   ...liveMatchIdValidator, ...common, ...sideActor,
   body('scoringSide').isIn(SCORING_SIDES).withMessage('Choose the penalty side.'),
   body('outcome').isIn(PENALTY_OUTCOMES).withMessage('Choose scored, missed, or saved.'),
-  rejectUnknown([...commonFields, 'scoringSide', 'playerId', 'temporaryOpponentPlayerName', 'outcome']),
+  rejectUnknown([...commonFields, 'scoringSide', 'playerId', 'opponentPlayerId', 'temporaryOpponentPlayerName', 'outcome']),
 ];
 
 export const ownGoalValidator = [
   ...liveMatchIdValidator, ...common,
   body('ownGoalBySide').isIn(SCORING_SIDES).withMessage('Choose the own-goal actor side.'),
   body('playerId').optional().isMongoId().withMessage('Invalid own-goal player.'),
-  body('temporaryOpponentPlayerName').optional().isString().trim().isLength({ min: 2, max: 100 }).withMessage('Opponent name must be 2 to 100 characters.'),
-  rejectUnknown([...commonFields, 'ownGoalBySide', 'playerId', 'temporaryOpponentPlayerName']),
+  body('opponentPlayerId').optional().isMongoId().withMessage('Invalid opponent own-goal player.'),
+  body('temporaryOpponentPlayerName').optional({ nullable: true, checkFalsy: true }).isString().trim().isLength({ min: 2, max: 100 }).withMessage('Opponent name must be 2 to 100 characters.'),
+  rejectUnknown([...commonFields, 'ownGoalBySide', 'playerId', 'opponentPlayerId', 'temporaryOpponentPlayerName']),
 ];
 
 export const undoValidator = [

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, test, vi } from 'vitest';
+import { afterEach, beforeEach, test, vi } from 'vitest';
 import DashboardLayout from '../layouts/DashboardLayout.jsx';
 import TeamTournamentsPage from './TeamTournamentsPage.jsx';
 import TournamentEditorPage from './TournamentEditorPage.jsx';
@@ -53,6 +53,14 @@ const apiMocks = vi.hoisted(() => ({
   submit: vi.fn(),
   resubmit: vi.fn(),
   history: vi.fn(),
+  fixtures: vi.fn(),
+  createFixture: vi.fn(),
+  generateFixtures: vi.fn(),
+  createFixtureMatch: vi.fn(),
+  standings: vi.fn(),
+  awards: vi.fn(),
+  tournamentStats: vi.fn(),
+  reportUrl: vi.fn(),
   squads: vi.fn(),
   createSquad: vi.fn(),
   squadHistory: vi.fn(),
@@ -62,9 +70,21 @@ const apiMocks = vi.hoisted(() => ({
   listAdmin: vi.fn(),
   getAdmin: vi.fn(),
   adminHistory: vi.fn(),
+  adminFixtures: vi.fn(),
+  adminStandings: vi.fn(),
+  adminAwards: vi.fn(),
+  adminTournamentStats: vi.fn(),
+  adminReportUrl: vi.fn(),
   listPublic: vi.fn(),
   getPublic: vi.fn(),
   getPublicSquad: vi.fn(),
+  publicFixtures: vi.fn(),
+  publicResults: vi.fn(),
+  publicStandings: vi.fn(),
+  publicBracket: vi.fn(),
+  publicAwards: vi.fn(),
+  publicTournamentStats: vi.fn(),
+  publicReportUrl: vi.fn(),
   lineups: vi.fn(),
   createLineup: vi.fn(),
   getLineup: vi.fn(),
@@ -114,6 +134,25 @@ afterEach(() => {
 const response = (data) => Promise.resolve({ data: { data } });
 const renderRoute = (path, element, initialPath = path) => render(<MemoryRouter initialEntries={[initialPath]}><Routes><Route path={path} element={element} /></Routes></MemoryRouter>);
 
+beforeEach(() => {
+  apiMocks.fixtures.mockReturnValue(response({ fixtures: [] }));
+  apiMocks.standings.mockReturnValue(response({ standings: [] }));
+  apiMocks.awards.mockReturnValue(response({ awards: {} }));
+  apiMocks.tournamentStats.mockReturnValue(response({ totals: { matches: 0, goals: 0, players: 0 }, players: [] }));
+  apiMocks.reportUrl.mockReturnValue('/api/team/hosted-tournaments/t1/report');
+  apiMocks.adminFixtures.mockReturnValue(response({ fixtures: [] }));
+  apiMocks.adminStandings.mockReturnValue(response({ standings: [] }));
+  apiMocks.adminAwards.mockReturnValue(response({ awards: {} }));
+  apiMocks.adminTournamentStats.mockReturnValue(response({ totals: { matches: 0, goals: 0, players: 0 }, players: [] }));
+  apiMocks.adminReportUrl.mockReturnValue('/api/admin/tournaments/t1/report');
+  apiMocks.publicFixtures.mockReturnValue(response({ fixtures: [] }));
+  apiMocks.publicResults.mockReturnValue(response({ results: [] }));
+  apiMocks.publicStandings.mockReturnValue(response({ standings: [] }));
+  apiMocks.publicAwards.mockReturnValue(response({ awards: {} }));
+  apiMocks.publicTournamentStats.mockReturnValue(response({ totals: { matches: 0, goals: 0, players: 0 }, players: [] }));
+  apiMocks.publicReportUrl.mockReturnValue('/api/public/tournaments/rann-football/report');
+});
+
 test('Tournament dashboard renders cards and empty/loading states', async () => {
   apiMocks.listHosted.mockReturnValue(response({ tournaments: [tournament] }));
   renderRoute('/team/tournaments', <TeamTournamentsPage />);
@@ -136,9 +175,9 @@ test('Tournament editor derives preset player counts and only custom shows total
   assert.ok(screen.getByText(/11 total starters/i));
   fireEvent.change(screen.getByLabelText(/Match Format/i), { target: { value: '6v6' } });
   assert.ok(screen.getByText(/6 total starters/i));
-  assert.ok(screen.getByText(/1 goalkeeper \+ 5 outfield players/i));
+  assert.ok(screen.getByText(/Players can be assigned flexibly/i));
   fireEvent.change(screen.getByLabelText(/Match Format/i), { target: { value: 'custom' } });
-  assert.ok(screen.getByLabelText(/Total players per team including goalkeeper/i));
+  assert.ok(screen.getByLabelText(/Total players per team/i));
 });
 
 test('Edit wizard exposes tournament logo and cover upload controls', async () => {
@@ -181,7 +220,7 @@ test('Edit wizard submits only editable tournament fields', async () => {
   assert.equal(payload.name, 'RANN Football');
 });
 
-test('Edit wizard shows draft delete and submits inter-college without teams', async () => {
+test('Edit wizard shows tournament delete and submits inter-college without teams', async () => {
   const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
   apiMocks.getHosted.mockReturnValue(response({ tournament }));
   apiMocks.participants.mockReturnValue(response({ participants: [] }));
@@ -192,10 +231,34 @@ test('Edit wizard shows draft delete and submits inter-college without teams', a
   assert.ok(screen.getByText('Teams can be added after Super Admin approval.'));
   fireEvent.click(screen.getByRole('button', { name: /Submit for Approval/i }));
   await waitFor(() => assert.equal(apiMocks.submit.mock.calls.length, 1));
-  fireEvent.click(screen.getByRole('button', { name: /Delete Draft/i }));
+  fireEvent.click(screen.getByRole('button', { name: /Delete Tournament/i }));
   await waitFor(() => assert.equal(apiMocks.deleteHosted.mock.calls.length, 1));
-  assert.equal(confirmSpy.mock.calls[0][0], 'Delete this tournament draft permanently? This cannot be undone.');
+  assert.equal(confirmSpy.mock.calls[0][0], 'Delete this tournament permanently? Existing matches will stay available, but tournament-only setup data will be removed.');
   confirmSpy.mockRestore();
+});
+
+test('Edit wizard hides delete for completed tournaments', async () => {
+  apiMocks.getHosted.mockReturnValue(response({ tournament: { ...tournament, lifecycleStatus: 'completed' } }));
+  apiMocks.participants.mockReturnValue(response({ participants: [] }));
+  renderRoute('/team/tournaments/:tournamentId/edit', <TournamentEditorPage />, '/team/tournaments/t1/edit');
+  await waitFor(() => assert.ok(screen.getByText('Edit Tournament')));
+  assert.equal(screen.queryByRole('button', { name: /Delete Tournament/i }), null);
+});
+
+test('Edit wizard shows retry state for malformed tournament responses', async () => {
+  apiMocks.getHosted.mockReturnValue(response({ tournament: null }));
+  apiMocks.participants.mockReturnValue(response({ participants: [] }));
+  renderRoute('/team/tournaments/:tournamentId/edit', <TournamentEditorPage />, '/team/tournaments/t1/edit');
+  await waitFor(() => assert.ok(screen.getByText('Unable to open tournament')));
+  assert.ok(screen.getByText(/invalid tournament response/i));
+  assert.ok(screen.getByRole('button', { name: /Retry/i }));
+});
+
+test('Edit wizard shows API error state instead of blank page', async () => {
+  apiMocks.getHosted.mockRejectedValue({ userMessage: 'Tournament not found.' });
+  renderRoute('/team/tournaments/:tournamentId/edit', <TournamentEditorPage />, '/team/tournaments/t1/edit');
+  await waitFor(() => assert.ok(screen.getByText('Unable to open tournament')));
+  assert.ok(screen.getByText('Tournament not found.'));
 });
 
 test('Intra-college editor blocks submission until minimum teams are added', async () => {
@@ -214,7 +277,7 @@ test('Participant UI renders registered search, participants, and review timelin
   apiMocks.history.mockReturnValue(response({ history: [{ action: 'created', actorRole: 'teamAdmin', safeMessage: 'Created', createdAt: '2027-01-01T00:00:00Z' }] }));
   renderRoute('/team/tournaments/:tournamentId', <TeamTournamentDetailsPage />, '/team/tournaments/t1');
   await waitFor(() => assert.ok(screen.getByText('Participants')));
-  assert.ok(screen.getByText('IMS FC'));
+  assert.ok(screen.getAllByText('IMS FC').length >= 1);
   assert.ok(screen.getByPlaceholderText(/Search public registered teams/i));
   assert.ok(screen.getByAltText('Logo preview'));
   assert.ok(screen.getByText('Manage Squad'));
@@ -242,8 +305,24 @@ test('Team squad page renders registered selector and squad workflow actions', a
   renderRoute('/team/tournaments/:tournamentId/participants/:participantId/squad', <TeamTournamentSquadPage />, '/team/tournaments/t1/participants/p1/squad');
   await waitFor(() => assert.ok(screen.getByText('IMS FC')));
   assert.ok(screen.getByText('Eligible registered players'));
+  assert.ok(screen.getByText('Add manual player'));
+  assert.ok(screen.getByPlaceholderText('Player name'));
+  assert.ok(screen.getByText(/does not create a permanent FootStream player/i));
   assert.ok(screen.getByText('Submit'));
   assert.ok(screen.getByText('Aman'));
+});
+
+test('Team squad page shows manual player form alongside eligible registered players for small formats', async () => {
+  apiMocks.getHosted.mockReturnValue(response({ tournament: { ...tournament, matchFormat: '5v5', playersOnField: 5, minimumSquad: 11 } }));
+  apiMocks.createSquad.mockReturnValue(response({ squad: { id: 's1', status: 'draft', playerCount: 5, participant: { id: 'p1', displayName: 'CSE', participantType: 'intra_team' }, players: [] } }));
+  apiMocks.squadHistory.mockReturnValue(response({ history: [] }));
+  apiMocks.eligiblePlayers.mockReturnValue(response({ players: [{ id: 'pl1', name: 'Ravi', position: 'CM', jerseyNumber: 8 }] }));
+  renderRoute('/team/tournaments/:tournamentId/participants/:participantId/squad', <TeamTournamentSquadPage />, '/team/tournaments/t1/participants/p1/squad');
+  await waitFor(() => assert.ok(screen.getByText('CSE')));
+  assert.ok(screen.getByText('Eligible registered players'));
+  assert.ok(screen.getByText('Add manual player'));
+  assert.ok(screen.getByText(/minimum 5/i));
+  assert.ok(screen.getByPlaceholderText('Player name'));
 });
 
 test('Review timeline page renders audit events safely', async () => {
@@ -301,12 +380,15 @@ test('Lineup pitch renders 6v6 slots and assigns starter by click', async () => 
     .mockReturnValueOnce(response({ players: [] }));
   apiMocks.updateLineupSide.mockReturnValue(response({ lineup: { ...sixLineup, home: { ...sixLineup.home, startingPlayers: sixLineup.home.startingPlayers.map((player) => player.id === 'sp2' ? { ...player, slotId: 'L1-P1' } : player) } } }));
   renderRoute('/team/tournaments/:tournamentId/lineups/:lineupId', <TeamTournamentLineupEditorPage />, '/team/tournaments/t1/lineups/l1');
-  await waitFor(() => assert.ok(screen.getByText('Unassigned starters: Ravi')));
+  await waitFor(() => assert.ok(screen.getAllByText(/Optional preview/i).length >= 1));
+  assert.equal(screen.queryByText(/Unassigned starters/i), null);
   assert.ok(screen.getByRole('button', { name: /Empty Line 1 slot L1-P2/i }));
   fireEvent.click(screen.getAllByRole('button', { name: /Place on pitch/i })[1]);
   fireEvent.click(screen.getByRole('button', { name: /Empty Line 1 slot L1-P2/i }));
   await waitFor(() => assert.equal(apiMocks.updateLineupSide.mock.calls.at(-1)[3].action, 'assignSlot'));
   assert.equal(apiMocks.updateLineupSide.mock.calls.at(-1)[3].slotId, 'L1-P2');
+  fireEvent.click(screen.getAllByRole('button', { name: /Auto-place starters/i })[0]);
+  await waitFor(() => assert.equal(apiMocks.updateLineupSide.mock.calls.at(-1)[3].action, 'autoPlace'));
 });
 
 test('Team lineup editor renders squad loading controls and locked-free workflow actions', async () => {
@@ -332,14 +414,16 @@ test('Super admin lineup page is read-only', async () => {
   assert.equal(screen.queryByText('Submit'), null);
 });
 
-test('Public directory and detail render only tournament overview and participants', async () => {
+test('Public directory and detail render tournament overview participants and competition panels', async () => {
   apiMocks.listPublic.mockReturnValue(response({ tournaments: [tournament] }));
   renderRoute('/tournaments', <PublicTournamentsPage />);
   await waitFor(() => assert.ok(screen.getByText('RANN Football')));
   apiMocks.getPublic.mockReturnValue(response({ tournament: { ...tournament, participants: [{ id: 'p1', slug: 'ims-fc', displayName: 'IMS FC', participantType: 'registered_team' }] } }));
   renderRoute('/tournaments/:slug', <PublicTournamentDetailPage />, '/tournaments/rann-football');
   await waitFor(() => assert.ok(screen.getByText('IMS FC')));
-  assert.ok(screen.getByText(/Groups, fixtures, standings/i));
+  assert.ok(screen.getByText('Fixtures'));
+  assert.ok(screen.getByText('Standings'));
+  assert.ok(screen.getByText('Awards'));
   assert.ok(screen.getByText('View Squad'));
   apiMocks.getPublicSquad.mockReturnValue(response({ participant: { id: 'p1', displayName: 'IMS FC' }, squad: { id: 's1', playerCount: 1, captain: { name: 'Aman' }, players: [{ id: 'sp1', name: 'Aman', position: 'GK', jersey: 1, goalkeeper: true, captain: true }] } }));
   renderRoute('/tournaments/:slug/participants/:participantSlug/squad', <PublicTournamentSquadPage />, '/tournaments/rann-football/participants/ims-fc/squad');

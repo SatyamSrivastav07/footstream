@@ -401,6 +401,7 @@ test("public player profile hides inactive/private players and returns statistic
     matchModel,
     playerId: player._id,
     getPlayerStatisticsImpl: async () => ({ statistics: stats }),
+    listPlayerTrophiesImpl: async () => [],
   });
   assert.equal(playerFilter.isActive, true);
   assert.equal(matchFilter.status, "completed");

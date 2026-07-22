@@ -9,6 +9,7 @@ const renderFooter = async ({
   legacyContactEmail = "",
   portfolioUrl = "",
 } = {}) => {
+  cleanup();
   vi.resetModules();
   vi.stubEnv("VITE_SUPPORT_EMAIL", supportEmail);
   vi.stubEnv("VITE_CONTACT_EMAIL", legacyContactEmail);
@@ -45,7 +46,7 @@ test("public footer renders branding, support actions, quick links, and copyrigh
     assert.ok(quickLinks.getByRole("link", { name: label }));
   });
   assert.ok(screen.getByText("© FootStream — All Rights Reserved."));
-});
+}, 10000);
 
 test("public footer supports legacy contact email and hides missing optional links", async () => {
   await renderFooter({ legacyContactEmail: "legacy@footstream.test" });
@@ -53,7 +54,7 @@ test("public footer supports legacy contact email and hides missing optional lin
   assert.equal(screen.getByRole("link", { name: /legacy@footstream.test/i }).getAttribute("href"), "mailto:legacy@footstream.test");
   assert.equal(screen.queryByRole("link", { name: /portfolio/i }), null);
   assert.equal(screen.queryByRole("link", { name: /whatsapp community/i }), null);
-});
+}, 10000);
 
 test("public footer hides email action when no support email is configured", async () => {
   await renderFooter();

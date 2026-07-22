@@ -34,6 +34,11 @@ export default function MatchCard({ match, basePath, readOnly = false, onCancel,
             <span className={`status-badge ${isDirectMatch ? 'border-fuchsia-300/20 bg-fuchsia-300/10 text-fuchsia-100' : 'border-sky-300/20 bg-sky-300/10 text-sky-100'}`}>
               {isDirectMatch ? 'Direct Result' : 'Stream Match'}
             </span>
+            {match.collaborationBadge && (
+              <span className="status-badge border-lime-300/20 bg-lime-300/10 text-lime-100">
+                {match.collaborationBadge}
+              </span>
+            )}
           </div>
           <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-100/35">{label(match.matchType)} · {label(match.teamSide)}</p>
         </div>

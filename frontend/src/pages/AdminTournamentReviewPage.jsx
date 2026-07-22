@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { FileText, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { tournamentApi, unwrapData } from '../features/tournaments/api.js';
@@ -11,6 +11,10 @@ export default function AdminTournamentReviewPage() {
   const [history, setHistory] = useState([]);
   const [squadRows, setSquadRows] = useState([]);
   const [lineups, setLineups] = useState([]);
+  const [fixtures, setFixtures] = useState([]);
+  const [standings, setStandings] = useState([]);
+  const [awards, setAwards] = useState({});
+  const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -18,16 +22,24 @@ export default function AdminTournamentReviewPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [detail, timeline, squadsResponse, lineupResponse] = await Promise.all([
+      const [detail, timeline, squadsResponse, lineupResponse, fixturesResponse, standingsResponse, awardsResponse, statsResponse] = await Promise.all([
         tournamentApi.getAdmin(tournamentId),
         tournamentApi.adminHistory(tournamentId),
         tournamentApi.adminSquads(tournamentId),
         tournamentApi.adminLineups(tournamentId),
+        tournamentApi.adminFixtures(tournamentId),
+        tournamentApi.adminStandings(tournamentId),
+        tournamentApi.adminAwards(tournamentId),
+        tournamentApi.adminTournamentStats(tournamentId),
       ]);
       setTournament(unwrapData(detail).tournament);
       setHistory(unwrapData(timeline).history || []);
       setSquadRows(unwrapData(squadsResponse).squads || []);
       setLineups(unwrapData(lineupResponse).lineups || []);
+      setFixtures(unwrapData(fixturesResponse).fixtures || []);
+      setStandings(unwrapData(standingsResponse).standings || []);
+      setAwards(unwrapData(awardsResponse).awards || {});
+      setStats(unwrapData(statsResponse));
       setError('');
     } catch (requestError) {
       setError(requestError.userMessage);
@@ -71,7 +83,10 @@ export default function AdminTournamentReviewPage() {
             <p className="page-copy">{tournament.seasonLabel || 'Season not set'} · {dateText(tournament.startDate)} - {dateText(tournament.endDate)}</p>
           </div>
         </div>
-        <Link to="/admin/tournaments" className="secondary-button">Back</Link>
+        <div className="flex gap-2">
+          <a href={tournamentApi.adminReportUrl(tournament.id)} target="_blank" rel="noopener noreferrer" className="secondary-button"><FileText size={16} /> Report</a>
+          <Link to="/admin/tournaments" className="secondary-button">Back</Link>
+        </div>
       </header>
 
       {error && <div className="mt-6 rounded-2xl border border-red-300/20 bg-red-300/10 p-4 text-red-100" role="alert">{error}</div>}
@@ -114,6 +129,22 @@ export default function AdminTournamentReviewPage() {
               <span className="ml-2 text-sm text-white/45">{formatTournamentLabel(lineup.status)} · {lineup.home?.formation || 'No home formation'} / {lineup.away?.formation || 'No away formation'}</span>
             </Link>
           ))}
+        </Panel>
+        <Panel title="Fixtures & Results">
+          {fixtures.length === 0 ? <p>No tournament fixtures yet.</p> : fixtures.slice(0, 8).map((fixture) => (
+            <p key={`${fixture.type}-${fixture.id}`}><span className="font-bold text-white">{fixture.homeParticipant?.displayName || 'Home'} vs {fixture.awayParticipant?.displayName || 'Away'}</span> · {formatTournamentLabel(fixture.status)} · {dateText(fixture.scheduledAt)}</p>
+          ))}
+        </Panel>
+        <Panel title="Standings">
+          {standings.length === 0 ? <p>No standings yet.</p> : standings.slice(0, 8).map((row) => (
+            <p key={row.participant.id}><span className="font-bold text-white">{row.participant.displayName}</span> · {row.points} pts · GD {row.goalDifference}</p>
+          ))}
+        </Panel>
+        <Panel title="Awards & Statistics">
+          <p>Champion: {awards.champion?.displayName || 'Pending'}</p>
+          <p>Golden Boot: {awards.goldenBoot?.name || 'Pending'}</p>
+          <p>Top Assist: {awards.topAssist?.name || 'Pending'}</p>
+          <p>Matches: {stats?.totals?.matches || 0} · Goals: {stats?.totals?.goals || 0}</p>
         </Panel>
         <Panel title="Timeline"><ReviewTimeline history={history} /></Panel>
       </section>

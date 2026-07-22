@@ -43,6 +43,7 @@ const teamSchema = new mongoose.Schema(
     coverPhoto: { type: mongoose.Schema.Types.Mixed, default: '' },
     shortName: { type: String, trim: true, maxlength: 20, default: '' },
     description: { type: String, trim: true, maxlength: 1000, default: '' },
+    motto: { type: String, trim: true, maxlength: 240, default: '' },
     location: { type: String, trim: true, maxlength: 160, default: '' },
     city: { type: String, trim: true, maxlength: 100, default: '' },
     coach: { type: String, trim: true, maxlength: 100, default: '' },

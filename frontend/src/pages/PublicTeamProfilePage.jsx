@@ -56,6 +56,7 @@ export function PublicTeamActions({ team, fallbackSlug = "" }) {
 export default function PublicTeamProfilePage() {
   const { teamSlug } = useParams();
   const [data, setData] = useState(null);
+  const [achievements, setAchievements] = useState([]);
   const [error, setError] = useState("");
   const metadataTeam = data?.team;
   usePageMetadata({
@@ -73,6 +74,10 @@ export default function PublicTeamProfilePage() {
       .get(`/public/teams/${teamSlug}`)
       .then((response) => setData(response.data.data))
       .catch((requestError) => setError(requestError.userMessage));
+    api
+      .get(`/public/teams/${teamSlug}/achievements`)
+      .then((response) => setAchievements(response.data.data.achievements || []))
+      .catch(() => setAchievements([]));
   }, [teamSlug]);
   if (!data && !error) return <LoadingScreen />;
   if (!data) return <PublicError message={error} />;
@@ -96,6 +101,11 @@ export default function PublicTeamProfilePage() {
             {team.description ||
               "This team has not added a public description yet."}
           </p>
+          {team.motto && (
+            <blockquote className="mt-5 rounded-2xl border border-lime-300/20 bg-lime-300/[0.07] p-4 font-display text-xl font-bold text-lime-100">
+              “{team.motto}”
+            </blockquote>
+          )}
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             {facts.map(([Icon, label, value]) => (
               <div className="rounded-xl bg-black/10 p-3" key={label}>
@@ -156,6 +166,32 @@ export default function PublicTeamProfilePage() {
           suffix="matches"
         />
       </section>
+      {achievements.length > 0 && (
+        <section className="panel mt-8">
+          <div className="panel-heading"><div><p className="eyebrow">Team honours</p><h2 className="panel-title">Achievements</h2></div></div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {achievements.slice(0, 6).map((item) => (
+              <article key={item.id} className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025]">
+                {(item.trophyImages?.[0]?.imageUrl || item.trophyImage) && (
+                  <img
+                    className="aspect-video w-full bg-black/20 object-contain p-1"
+                    src={item.trophyImages?.[0]?.imageUrl || item.trophyImage}
+                    alt={`${item.tournamentName} trophy`}
+                    loading="lazy"
+                  />
+                )}
+                <div className="p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-lime-200">{item.category === 'intra_college' ? 'Intra College' : 'Inter College'}</p>
+                  <p className="mt-2 font-bold text-white">{item.tournamentName}</p>
+                  <p className="mt-1 text-lime-200">{item.position} · {item.year}</p>
+                  {item.description && <p className="mt-2 text-sm text-white/50">{item.description}</p>}
+                  <Link className="secondary-button mt-4 w-fit" to={`/teams/${team.slug}/achievements/${item.id}`}>View Team Achievement</Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <section className="mt-8 grid gap-6 xl:grid-cols-2">
         <MatchBlock
           title="Next fixture"
@@ -186,7 +222,7 @@ export default function PublicTeamProfilePage() {
                 key={`${photo.imageUrl}-${index}`}
               >
                 <img
-                  className="aspect-[4/3] size-full object-cover"
+                  className="aspect-[4/3] size-full bg-black/20 object-contain"
                   src={photo.imageUrl}
                   alt={photo.caption || `${team.name} match photo`}
                   loading="lazy"

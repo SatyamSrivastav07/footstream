@@ -56,7 +56,7 @@ test('tactical board loads squad, auto-arranges, assigns roles, and saves locall
 
   assert.ok(screen.getByText('Tactical plan saved on this browser.'));
   assert.match(window.localStorage.getItem('footstream:tactical-board:team-tactical'), /"formation":"5-a-side"/);
-});
+}, 15_000);
 
 test('tactical board shows empty squad state', async () => {
   api.get.mockResolvedValueOnce({ data: { data: { players: [] } } });

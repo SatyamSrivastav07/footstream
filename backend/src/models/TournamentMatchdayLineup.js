@@ -37,6 +37,17 @@ const tournamentMatchdayLineupSchema = new mongoose.Schema(
   {
     tournament: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true },
     provisionalFixtureKey: { type: String, required: true, trim: true, minlength: 3, maxlength: 160 },
+    fixtureNumber: {
+      type: Number,
+      min: 1,
+      default: null,
+      validate: { validator: (value) => value === null || Number.isInteger(value), message: 'Fixture number must be an integer.' },
+    },
+    scheduledAt: { type: Date, default: null },
+    venue: { type: String, trim: true, maxlength: 200, default: '' },
+    officials: { type: String, trim: true, maxlength: 300, default: '' },
+    stage: { type: String, trim: true, maxlength: 60, default: '' },
+    round: { type: String, trim: true, maxlength: 80, default: '' },
     homeParticipant: { type: mongoose.Schema.Types.ObjectId, ref: 'TournamentParticipant', required: true },
     awayParticipant: {
       type: mongoose.Schema.Types.ObjectId,
@@ -53,6 +64,7 @@ const tournamentMatchdayLineupSchema = new mongoose.Schema(
     away: { type: sideSchema, default: () => ({}) },
     status: { type: String, enum: Object.values(TOURNAMENT_LINEUP_STATUS), default: TOURNAMENT_LINEUP_STATUS.DRAFT, required: true },
     matchCreated: { type: Boolean, default: false },
+    match: { type: mongoose.Schema.Types.ObjectId, ref: 'Match', default: null },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },

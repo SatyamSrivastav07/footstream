@@ -132,6 +132,16 @@ test('Tournament model validates identity, host, defaults, dates, and indexes', 
   assert.equal(hasIndex(Tournament, { isArchived: 1 }), true);
 });
 
+test('Tournament model derives minimum squad from match format starters', async () => {
+  const tournament = validTournament({
+    matchFormat: TOURNAMENT_MATCH_FORMAT_LABEL.FIVE_V_FIVE,
+    minimumSquad: 11,
+  });
+  await tournament.validate();
+  assert.equal(tournament.playersOnField, 5);
+  assert.equal(tournament.minimumSquad, 5);
+});
+
 const validationErrorsFor = async (document) => {
   try {
     await document.validate();

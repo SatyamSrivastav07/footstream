@@ -1,4 +1,4 @@
-import { Search, Trash2, UsersRound } from 'lucide-react';
+import { FileText, Search, Sparkles, Trash2, Trophy, UsersRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import EmptyState from '../components/EmptyState.jsx';
@@ -36,27 +36,41 @@ export default function TeamTournamentDetailsPage() {
   const [tournament, setTournament] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [squadRows, setSquadRows] = useState([]);
+  const [fixtures, setFixtures] = useState([]);
+  const [standings, setStandings] = useState([]);
+  const [awards, setAwards] = useState({});
+  const [tournamentStats, setTournamentStats] = useState(null);
   const [available, setAvailable] = useState([]);
   const [history, setHistory] = useState([]);
   const [tab, setTab] = useState('registered');
   const [search, setSearch] = useState('');
   const [manual, setManual] = useState({ displayName: '', shortName: '', seed: '' });
+  const [fixtureForm, setFixtureForm] = useState({ homeParticipant: '', awayParticipant: '', scheduledAt: '', venue: '', round: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [detail, participantResponse, squadsResponse, historyResponse] = await Promise.all([
+      const [detail, participantResponse, squadsResponse, historyResponse, fixturesResponse, standingsResponse, awardsResponse, statsResponse] = await Promise.all([
         tournamentApi.getHosted(tournamentId),
         tournamentApi.participants(tournamentId),
         tournamentApi.squads(tournamentId),
         tournamentApi.history(tournamentId),
+        tournamentApi.fixtures(tournamentId),
+        tournamentApi.standings(tournamentId),
+        tournamentApi.awards(tournamentId),
+        tournamentApi.tournamentStats(tournamentId),
       ]);
       setTournament(unwrapData(detail).tournament);
       setParticipants(unwrapData(participantResponse).participants || []);
       setSquadRows(unwrapData(squadsResponse).squads || []);
       setHistory(unwrapData(historyResponse).history || []);
+      setFixtures(unwrapData(fixturesResponse).fixtures || []);
+      setStandings(unwrapData(standingsResponse).standings || []);
+      setAwards(unwrapData(awardsResponse).awards || {});
+      setTournamentStats(unwrapData(statsResponse));
       setError('');
     } catch (requestError) {
       setError(requestError.userMessage);
@@ -119,6 +133,48 @@ export default function TeamTournamentDetailsPage() {
     }
   };
 
+  const generateFixtures = async () => {
+    if (!window.confirm('Generate round-robin fixtures for all current participants?')) return;
+    try {
+      setActionMessage('');
+      await tournamentApi.generateFixtures(tournamentId, { append: false });
+      setActionMessage('Fixtures generated successfully.');
+      await load();
+    } catch (requestError) {
+      setError(userMessageFor(requestError));
+    }
+  };
+
+  const createFixture = async () => {
+    try {
+      setActionMessage('');
+      await tournamentApi.createFixture(tournamentId, {
+        ...fixtureForm,
+        homeParticipant: fixtureForm.homeParticipant || undefined,
+        awayParticipant: fixtureForm.awayParticipant || undefined,
+        scheduledAt: fixtureForm.scheduledAt || undefined,
+        venue: fixtureForm.venue || undefined,
+        round: fixtureForm.round || undefined,
+      });
+      setFixtureForm({ homeParticipant: '', awayParticipant: '', scheduledAt: '', venue: '', round: '' });
+      setActionMessage('Fixture draft created.');
+      await load();
+    } catch (requestError) {
+      setError(userMessageFor(requestError));
+    }
+  };
+
+  const createMatch = async (fixture) => {
+    try {
+      setActionMessage('');
+      await tournamentApi.createFixtureMatch(tournamentId, fixture.id, {});
+      setActionMessage('Tournament match created from fixture.');
+      await load();
+    } catch (requestError) {
+      setError(userMessageFor(requestError));
+    }
+  };
+
   if (loading) return <div className="skeleton h-96" />;
   if (error) return <div className="rounded-2xl border border-red-300/20 bg-red-300/10 p-5 text-red-100">{error}</div>;
   if (!tournament) return <EmptyState title="Tournament not found" message="This tournament could not be loaded." />;
@@ -144,13 +200,79 @@ export default function TeamTournamentDetailsPage() {
           {!brandingLocked && <Link to={`/team/tournaments/${tournament.id}/edit`} className="secondary-button">Edit</Link>}
           <Link to={`/team/tournaments/${tournament.id}/lineups`} className="primary-button">Matchday Lineups</Link>
           <Link to={`/team/tournaments/${tournament.id}/history`} className="secondary-button">History</Link>
+          <a href={tournamentApi.reportUrl(tournament.id)} target="_blank" rel="noopener noreferrer" className="secondary-button"><FileText size={16} /> Report</a>
         </div>
       </header>
+
+      {actionMessage && <div className="mt-6 rounded-2xl border border-lime-300/20 bg-lime-300/10 p-4 text-lime-100">{actionMessage}</div>}
 
       <section className="mt-7 grid gap-5 lg:grid-cols-3">
         <Info title="Approval" value={formatTournamentLabel(tournament.approvalStatus)} />
         <Info title="Visibility" value={tournament.isPublished ? 'Published' : 'Unpublished'} />
         <Info title="Venue" value={`${tournament.primaryVenue || 'Venue not set'} · ${tournament.city || 'City not set'}`} />
+      </section>
+
+      <section className="mt-8 grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <Panel title="Fixtures & Results">
+          <div className="mb-5 flex flex-wrap gap-2">
+            <button type="button" className="primary-button" onClick={generateFixtures} disabled={participants.length < 2}><Sparkles size={16} /> Generate Fixtures</button>
+            <Link to={`/team/tournaments/${tournament.id}/lineups`} className="secondary-button">Prepare Lineups</Link>
+          </div>
+          <div className="mb-5 grid gap-3 md:grid-cols-5">
+            <select className="field-input" value={fixtureForm.homeParticipant} onChange={(event) => setFixtureForm({ ...fixtureForm, homeParticipant: event.target.value })}>
+              <option value="">Home participant</option>
+              {participants.map((participant) => <option key={participant.id} value={participant.id}>{participant.displayName}</option>)}
+            </select>
+            <select className="field-input" value={fixtureForm.awayParticipant} onChange={(event) => setFixtureForm({ ...fixtureForm, awayParticipant: event.target.value })}>
+              <option value="">Away participant</option>
+              {participants.map((participant) => <option key={participant.id} value={participant.id}>{participant.displayName}</option>)}
+            </select>
+            <input className="field-input" type="datetime-local" value={fixtureForm.scheduledAt} onChange={(event) => setFixtureForm({ ...fixtureForm, scheduledAt: event.target.value })} />
+            <input className="field-input" placeholder="Venue" value={fixtureForm.venue} onChange={(event) => setFixtureForm({ ...fixtureForm, venue: event.target.value })} />
+            <button type="button" className="secondary-button" disabled={!fixtureForm.homeParticipant || !fixtureForm.awayParticipant} onClick={createFixture}>Add Fixture</button>
+          </div>
+          {fixtures.length === 0 ? <p>No fixtures created yet.</p> : fixtures.map((fixture) => (
+            <article key={`${fixture.type}-${fixture.id}`} className="rounded-2xl border border-white/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-bold text-white">{fixture.homeParticipant?.displayName || 'Home'} vs {fixture.awayParticipant?.displayName || 'Away'}</p>
+                  <p className="text-sm text-white/45">{dateText(fixture.scheduledAt)} · {fixture.venue || tournament.primaryVenue || 'Venue not set'} · {formatTournamentLabel(fixture.status)}</p>
+                </div>
+                {fixture.type === 'lineup' && !fixture.matchCreated ? (
+                  <button type="button" className="secondary-button" onClick={() => createMatch(fixture)}>Create Match</button>
+                ) : fixture.matchId ? (
+                  <Link className="secondary-button" to={`/team/matches/${fixture.matchId}`}>Open Match</Link>
+                ) : null}
+              </div>
+            </article>
+          ))}
+        </Panel>
+        <Panel title="Standings">
+          {standings.length === 0 ? <p>No completed tournament matches yet.</p> : <StandingTable rows={standings} />}
+        </Panel>
+      </section>
+
+      <section className="mt-8 grid gap-5 lg:grid-cols-2">
+        <Panel title="Awards">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Award label="Champion" value={awards.champion?.displayName} />
+            <Award label="Runner-up" value={awards.runnerUp?.displayName} />
+            <Award label="Golden Boot" value={awards.goldenBoot?.name} />
+            <Award label="Top Assist" value={awards.topAssist?.name} />
+            <Award label="MVP" value={awards.mostValuablePlayer?.name} />
+            <Award label="Fair Play" value={awards.fairPlay?.displayName} />
+          </div>
+        </Panel>
+        <Panel title="Tournament Statistics">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Info title="Matches" value={tournamentStats?.totals?.matches || 0} />
+            <Info title="Goals" value={tournamentStats?.totals?.goals || 0} />
+            <Info title="Players" value={tournamentStats?.totals?.players || 0} />
+          </div>
+          {(tournamentStats?.players || []).slice(0, 5).map((player) => (
+            <p key={player.playerId} className="mt-3 text-sm text-white/65">{player.name}: {player.goals} goals, {player.assists} assists</p>
+          ))}
+        </Panel>
       </section>
 
       <section className="mt-8 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-6">
@@ -247,7 +369,19 @@ function Info({ title, value }) {
   return <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-5"><p className="eyebrow">{title}</p><p className="mt-2 text-lg font-bold">{value}</p></div>;
 }
 
+function Panel({ title, children }) {
+  return <section className="rounded-3xl border border-white/[0.08] bg-white/[0.035] p-6"><h2 className="mb-4 font-display text-3xl font-black">{title}</h2><div className="space-y-3 text-white/65">{children}</div></section>;
+}
+
+function Award({ label, value }) {
+  return <div className="rounded-2xl border border-lime-300/10 bg-lime-300/5 p-4"><p className="eyebrow"><Trophy size={12} className="mr-1 inline" />{label}</p><p className="mt-2 font-bold text-white">{value || 'Pending'}</p></div>;
+}
+
+function StandingTable({ rows }) {
+  return <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="text-white/45"><tr><th className="p-2 text-left">Team</th><th className="p-2">P</th><th className="p-2">W</th><th className="p-2">D</th><th className="p-2">L</th><th className="p-2">GD</th><th className="p-2">Pts</th></tr></thead><tbody>{rows.map((row) => <tr key={row.participant.id} className="border-t border-white/10"><td className="p-2 font-bold text-white">{row.participant.displayName}</td><td className="p-2 text-center">{row.played}</td><td className="p-2 text-center">{row.won}</td><td className="p-2 text-center">{row.drawn}</td><td className="p-2 text-center">{row.lost}</td><td className="p-2 text-center">{row.goalDifference}</td><td className="p-2 text-center font-black text-lime-200">{row.points}</td></tr>)}</tbody></table></div>;
+}
+
 function ParticipantLogo({ participant }) {
   const src = brandingUrl(participant.logo);
-  return src ? <img src={src} alt="" className="size-12 rounded-xl border border-white/10 object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-lime-300/15 bg-lime-300/10 text-xs font-black text-lime-100">{(participant.shortName || participant.displayName || 'T').slice(0, 2).toUpperCase()}</div>;
+  return src ? <img src={src} alt="" className="size-12 rounded-xl border border-white/10 bg-black/20 object-contain" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className="grid size-12 shrink-0 place-items-center rounded-xl border border-lime-300/15 bg-lime-300/10 text-xs font-black text-lime-100">{(participant.shortName || participant.displayName || 'T').slice(0, 2).toUpperCase()}</div>;
 }

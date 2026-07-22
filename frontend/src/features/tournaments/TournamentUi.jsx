@@ -37,7 +37,7 @@ export const approvalTone = (status) => {
 
 export function TournamentLogo({ tournament, className = 'size-14' }) {
   const src = imageUrl(tournament?.logo);
-  return src ? <img src={src} alt="" className={`${className} rounded-2xl border border-white/10 object-cover`} onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className={`${className} grid rounded-2xl border border-lime-300/15 bg-lime-300/10 text-sm font-black text-lime-100`}>{(tournament?.shortName || tournament?.name || 'T').slice(0, 2).toUpperCase()}</div>;
+  return src ? <img src={src} alt="" className={`${className} rounded-2xl border border-white/10 bg-black/20 object-contain`} onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <div className={`${className} grid rounded-2xl border border-lime-300/15 bg-lime-300/10 text-sm font-black text-lime-100`}>{(tournament?.shortName || tournament?.name || 'T').slice(0, 2).toUpperCase()}</div>;
 }
 
 export function TournamentCard({ tournament, basePath, onPublish, onUnpublish, onSubmit, onDelete }) {

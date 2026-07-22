@@ -1,4 +1,5 @@
 import Match from '../models/Match.js';
+import MatchCollaboration from '../models/MatchCollaboration.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
 import {
@@ -13,6 +14,7 @@ import {
   teamMatchParticipantFilter,
   updateMatchForTeam,
 } from '../services/matchService.js';
+import { serializeCollaborationSummary } from '../services/matchCollaborationService.js';
 
 const teamId = (req) => req.user.team?._id || req.user.team;
 const safeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -44,31 +46,49 @@ const findMatches = async (filter) => {
   return sortMatchesForDisplay(matches);
 };
 
+const attachCollaborations = async (matches, currentTeamId = null) => {
+  if (!matches.length) return matches;
+  const collaborations = await MatchCollaboration.find({ match: { $in: matches.map((match) => match._id) } })
+    .populate('hostTeam', 'name shortName slug logo')
+    .populate('opponentTeam', 'name shortName slug logo')
+    .lean();
+  const byMatch = new Map(collaborations.map((item) => [String(item.match), item]));
+  return matches.map((match) => {
+    const collaboration = byMatch.get(String(match._id));
+    return {
+      ...match,
+      collaboration: serializeCollaborationSummary(collaboration, currentTeamId),
+      collaborationStatus: collaboration?.status || null,
+      collaborationBadge: collaboration ? serializeCollaborationSummary(collaboration, currentTeamId).badge : null,
+    };
+  });
+};
+
 export const listTeamMatches = asyncHandler(async (req, res) => {
   const baseQuery = { ...req.query };
   delete baseQuery.teamId;
   delete baseQuery.search;
   const rawMatches = await findMatches(teamMatchParticipantFilter(teamId(req), matchFilter(baseQuery)));
-  const matches = rawMatches
+  const matches = (await attachCollaborations(rawMatches
     .map((match) => serializeMatchForTeam(match, teamId(req)))
-    .filter((match) => !req.query.search || match.opponent.name.toLowerCase().includes(req.query.search.toLowerCase()));
+    .filter((match) => !req.query.search || match.opponent.name.toLowerCase().includes(req.query.search.toLowerCase())), teamId(req)));
   res.json({ success: true, data: { matches, sort: 'upcoming-ascending-then-past-descending' } });
 });
 
 export const createTeamMatch = asyncHandler(async (req, res) => {
-  const match = await createMatchForTeam({ teamId: teamId(req), userId: req.user._id, input: req.body });
+  const [match] = await attachCollaborations([await createMatchForTeam({ teamId: teamId(req), userId: req.user._id, input: req.body })], teamId(req));
   res.status(201).json({ success: true, data: { match } });
 });
 
 export const getTeamMatch = asyncHandler(async (req, res) => {
-  const match = await getParticipantMatch({ teamId: teamId(req), matchId: req.params.matchId });
+  const [match] = await attachCollaborations([await getParticipantMatch({ teamId: teamId(req), matchId: req.params.matchId })], teamId(req));
   res.json({ success: true, data: { match } });
 });
 
 export const updateTeamMatch = asyncHandler(async (req, res) => {
-  const match = await updateMatchForTeam({
+  const [match] = await attachCollaborations([await updateMatchForTeam({
     teamId: teamId(req), matchId: req.params.matchId, userId: req.user._id, input: req.body,
-  });
+  })], teamId(req));
   res.json({ success: true, data: { match } });
 });
 
@@ -93,7 +113,7 @@ export const deleteTeamMatch = asyncHandler(async (req, res) => {
 });
 
 export const listAdminMatches = asyncHandler(async (req, res) => {
-  const matches = await findMatches(matchFilter(req.query));
+  const matches = await attachCollaborations(await findMatches(matchFilter(req.query)));
   res.json({ success: true, data: { matches, sort: 'upcoming-ascending-then-past-descending' } });
 });
 
@@ -103,5 +123,6 @@ export const getAdminMatch = asyncHandler(async (req, res) => {
     .populate('team', 'name slug logo')
     .populate('registeredOpponentTeam', 'name slug logo');
   if (!match) throw new AppError('Match not found.', 404, 'MATCH_NOT_FOUND');
-  res.json({ success: true, data: { match } });
+  const [decorated] = await attachCollaborations([match.toJSON()]);
+  res.json({ success: true, data: { match: decorated } });
 });

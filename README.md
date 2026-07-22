@@ -1,8 +1,8 @@
 # FootStream
 
-FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, Phase 8A.5, Phase 8B Part 1 tournament squad registration, Phase 8B Part 2 tournament matchday lineup foundation, Phase 8B Part 2.5 lineup UX stabilization, the Match Creation Mode + Direct Result enhancement, and the My Team Tactical Formation Builder**: the MERN foundation, administration, permanent squads, private tactical planning, match scheduling, stream/live match control, direct-result match entry, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, tournament production-readiness polish, tournament squad registration/allocation/locking, and tournament tactical lineup placement.
+FootStream is a football team and match-management platform. This repository currently implements **Phases 1 through 5, Phase 6 Team Admin Communication, Phase 6.5 team operations polish, Phases 6A through 6F, Phases 7B.1 through 7B.2, Phase 7C, Phase 8A Parts 1-5, Phase 8A.5, Phase 8B Part 1 tournament squad registration, Phase 8B Part 2 tournament matchday lineup foundation, Phase 8B Part 2.5 lineup UX stabilization, the Match Creation Mode + Direct Result enhancement, and the My Team Tactical Formation Builder**: the MERN foundation, administration, permanent squads, private tactical planning, team-admin community/direct chat, match scheduling, stream/live match control, direct-result match entry, results, photos, statistics, YouTube streaming, the public portal, team/player profiles, global public search, SPA metadata, sharing, accessibility, production readiness, direct image uploads, live-event overlays, team branding uploads, public team join requests, persistent in-app notifications, public live chat, viewer counts, team match announcements, emoji reactions, community polls, basic moderation controls, anonymous team follows, browser push notifications, notification preferences, tournament-hosting architecture contracts, tournament database/backend foundation, tournament frontend foundation, tournament branding stabilization, tournament production-readiness polish, tournament squad registration/allocation/locking, and tournament tactical lineup placement.
 
-Deployment execution, email/SMS notifications, payments, AI features, tournament fixture generation/matches/standings/statistics, mobile apps, and later Phase 8 functionality are intentionally not included yet.
+Deployment execution, email/SMS notifications, payments, AI features, native mobile apps, advanced knockout progression, referee accounts, sponsors, and later unapproved feature work are intentionally not included yet.
 
 ## Phase 1 Features
 
@@ -106,6 +106,9 @@ Manual mode uses the same schema with `formation: "manual"`, `mode: "manual"`, `
 - **Direct Input Result** lets a team admin or super admin enter a complete post-match result without starting the live engine.
 - Direct result submission records canonical `MatchEvent` rows for goals, assists, yellow cards, red cards, and substitutions, then completes the match.
 - Editing a direct result deletes the previous direct-result event set and writes the new canonical set, so statistics are recalculated without double-counting.
+- Direct-result scorer and assist selectors use the complete selected match-day squad, including substitutes, because the admin is entering the final record after the match.
+- Direct-result substitutions are validated row-by-row against the current on-field and bench state, so a player who comes in can later be substituted out and starters cannot be selected as incoming bench players.
+- Streamed-match event controls remain stricter: goals, assists, cards, penalties, own goals, and substitutions use the live current on-field/bench state after every substitution.
 - Direct result validation rejects negative scores, score/event mismatches, duplicate goals/substitutions, invalid squad players, missing/duplicate goalkeeper/captain states, and MOTM selections from players who did not appear.
 - Public result pages render direct-result matches through the same result bundle and timeline components used by streamed matches, without live controls or streaming sections.
 
@@ -120,6 +123,20 @@ Manual mode uses the same schema with `formation: "manual"`, `mode: "manual"`, `
 - Approved teams can be suspended, reactivated, or archived without deleting players, matches, results, photos, or statistics.
 - Suspended and archived teams are blocked from active Team Admin mutation APIs server-side while safe reads remain available.
 - Super admins can assign or replace a team admin from existing team-admin users; replaced admins for that team are unassigned and disabled.
+
+## Phase 6 Team Admin Communication
+
+- Team admins can open **Team Admin Chat** at `/team/chat` from the dashboard sidebar.
+- The page has two admin-only modes: **Community Pool** for all approved team admins and **Direct Teams** for one-to-one inter-team admin conversations.
+- The old same-team private chat room was removed. Squad changes and team-admin assignment changes no longer create chat system messages.
+- The existing Socket.IO server is reused; no second realtime server is created.
+- The backend authenticates chat sockets from the existing HTTP-only JWT cookie, validates the account is active, assigned to a team, and that the team is operational before joining `team-admins:community` and the admin's own `team:<teamId>` direct-notification room.
+- Text messages are persisted in MongoDB through `TeamAdminMessage`, sanitized server-side, capped at 1000 characters, and broadcast as `team-admin-chat:community-message` or `team-admin-chat:direct-message`.
+- Direct conversations are persisted in `TeamAdminConversation` with exactly two registered teams. The service rejects own-team direct chats and only lists approved, published, non-archived teams.
+- Message history loads latest 50 messages, newest last, with a `before` cursor for older messages.
+- `TeamAdminChatReadState` stores each admin's last-read timestamp for community and direct conversations. The sidebar shows an unread red dot/count and clears it when the active chat is marked read.
+- Suspended or archived teams cannot send chat mutations because the existing team operational middleware still protects non-GET `/api/team` actions.
+- V1 supports authenticated team-admin users only. Public viewers, guests, and squad players cannot access Team Admin Chat.
 
 ## Phase 6A Features
 
@@ -175,6 +192,66 @@ Manual mode uses the same schema with `formation: "manual"`, `mode: "manual"`, `
 - Super admins can inspect join requests read-only for oversight.
 - Public search does not index or expose join requests.
 
+## Phase 6.5 Team Operations Polish
+
+- Tactical Board now includes a browser-local Tactical Library so team admins can save, load, rename, duplicate, favourite, delete, search, and sort up to 10 team-specific tactical plans without creating a match.
+- Super admins manage the official Team Admin WhatsApp Community link from `/admin/platform-settings`; team admins see the join action only when that backend setting is enabled.
+- Team admins can maintain public-safe team motto and social links from My Team, and published team profiles render the motto plus independent achievements.
+- Team profile strength shows missing public identity items such as logo, cover, motto, description, social links, home ground, and coach.
+- Team Activity at `/team/activity` lists recent private operational events for the authenticated team.
+- Team Gallery Posts at `/team/gallery-posts` let team admins upload community gallery photos independent of match photos. Cloudinary public IDs remain private.
+- Team Achievements at `/team/achievements` stores trophies/positions/year/category/description, main trophy upload, extra trophy image uploads, celebration photo uploads, certificate/report links, and winning-squad snapshots.
+- Registered winning-squad players automatically receive public Trophy Cabinet entries on their player profiles. Manual historical winners remain plain text and do not create permanent player records.
+- Completed registered-opponent matches create a collaborative verification request for the opponent team. Team admins manage these from **Match Verification** at `/team/collaborations`; opponent statistics are included only after accepted verification.
+- Match day checklist at `/team/matches/:matchId/live` highlights readiness items before kickoff.
+- Completed match details include a printable match report link generated from backend match/result data.
+
+Phase 6.5 protected APIs:
+
+| Method | Route | Role | Purpose |
+| --- | --- | --- | --- |
+| `GET` / `PUT` | `/api/admin/settings/team-admin-whatsapp` | superAdmin | Read/update official team-admin WhatsApp community setting |
+| `GET` | `/api/admin/matches/:matchId/report` | superAdmin | Printable completed-match report |
+| `GET` | `/api/team/community/whatsapp` | teamAdmin | Read enabled official WhatsApp community setting |
+| `GET` | `/api/team/activity` | teamAdmin | Team-scoped recent activity feed |
+| `GET` | `/api/team/profile/strength` | teamAdmin | Public-profile completion score |
+| `PATCH` | `/api/team/profile/public` | teamAdmin | Update own team motto and social links |
+| `GET` / `POST` | `/api/team/gallery-posts` | teamAdmin | List/create team gallery community posts |
+| `PATCH` / `DELETE` | `/api/team/gallery-posts/:postId` | teamAdmin | Update/delete own team gallery post |
+| `GET` / `POST` | `/api/team/achievements` | teamAdmin | List/create own team achievements |
+| `PATCH` / `DELETE` | `/api/team/achievements/:achievementId` | teamAdmin | Update/delete own team achievement |
+| `GET` | `/api/team/collaborations` | teamAdmin | List match verification requests involving own team |
+| `GET` | `/api/team/collaborations/:collaborationId` | teamAdmin | Read one verification request by id |
+| `GET` | `/api/team/matches/:matchId/checklist` | teamAdmin | Match-day readiness checklist |
+| `GET` | `/api/team/matches/:matchId/report` | teamAdmin | Printable completed-match report |
+| `POST` | `/api/team/matches/:matchId/collaboration/invite` | teamAdmin host | Send/re-send a registered-opponent verification request |
+| `GET` | `/api/team/matches/:matchId/collaboration` | teamAdmin | Read one match verification request |
+| `PATCH` | `/api/team/matches/:matchId/collaboration/accept` | teamAdmin | Accept opponent verification |
+| `PATCH` | `/api/team/matches/:matchId/collaboration/request-changes` | teamAdmin | Request verification changes |
+| `PATCH` | `/api/team/matches/:matchId/collaboration/reject` | teamAdmin | Reject verification |
+| `PATCH` | `/api/team/matches/:matchId/collaboration/accept-changes` | teamAdmin | Host accepts requested changes |
+| `PATCH` | `/api/team/matches/:matchId/collaboration/reject-changes` | teamAdmin | Host rejects requested changes |
+| `PATCH` | `/api/team/matches/:matchId/collaboration/cancel` | teamAdmin host | Cancel a pending verification request |
+
+Phase 6.5 public APIs:
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/public/teams/:teamSlug/community-gallery` | Public-safe independent team gallery posts |
+| `GET` | `/api/public/teams/:teamSlug/achievements` | Public-safe team achievements |
+| `GET` | `/api/public/teams/:teamSlug/achievements/:achievementId` | Public-safe achievement detail with trophy media and winning squad |
+
+Manual Phase 6.5 test checklist:
+
+1. As super admin, open Platform Settings, save an official WhatsApp group URL, enable it, then verify Team Admin My Team shows the join action.
+2. As team admin, update motto/social links and verify the public profile shows only public-safe values.
+3. Create, rename, duplicate, favourite, search, load, and delete Tactical Library plans in `/team/squad/tactical-board`; refresh and verify localStorage restoration.
+4. Add a team gallery post with valid images, verify it appears on the public community gallery endpoint, then delete it and confirm Cloudinary assets are removed.
+5. Add an achievement and verify the public team profile/achievement endpoint shows it without owner IDs or Cloudinary public IDs.
+6. Complete a registered-opponent match, open `/team/collaborations`, verify the opponent receives a collaboration request, request/accept/reject flows produce safe notifications, status badges appear on match/result pages, and opponent stats appear only after accepted verification.
+7. Open a scheduled match live screen and verify the checklist statuses are understandable.
+8. Open a completed match report link from match details and confirm it renders printable match data.
+
 ## Public Team Registration Requests
 
 - Public visitors can open `/register-team` to request FootStream access for a club/team without creating a user account.
@@ -191,6 +268,11 @@ Manual mode uses the same schema with `formation: "manual"`, `mode: "manual"`, `
 ## Phase 7A Status
 
 The Team Challenge workflow was removed. Team admins now create matches directly from the Matches section using either a manual opponent or a registered FootStream opponent. There are no team-admin, super-admin, or public Challenge pages/routes.
+
+- Phase 7A Legacy/Public Experience adds a public Trophy Cabinet to player profiles, richer public team achievements, public achievement detail pages, and smart tactical bench replacement suggestions.
+- Achievement public serializers expose only public-safe fields: trophy image URLs, celebration image URLs, team identity, registered-player public profile links, and manual historical player names.
+- Cloudinary public IDs, creator/updater fields, administrator data, and private account fields are never returned in public achievement or player trophy responses.
+- Tactical replacement suggestions are frontend-only and use existing squad/player position data. They do not create matches, events, statistics, or tournament records.
 
 - Registered-opponent match creation supports `5v5`, `7v7`, and `11v11` match formats.
 - Match editing enforces exactly 5, 7, or 11 starters based on the selected fixture format and shows only compatible formations.
@@ -355,6 +437,16 @@ All responses are JSON. Protected requests use the JWT cookie set by login.
 | `POST` | `/api/admin/team-admins` | superAdmin | Create and assign a team administrator |
 | `PATCH` | `/api/admin/team-admins/:userId/status` | superAdmin | Enable or disable a team administrator |
 | `GET` | `/api/team/current` | teamAdmin | Return the authenticated admin's assigned team |
+| `GET` | `/api/team/admin-chat/community/messages` | teamAdmin | Read latest community-pool admin messages with `before`/`limit` pagination |
+| `POST` | `/api/team/admin-chat/community/messages` | teamAdmin | Send one text message to all approved team admins |
+| `POST` | `/api/team/admin-chat/community/read` | teamAdmin | Mark the community pool as read for the signed-in admin |
+| `GET` | `/api/team/admin-chat/teams` | teamAdmin | Search approved published teams available for direct inter-team admin chat |
+| `GET` | `/api/team/admin-chat/conversations` | teamAdmin | List direct inter-team admin conversations for the signed-in admin's team |
+| `POST` | `/api/team/admin-chat/conversations` | teamAdmin | Create or return a direct conversation with another registered team |
+| `GET` | `/api/team/admin-chat/conversations/:conversationId/messages` | teamAdmin | Read direct conversation messages with `before`/`limit` pagination |
+| `POST` | `/api/team/admin-chat/conversations/:conversationId/messages` | teamAdmin | Send one direct text message to another team's admins |
+| `POST` | `/api/team/admin-chat/conversations/:conversationId/read` | teamAdmin | Mark one direct conversation as read |
+| `GET` | `/api/team/admin-chat/unread-count` | teamAdmin | Return combined community/direct unread count for the sidebar badge |
 | `PATCH` | `/api/team/profile/join-requests-status` | teamAdmin | Enable or disable public join requests for the assigned team |
 | `GET` | `/api/team/players` | teamAdmin | List owned players with optional filters |
 | `POST` | `/api/team/players` | teamAdmin | Add a player to the assigned team |
@@ -471,6 +563,15 @@ Server events:
 - `match:error` â€” safe room-join error only
 
 Clients automatically reconnect and refetch REST state after connection, preventing stale socket-only state.
+
+Team Admin Chat uses the same Socket.IO server and the existing JWT cookie. Authenticated team admins are joined to the shared `team-admins:community` pool and their own `team:<teamId>` room for direct inter-team message delivery. Clients may emit `join-team-admin-chat` for an acknowledgement but cannot provide arbitrary room IDs.
+
+Team Admin Chat server events:
+
+- `team-admin-chat:connected` — confirms the authenticated admin chat join and returns the safe team name.
+- `team-admin-chat:community-message` — one persisted message visible to all approved team admins.
+- `team-admin-chat:direct-message` — one persisted direct inter-team message visible only to the two participant teams.
+- `team-admin-chat:error` — safe authentication or room-join failure.
 
 ## Public Live View
 
@@ -701,7 +802,7 @@ History accepts `from`, `to`, `opponent`, `tournament`, and `outcome`. Leaderboa
 4. Save the direct result and verify the match becomes completed, redirects to the result page, and appears in public Results.
 5. Open team/player statistics and confirm goals, assists, cards, appearances, substitute appearances, MOTM, and team record are derived from the submitted events.
 6. Edit the direct result and verify old values are replaced instead of double-counted.
-7. Try invalid inputs: negative score, score that does not match goal entries, duplicate substitutions, missing goalkeeper, and a player outside the match squad.
+7. Try invalid inputs: negative score, score that does not match goal entries, duplicate substitutions, and a player outside the match squad. A dedicated goalkeeper is optional.
 8. Confirm public result pages do not show live timer, live controls, or streaming sections for direct-result matches.
 
 ## Phase 6A YouTube Stream API
@@ -966,6 +1067,8 @@ Required production environment:
 | `AUTH_RATE_LIMIT_MAX` | Login limiter ceiling |
 | `PUBLIC_READ_RATE_LIMIT_MAX` | Public GET/read limiter ceiling |
 | `CHAT_RATE_LIMIT_MAX` | Public chat POST limiter ceiling per IP and guest session |
+| `TEAM_CHAT_RATE_LIMIT_WINDOW_MS` | Team-admin chat send window, default 3000 ms |
+| `TEAM_CHAT_RATE_LIMIT_MAX` | Team-admin chat send limit per authenticated user per window, default 5 |
 | `SEARCH_RATE_LIMIT_MAX` | Public search limiter ceiling |
 | `UPLOAD_RATE_LIMIT_MAX` | Upload mutation limiter ceiling |
 | `JOIN_REQUEST_RATE_LIMIT_MAX` | Public join-request submission limiter ceiling |
@@ -990,7 +1093,8 @@ Required production environment:
 | `VITE_CONTACT_EMAIL` | Backward-compatible fallback for the public footer support email |
 | `VITE_PORTFOLIO_URL` | Optional public footer portfolio link; hidden when empty |
 | `VITE_TOURNAMENTS_ENABLED` | Set to `true` to show tournament navigation and routes; `false` sends tournament routes to Coming Soon |
-| `VITE_WHATSAPP_COMMUNITY_URL` | Optional FootStream official WhatsApp group link shown only to logged-in team admins on Team Admin My Team |
+
+The official Team Admin WhatsApp Community link is not a frontend environment variable. A super admin manages it from `/admin/platform-settings`, and team admins see it only when that backend setting is enabled.
 
 Deployment checklist:
 
@@ -1412,9 +1516,9 @@ Phase 8A Part 2 adds the backend database foundation only. It introduces Mongoos
 
 Phase 8A Part 3 adds backend tournament APIs, services, controllers, validators, authorization, approval workflow, participant management, public read APIs, notifications, audit history, and rate limiting.
 
-Phase 8A Part 4 adds the frontend tournament foundation only. It wires team-admin tournament hosting pages, a create/edit wizard, participant management screens, super-admin review screens, public tournament directory/detail pages, reusable tournament UI components, frontend API helpers, dashboard navigation, public navigation, and regression tests. It still does not add tournament squad CRUD, player allocation, invitations UI, groups, fixture generation, tournament match creation, standings, knockout progression, tournament statistics, awards calculation, gallery, PDF/QR, referee accounts, payments, or the removed Challenge system.
+Phase 8A Part 4 adds the frontend tournament foundation only. It wires team-admin tournament hosting pages, a create/edit wizard, participant management screens, super-admin review screens, public tournament directory/detail pages, reusable tournament UI components, frontend API helpers, dashboard navigation, public navigation, and regression tests.
 
-Phase 8A Part 5 completes the production-ready tournament foundation stabilization. It adds tournament logo/cover uploads, tournament-scoped participant logo uploads, Cloudinary cleanup safety, audit history for branding changes, frontend upload controls, notification category red dots, route-safe tournament notification URLs, UI hardening, and full-stack regression coverage. It still does not add squads, player allocation, invitations workflow, groups, fixtures, standings, tournament matches, statistics, awards, gallery, PDF/QR, referee accounts, payments, sponsors, or the removed Challenge system.
+Phase 8A Part 5 completes the production-ready tournament foundation stabilization. It adds tournament logo/cover uploads, tournament-scoped participant logo uploads, Cloudinary cleanup safety, audit history for branding changes, frontend upload controls, notification category red dots, route-safe tournament notification URLs, UI hardening, and full-stack regression coverage.
 
 Phase 8A.5 is a production-hardening pass over the completed tournament foundation. It verifies route contracts, approval/action gating, read-only states, admin queue filters, locked tournament UX, retry/error states, accessibility labels, deployment-readiness documentation, stale Challenge-copy cleanup, and regression coverage. It does not add any Phase 8B tournament features.
 
@@ -1491,11 +1595,11 @@ Notifications added in Phase 8A Part 3:
 - Tournament notification payloads use safe tournament/team names and action URLs only.
 - Browser push notifications are not part of Phase 8A Parts 1-4.
 
-Public portal direction:
+Public tournament portal:
 
 - Public tournament pages support a tournament directory and public tournament details for approved, public, published, non-archived tournaments.
-- Tournament details include overview, dates, venue, public-safe rules, and confirmed participants first.
-- Groups, fixtures, standings, brackets, awards, and tournament statistics remain marked as coming soon until their own parts define and implement them.
+- Tournament details include overview, dates, venue, public-safe rules, confirmed participants, fixtures, results, standings, awards, tournament statistics, share actions, and a printable tournament report.
+- Only public-safe tournament, participant, fixture, result, and player snapshot fields are exposed.
 
 Tournament frontend routes added in Phase 8A Part 4:
 
@@ -1508,7 +1612,7 @@ Tournament frontend behavior added in Phase 8A Part 4:
 - Team admins can create hosted tournament drafts, edit allowed drafts, submit/resubmit, publish/unpublish, delete drafts, view review history, and manage participant records through the existing backend APIs.
 - Super admins can review tournament submissions, inspect safe tournament details, approve, reject, request changes, suspend, unsuspend, archive, and view review history.
 - Public visitors can browse public tournaments and open public tournament detail pages without signing in.
-- The UI intentionally displays groups, fixtures, standings, knockout, awards, and statistics as not available yet.
+- The UI now shows tournament fixtures, standings, awards, tournament statistics, and report links where the Phase 7B competition endpoints are available.
 
 Tournament branding behavior added in Phase 8A Part 5:
 
@@ -1737,7 +1841,7 @@ Squad validation:
 - Submitted, approved, and locked squads must satisfy tournament `minimumSquad` and `maximumSquad`.
 - Exactly one captain is required before submission.
 - Vice captain is optional, but cannot be the same player as captain.
-- At least one goalkeeper is required before submission.
+- A goalkeeper marker is optional; any squad player may play any position.
 - Every active squad player must have a unique tournament-scoped jersey number before submission.
 - Locked squads reject player, captain, vice-captain, jersey, and photo mutations.
 
@@ -1806,6 +1910,8 @@ Notifications are in-app only and use safe action URLs pointing to the squad pag
 
 Manual Phase 8B Part 1 checks:
 
+Tournament squad minimums follow the selected match format starter count. For example, a `5v5` tournament needs at least 5 squad players, not the default 11-a-side squad minimum. Squad pages also allow manual tournament-only players alongside eligible registered players where the participant can use registered players; manual entries remain tournament snapshots and do not create permanent Player records.
+
 1. Create a registered tournament participant, open **Manage Squad**, and verify only that registered team's active players appear.
 2. Add registered players and confirm snapshots show name, position, jersey, and safe photo.
 3. Create an external participant and add manual players without creating permanent Player records.
@@ -1818,7 +1924,7 @@ Manual Phase 8B Part 1 checks:
 10. Open Super Admin tournament review and verify squad links are read-only.
 11. Open a public tournament participant squad and verify approved/locked squads show public-safe cards.
 12. Confirm public pages show “Squad not announced yet” for draft/submitted squads.
-13. Confirm no Playing XI, fixtures, groups, standings, tournament matches, statistics, awards, or Challenge routes were added.
+13. Confirm no Challenge routes are restored and no tournament match is created until the competition endpoint is explicitly used.
 
 ## Phase 8B Part 2 Tournament Matchday Lineup Foundation
 
@@ -1826,8 +1932,8 @@ Phase 8B Part 2 adds reusable tournament matchday lineup records. It lets the to
 
 ### Tournament draft workflow stabilization
 
-- Draft deletion now permanently deletes never-submitted draft tournaments instead of archiving them.
-- Draft deletion is blocked with `TOURNAMENT_DRAFT_DELETE_BLOCKED` when submitted, approved, match-backed, or locked squad/lineup dependencies exist.
+- Team admins may permanently delete their own tournaments from any non-completed stage; completed tournaments are protected with `TOURNAMENT_DELETE_BLOCKED`.
+- Deleting a tournament removes tournament-only setup records and media, while existing generated matches are kept and detached from the removed tournament.
 - Intra-college tournaments must add the minimum required intra teams before submission.
 - Inter-college tournaments can be submitted for Super Admin approval with zero participants; teams can be added after approval during registration.
 - Team admins can edit configuration only in `draft` and `changes_requested`; `approval_pending`, `approved`, `rejected`, `suspended`, and archived tournaments are read-only for configuration.
@@ -1853,13 +1959,14 @@ draft -> submitted -> locked
 Starter and bench rules:
 
 - Preset match formats derive `tournament.playersOnField`; admins do not manually enter player count for `5v5`, `6v6`, `7v7`, `8v8`, `9v9`, or `11v11`.
-- `5v5` means 5 total starters: 1 goalkeeper + 4 outfield players.
-- `6v6` means 6 total starters: 1 goalkeeper + 5 outfield players.
-- `7v7` means 7 total starters: 1 goalkeeper + 6 outfield players.
-- `8v8` means 8 total starters: 1 goalkeeper + 7 outfield players.
-- `9v9` means 9 total starters: 1 goalkeeper + 8 outfield players.
-- `11v11` means 11 total starters: 1 goalkeeper + 10 outfield players.
-- `custom` asks for total players per team including the goalkeeper, from 3 to 11.
+- `5v5` means 5 total starters.
+- `6v6` means 6 total starters.
+- `7v7` means 7 total starters.
+- `8v8` means 8 total starters.
+- `9v9` means 9 total starters.
+- `11v11` means 11 total starters.
+- `custom` asks for total players per team, from 3 to 11.
+- A dedicated goalkeeper is optional; any selected player may occupy any tactical slot.
 - Starters plus substitutes cannot exceed `tournament.maximumMatchdaySquad`.
 - A player cannot appear twice or be both starter and substitute.
 - Only active players from that participant's approved or locked tournament squad are eligible.
@@ -1934,12 +2041,66 @@ Manual Phase 8B Part 2 checks:
 3. Open the lineup editor and verify home and away eligible player lists load only from approved/locked squads.
 4. Add starters and bench players for both sides.
 5. Confirm duplicate starter/bench selection is blocked.
-6. Select captain and goalkeeper for each side.
+6. Select captain for each side. A goalkeeper marker may be set if useful, but it is optional.
 7. Choose a formation compatible with the tournament's `playersOnField`.
-8. Try submitting with incomplete starter count, missing captain, missing goalkeeper, or invalid formation and confirm safe validation errors.
+8. Try submitting with incomplete starter count, missing captain, or invalid formation and confirm safe validation errors. Missing goalkeeper must not block submission.
 9. Submit a complete lineup and verify mutation controls become read-only.
 10. Lock the lineup and verify it remains immutable.
 11. Open Super Admin tournament review and verify read-only lineup summaries and details.
-12. Confirm there is no Start Match button, fixture generator, tournament Match creation, standings, statistics, awards, or Challenge route.
+12. Confirm there is no direct Start Match button on lineups and no Challenge route.
 
-Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, tournament fixtures/standings/statistics, native mobile apps, and custom video hosting are not included.
+### Phase 7B Competition Engine & Discoverability
+
+Phase 7B connects the tournament foundation to the existing Match engine without creating a second match/live/statistics system.
+
+- Host team admins can create manual tournament fixtures or generate round-robin fixture drafts.
+- Submitted/locked tournament lineups can be converted into one authoritative `Match` document.
+- Tournament matches reuse existing stream/direct match modes, live controls, timelines, direct results, photos, reports, and collaboration behavior.
+- Inter-college registered-opponent tournament matches create the existing collaboration request, so opponent statistics remain gated by collaboration acceptance.
+- Intra-college/manual tournament participants remain tournament-scoped and do not create permanent teams or players.
+- Standings are calculated from completed tournament matches using configured win/draw/loss points and tiebreak ordering by points, goal difference, goals scored, then name.
+- Tournament awards are calculated from tournament match events and standings: champion, runner-up, golden boot, top assist, MVP, golden glove placeholder, and fair play team.
+- Public tournament pages now show fixtures, results, standings, awards, statistics, share action, dynamic metadata, and a printable tournament report.
+- Super admins get read-only fixture, standings, awards, statistics, and report oversight from the tournament review page.
+
+Team Admin competition APIs:
+
+- `GET /api/team/hosted-tournaments/:tournamentId/fixtures`
+- `POST /api/team/hosted-tournaments/:tournamentId/fixtures`
+- `POST /api/team/hosted-tournaments/:tournamentId/fixtures/generate`
+- `POST /api/team/hosted-tournaments/:tournamentId/fixtures/:lineupId/create-match`
+- `GET /api/team/hosted-tournaments/:tournamentId/standings`
+- `GET /api/team/hosted-tournaments/:tournamentId/awards`
+- `GET /api/team/hosted-tournaments/:tournamentId/statistics`
+- `GET /api/team/hosted-tournaments/:tournamentId/report`
+
+Super Admin read-only competition APIs:
+
+- `GET /api/admin/tournaments/:tournamentId/fixtures`
+- `GET /api/admin/tournaments/:tournamentId/standings`
+- `GET /api/admin/tournaments/:tournamentId/awards`
+- `GET /api/admin/tournaments/:tournamentId/statistics`
+- `GET /api/admin/tournaments/:tournamentId/report`
+
+Public competition APIs:
+
+- `GET /api/public/tournaments/:slug/fixtures`
+- `GET /api/public/tournaments/:slug/results`
+- `GET /api/public/tournaments/:slug/standings`
+- `GET /api/public/tournaments/:slug/bracket`
+- `GET /api/public/tournaments/:slug/awards`
+- `GET /api/public/tournaments/:slug/statistics`
+- `GET /api/public/tournaments/:slug/report`
+
+Manual Phase 7B checks:
+
+1. Approve and publish a tournament with at least two participants.
+2. Generate fixtures and verify draft fixtures appear in the host dashboard and public tournament page.
+3. Prepare, submit, and lock both sides' matchday lineup.
+4. Create a match from the fixture and confirm exactly one `Match` is created.
+5. Complete the match through stream or direct result and verify tournament standings, awards, statistics, public results, and report update.
+6. For inter-college registered opponents, confirm collaboration is created and the existing verification workflow gates opponent statistics.
+7. Open Super Admin tournament review and confirm fixture/standings/awards/statistics are read-only.
+8. Confirm no Challenge routes or Challenge UI return.
+
+Deployment automation, hosting configuration, community accounts, email/SMS notifications, payments, native mobile apps, advanced knockout progression, referee accounts, sponsor/ticketing modules, and custom video hosting are not included.

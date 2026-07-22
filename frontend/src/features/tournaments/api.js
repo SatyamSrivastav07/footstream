@@ -1,4 +1,6 @@
-import api from '../../api/client.js';
+import api, { apiBaseUrl } from '../../api/client.js';
+
+const apiUrl = (path) => `${apiBaseUrl}${path}`;
 
 export const tournamentApi = {
   listHosted: (params) => api.get('/team/hosted-tournaments', { params }),
@@ -15,6 +17,14 @@ export const tournamentApi = {
   publish: (id) => api.patch(`/team/hosted-tournaments/${id}/publish`),
   unpublish: (id) => api.patch(`/team/hosted-tournaments/${id}/unpublish`),
   history: (id) => api.get(`/team/hosted-tournaments/${id}/review-history`),
+  fixtures: (id, params) => api.get(`/team/hosted-tournaments/${id}/fixtures`, { params }),
+  createFixture: (id, payload) => api.post(`/team/hosted-tournaments/${id}/fixtures`, payload),
+  generateFixtures: (id, payload) => api.post(`/team/hosted-tournaments/${id}/fixtures/generate`, payload),
+  createFixtureMatch: (id, lineupId, payload) => api.post(`/team/hosted-tournaments/${id}/fixtures/${lineupId}/create-match`, payload),
+  standings: (id) => api.get(`/team/hosted-tournaments/${id}/standings`),
+  awards: (id) => api.get(`/team/hosted-tournaments/${id}/awards`),
+  tournamentStats: (id) => api.get(`/team/hosted-tournaments/${id}/statistics`),
+  reportUrl: (id) => apiUrl(`/team/hosted-tournaments/${id}/report`),
   squads: (id) => api.get(`/team/hosted-tournaments/${id}/squads`),
   participants: (id) => api.get(`/team/hosted-tournaments/${id}/participants`),
   addRegistered: (id, payload) => api.post(`/team/hosted-tournaments/${id}/participants/registered`, payload),
@@ -61,6 +71,11 @@ export const tournamentApi = {
   adminLineups: (id) => api.get(`/admin/tournaments/${id}/lineups`),
   adminLineup: (id, lineupId) => api.get(`/admin/tournaments/${id}/lineups/${lineupId}`),
   adminLineupHistory: (id, lineupId) => api.get(`/admin/tournaments/${id}/lineups/${lineupId}/history`),
+  adminFixtures: (id) => api.get(`/admin/tournaments/${id}/fixtures`),
+  adminStandings: (id) => api.get(`/admin/tournaments/${id}/standings`),
+  adminAwards: (id) => api.get(`/admin/tournaments/${id}/awards`),
+  adminTournamentStats: (id) => api.get(`/admin/tournaments/${id}/statistics`),
+  adminReportUrl: (id) => apiUrl(`/admin/tournaments/${id}/report`),
   approve: (id) => api.patch(`/admin/tournaments/${id}/approve`, {}),
   reject: (id, reason) => api.patch(`/admin/tournaments/${id}/reject`, { reason }),
   requestChanges: (id, message) => api.patch(`/admin/tournaments/${id}/request-changes`, { message }),
@@ -70,6 +85,13 @@ export const tournamentApi = {
   listPublic: (params) => api.get('/public/tournaments', { params }),
   getPublic: (slug) => api.get(`/public/tournaments/${slug}`),
   getPublicSquad: (slug, participantSlug) => api.get(`/public/tournaments/${slug}/participants/${participantSlug}/squad`),
+  publicFixtures: (slug) => api.get(`/public/tournaments/${slug}/fixtures`),
+  publicResults: (slug) => api.get(`/public/tournaments/${slug}/results`),
+  publicStandings: (slug) => api.get(`/public/tournaments/${slug}/standings`),
+  publicBracket: (slug) => api.get(`/public/tournaments/${slug}/bracket`),
+  publicAwards: (slug) => api.get(`/public/tournaments/${slug}/awards`),
+  publicTournamentStats: (slug) => api.get(`/public/tournaments/${slug}/statistics`),
+  publicReportUrl: (slug) => apiUrl(`/public/tournaments/${slug}/report`),
 };
 
 export const unwrapData = (response) => response.data.data;

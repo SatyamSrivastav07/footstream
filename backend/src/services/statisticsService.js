@@ -1,5 +1,6 @@
 import Match from '../models/Match.js';
 import MatchEvent from '../models/MatchEvent.js';
+import MatchCollaboration from '../models/MatchCollaboration.js';
 import Player from '../models/Player.js';
 import AppError from '../utils/AppError.js';
 import { playerPhotoUrl } from './playerPhotoService.js';
@@ -52,10 +53,58 @@ export const aggregateCompletedData = (matches, events) => {
   return { team, players: playerItems, history };
 };
 
-export const loadTeamData = async ({ matchModel = Match, eventModel = MatchEvent, teamId }) => {
-  const matches = await matchModel.find({ team: teamId, status: 'completed', isActive: true }).sort({ completedAt: -1, scheduledAt: -1 }).lean();
-  const events = matches.length ? await eventModel.find({ match: { $in: matches.map((match) => match._id) }, isUndone: false }).lean() : [];
-  return aggregateCompletedData(matches, events);
+const invertSide = (side) => {
+  if (side === 'home') return 'away';
+  if (side === 'away') return 'home';
+  return side;
+};
+
+const opponentSnapshot = (snapshot) => ({
+  player: snapshot.registeredPlayer || snapshot.player,
+  name: snapshot.name,
+  jerseyNumber: snapshot.jerseyNumber ?? null,
+  position: snapshot.position,
+  photoUrl: snapshot.photoUrl || '',
+  isCaptain: Boolean(snapshot.isCaptain),
+  isViceCaptain: Boolean(snapshot.isViceCaptain),
+});
+
+const opponentPerspectiveMatch = (match) => ({
+  ...match,
+  team: match.registeredOpponentTeam,
+  registeredOpponentTeam: match.team,
+  teamSide: invertSide(match.teamSide),
+  startingXI: (match.registeredOpponentStartingXI || []).filter((snapshot) => snapshot.registeredPlayer || snapshot.player).map(opponentSnapshot),
+  substitutes: (match.registeredOpponentSubstitutes || []).filter((snapshot) => snapshot.registeredPlayer || snapshot.player).map(opponentSnapshot),
+  opponent: {
+    ...(match.opponent || {}),
+    name: match.team?.name || match.opponent?.name || 'Opponent',
+  },
+});
+
+const opponentPerspectiveEvent = (event) => ({
+  ...event,
+  scoringSide: event.scoringSide === 'team' ? 'opponent' : event.scoringSide === 'opponent' ? 'team' : event.scoringSide,
+});
+
+export const loadTeamData = async ({
+  matchModel = Match,
+  eventModel = MatchEvent,
+  collaborationModel = MatchCollaboration,
+  teamId,
+}) => {
+  const hostMatches = await matchModel.find({ team: teamId, status: 'completed', isActive: true }).populate('team', 'name slug logo').sort({ completedAt: -1, scheduledAt: -1 }).lean();
+  const accepted = await collaborationModel.find({ opponentTeam: teamId, status: 'accepted' }).select('match').lean();
+  const acceptedIds = accepted.map((item) => item.match);
+  const opponentMatches = acceptedIds.length
+    ? await matchModel.find({ _id: { $in: acceptedIds }, registeredOpponentTeam: teamId, status: 'completed', isActive: true }).populate('team', 'name slug logo').sort({ completedAt: -1, scheduledAt: -1 }).lean()
+    : [];
+  const hostIds = new Set(hostMatches.map(idString));
+  const opponentIds = new Set(opponentMatches.map(idString));
+  const allMatches = [...hostMatches, ...opponentMatches.map(opponentPerspectiveMatch)];
+  const events = allMatches.length ? await eventModel.find({ match: { $in: allMatches.map((match) => match._id) }, isUndone: false }).lean() : [];
+  const perspectiveEvents = events.map((event) => (opponentIds.has(idString(event.match)) && !hostIds.has(idString(event.match)) ? opponentPerspectiveEvent(event) : event));
+  return aggregateCompletedData(allMatches, perspectiveEvents);
 };
 
 export const getPlayerStatistics = async ({ playerModel = Player, teamId, playerId, ...deps }) => {

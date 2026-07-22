@@ -25,6 +25,7 @@ const categoryCounts = (notifications = []) => {
   const categories = {
     joinRequests: 0,
     teamRequests: 0,
+    matchCollaborations: 0,
     tournamentReview: 0,
     hostedTournaments: 0,
     myTournaments: 0,
@@ -33,6 +34,7 @@ const categoryCounts = (notifications = []) => {
   notifications.forEach((notification) => {
     if (notification.type === 'join_request_received') categories.joinRequests += 1;
     if (notification.type === 'team_registration_received') categories.teamRequests += 1;
+    if (String(notification.type || '').startsWith('match_collaboration_')) categories.matchCollaborations += 1;
     if (tournamentReviewTypes.has(notification.type)) categories.tournamentReview += 1;
     if (tournamentHostedTypes.has(notification.type)) categories.hostedTournaments += 1;
     if (tournamentParticipantTypes.has(notification.type)) categories.myTournaments += 1;

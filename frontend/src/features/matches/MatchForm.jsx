@@ -599,7 +599,7 @@ function RegisteredOpponentPicker({ teams, selectedTeamId, search, loading, erro
           const logo = teamLogoUrl(team.logo);
           return (
             <button key={team._id} type="button" onClick={() => onSelect(team._id)} className={`flex items-center gap-3 rounded-2xl border p-3 text-left transition ${selected ? 'border-lime-300/40 bg-lime-300/[0.09]' : 'border-white/[0.07] bg-white/[0.025] hover:border-white/15'}`}>
-              {logo ? <img src={logo} alt="" className="size-11 rounded-xl object-cover" loading="lazy" /> : <span className="grid size-11 place-items-center rounded-xl bg-lime-300/10 text-sm font-black text-lime-200">{(team.shortName || team.name || '?').slice(0, 2).toUpperCase()}</span>}
+              {logo ? <img src={logo} alt="" className="size-11 rounded-xl bg-black/20 object-contain" loading="lazy" /> : <span className="grid size-11 place-items-center rounded-xl bg-lime-300/10 text-sm font-black text-lime-200">{(team.shortName || team.name || '?').slice(0, 2).toUpperCase()}</span>}
               <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-white">{team.name}</span><span className="mt-1 block truncate text-xs text-emerald-100/40">{[team.shortName, team.city].filter(Boolean).join(' · ') || 'Registered team'}</span></span>
               <span className={`grid size-6 place-items-center rounded-full border text-xs font-black ${selected ? 'border-lime-300 bg-lime-300 text-emerald-950' : 'border-white/15 text-transparent'}`}>✓</span>
             </button>

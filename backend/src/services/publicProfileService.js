@@ -1,12 +1,15 @@
 import { URL } from "node:url";
+import mongoose from "mongoose";
 import Match from "../models/Match.js";
 import MatchPhoto from "../models/MatchPhoto.js";
 import Player from "../models/Player.js";
 import Team from "../models/Team.js";
+import TeamGalleryPost from "../models/TeamGalleryPost.js";
 import AppError from "../utils/AppError.js";
 import { getPlayerStatistics, loadTeamData } from "./statisticsService.js";
 import { publicImage } from "./teamBrandingService.js";
 import { playerPhotoUrl } from "./playerPhotoService.js";
+import { listPlayerTrophies } from "./teamAchievementService.js";
 import {
   escapeRegex,
   listPublicMatches,
@@ -52,6 +55,7 @@ export const serializePublicTeam = (team) => ({
   homeGround: team.homeGround || "",
   founded: team.founded ?? null,
   description: team.description || "",
+  motto: team.motto || "",
   socialLinks: safeSocialLinks(team.socialLinks),
   acceptingJoinRequests: Boolean(team.acceptingJoinRequests),
 });
@@ -163,31 +167,57 @@ const safePhoto = (photo) => ({
   createdAt: photo.createdAt,
 });
 
+const safePostPhoto = (post) => (post.images || []).map((image) => ({
+  imageUrl: image.imageUrl,
+  caption: post.caption || "",
+  category: post.category,
+  createdAt: post.createdAt,
+  source: "team_post",
+}));
+
 const galleryForTeam = async ({
   matchModel,
   photoModel,
+  postModel = TeamGalleryPost,
   teamId,
   category,
   page = 1,
   limit = 18,
 }) => {
+  const canQueryTeamPosts = mongoose.isValidObjectId(teamId);
   const matchIds = await matchModel
     .find({ team: teamId, status: "completed", isActive: true })
     .distinct("_id");
   const filter = { team: teamId, match: { $in: matchIds }, isActive: true };
   if (category) filter.category = category;
-  const [photos, total] = await Promise.all([
+  const [photos, posts, totalPhotos, totalPosts] = await Promise.all([
     photoModel
       .find(filter)
       .select("imageUrl caption category createdAt")
       .sort({ createdAt: -1, _id: -1 })
-      .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
+    canQueryTeamPosts
+      ? postModel
+          .find({ team: teamId, isActive: true, ...(category ? { category } : {}) })
+          .select("caption category images.imageUrl images.width images.height createdAt")
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(limit)
+          .lean()
+      : Promise.resolve([]),
     photoModel.countDocuments(filter),
+    canQueryTeamPosts
+      ? postModel.countDocuments({ team: teamId, isActive: true, ...(category ? { category } : {}) })
+      : Promise.resolve(0),
   ]);
+  const combined = [
+    ...photos.map((photo) => ({ ...safePhoto(photo), source: "match_photo" })),
+    ...posts.flatMap(safePostPhoto),
+  ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const pageItems = combined.slice((page - 1) * limit, page * limit);
+  const total = totalPhotos + totalPosts;
   return {
-    photos: photos.map(safePhoto),
+    photos: pageItems,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },
   };
 };
@@ -318,6 +348,7 @@ export const getPublicPlayerProfile = async ({
   playerModel = Player,
   matchModel = Match,
   getPlayerStatisticsImpl = getPlayerStatistics,
+  listPlayerTrophiesImpl = listPlayerTrophies,
   playerId,
 }) => {
   const player = await playerModel
@@ -329,7 +360,7 @@ export const getPublicPlayerProfile = async ({
     .lean();
   if (!player?.team)
     throw new AppError("Player not found.", 404, "PLAYER_NOT_FOUND");
-  const [statisticsData, recentMatches] = await Promise.all([
+  const [statisticsData, recentMatches, trophyCabinet] = await Promise.all([
     getPlayerStatisticsImpl({ playerId, teamId: player.team._id }),
     publicMatchQuery(
       matchModel
@@ -345,6 +376,7 @@ export const getPublicPlayerProfile = async ({
         .sort({ completedAt: -1, scheduledAt: -1 })
         .limit(5),
     ),
+    listPlayerTrophiesImpl({ playerId }),
   ]);
   const statistics = statisticsData.statistics;
   return {
@@ -360,6 +392,7 @@ export const getPublicPlayerProfile = async ({
       yellowCards: statistics.yellowCards,
       redCards: statistics.redCards,
     },
+    trophyCabinet,
     recentMatches: recentMatches.map((match) => serializePublicMatchCard(match)),
   };
 };

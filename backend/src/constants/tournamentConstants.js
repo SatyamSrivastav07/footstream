@@ -312,9 +312,11 @@ export const canSubmitTournamentForApproval = (tournament = {}) =>
   [TOURNAMENT_APPROVAL_STATUS.DRAFT, TOURNAMENT_APPROVAL_STATUS.CHANGES_REQUESTED].includes(tournament.approvalStatus) &&
   !isTournamentArchived(tournament);
 
+const comparableId = (value) => String(value?._id || value?.id || value || '');
+
 export const canHostEditTournament = ({ userRole, userTeamId, hostTeamId, approvalStatus, lifecycleStatus, isArchived = false } = {}) =>
   userRole === 'teamAdmin' &&
-  String(userTeamId || '') === String(hostTeamId || '') &&
+  comparableId(userTeamId) === comparableId(hostTeamId) &&
   !isArchived &&
   lifecycleStatus !== TOURNAMENT_LIFECYCLE_STATUS.ARCHIVED &&
   [TOURNAMENT_APPROVAL_STATUS.DRAFT, TOURNAMENT_APPROVAL_STATUS.CHANGES_REQUESTED].includes(approvalStatus);

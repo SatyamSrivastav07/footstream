@@ -135,7 +135,7 @@ export default function PublicJoinTeamPage() {
           <p className="font-semibold">Photo</p>
           <p className="mt-1 text-xs text-white/40">Optional JPEG, PNG, or WebP up to 3 MB.</p>
           <div className="mt-4 flex items-center gap-4">
-            <div className="grid size-24 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-white/35">{preview ? <img src={preview} alt="Applicant preview" className="size-full object-cover" /> : <ImagePlus />}</div>
+            <div className="grid size-24 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-white/35">{preview ? <img src={preview} alt="Applicant preview" className="size-full object-contain" /> : <ImagePlus />}</div>
             <div className="min-w-0">
               {fileInfo && <p className="truncate text-sm text-white/55">{fileInfo}</p>}
               {fieldErrors.image && <p className="mt-1 text-sm text-red-200">{fieldErrors.image}</p>}

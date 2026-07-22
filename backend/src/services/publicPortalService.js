@@ -1,13 +1,16 @@
 import Match from "../models/Match.js";
+import MatchCollaboration from "../models/MatchCollaboration.js";
 import Team from "../models/Team.js";
 import AppError from "../utils/AppError.js";
 import { calculateElapsedSeconds } from "./liveMatchService.js";
+import { serializeCollaborationSummary } from "./matchCollaborationService.js";
 import { serializePublicStream } from "./streamService.js";
 import { publicImage } from "./teamBrandingService.js";
 
 export const escapeRegex = (value = "") =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const idString = (value) => String(value?._id || value || "");
+const isObjectIdLike = (value) => /^[a-f\d]{24}$/i.test(String(value || ""));
 
 const safeTeam = (team) =>
   team
@@ -48,9 +51,10 @@ export const scoreForMatch = (match) => {
   };
 };
 
-export const serializePublicMatchCard = (match, now = new Date()) => {
+export const serializePublicMatchCard = (match, now = new Date(), collaboration = null) => {
   const scores = scoreForMatch(match);
   const playback = serializePublicStream(match);
+  const collaborationSummary = serializeCollaborationSummary(collaboration);
   return {
     matchId: match._id,
     team: safeTeam(match.team),
@@ -74,6 +78,9 @@ export const serializePublicMatchCard = (match, now = new Date()) => {
       isPlayable: playback.isPlayable,
       scheduledLiveAt: playback.scheduledLiveAt,
     },
+    collaboration: collaborationSummary,
+    collaborationStatus: collaboration?.status || null,
+    collaborationBadge: collaborationSummary?.badge || (match.registeredOpponentTeam ? "Hosted by team" : null),
     manOfTheMatch: match.manOfTheMatch
       ? {
           name: match.manOfTheMatch.name,
@@ -85,8 +92,8 @@ export const serializePublicMatchCard = (match, now = new Date()) => {
   };
 };
 
-export const serializePublicMatchDetail = (match, now = new Date()) => ({
-  ...serializePublicMatchCard(match, now),
+export const serializePublicMatchDetail = (match, now = new Date(), collaboration = null) => ({
+  ...serializePublicMatchCard(match, now, collaboration),
   opponent: {
     name: match.opponent.name,
     temporaryPlayers: (match.opponent.temporaryPlayers || []).map((player) => ({
@@ -265,6 +272,7 @@ export const getPublicHome = async ({
 
 export const getPublicMatch = async ({
   matchModel = Match,
+  collaborationModel = MatchCollaboration,
   teamModel = Team,
   matchId,
   now = new Date(),
@@ -276,10 +284,17 @@ export const getPublicMatch = async ({
       "-createdBy -updatedBy -resultConfirmedBy -stream.addedBy -stream.sourceUrl -__v",
     )
     .populate("team", "name slug logo")
+    .populate("registeredOpponentTeam", "name slug logo")
     .lean();
   if (!match?.team)
     throw new AppError("Match not found.", 404, "MATCH_NOT_FOUND");
-  return serializePublicMatchDetail(match, now);
+  const collaboration = isObjectIdLike(matchId)
+    ? await collaborationModel.findOne({ match: matchId })
+      .populate("hostTeam", "name shortName slug logo")
+      .populate("opponentTeam", "name shortName slug logo")
+      .lean()
+    : null;
+  return serializePublicMatchDetail(match, now, collaboration);
 };
 
 export const isPublicReadOnlyRouteSet = (router, allowedMutations = []) =>

@@ -8,6 +8,18 @@ FootStream will use JavaScript, npm, a `frontend/` and `backend/` structure, a l
 
 No application code will be written until this revised plan is approved.
 
+### Phase 6 Team Admin Communication completion update
+
+FootStream now includes Team Admin Chat at `/team/chat`. It provides one shared community pool for all approved, active team-admin accounts and direct inter-team conversations between two registered teams. It reuses the existing Express Socket.IO server, authenticates sockets with the HTTP-only JWT cookie, persists text-only messages in MongoDB, supports paginated history, read-state based unread badges, and connection status. Same-team private rooms and squad/admin system messages were removed from this flow so team-internal changes do not leak into the broader admin community. Public users, players, guests, media messages, calls, reactions, and push notifications are outside this chat scope.
+
+### Phase 6.5 Team Operations Polish completion update
+
+FootStream now adds operational polish around existing team and match workflows without changing the core match engine. Team admins can keep a private browser-local Tactical Board Library, maintain motto/social links, view profile strength, see team activity, manage independent team gallery posts, manage achievements, view match-day checklists, and open printable completed-match reports. Super admins manage the official Team Admin WhatsApp Community link centrally from platform settings; the frontend no longer depends on a public WhatsApp environment variable. Completed registered-opponent matches can request collaborative verification from the opponent team through `/team/collaborations`, and opponent-side statistics are counted only after accepted verification. Match cards, match details, public match pages, and result pages expose public-safe verification badges. These features reuse the existing authentication, Cloudinary image pipeline, notification system, match serializers, and statistics aggregation pattern.
+
+### Phase 7A Legacy, Public Experience & Tactical Intelligence completion update
+
+FootStream now extends the existing achievements module into public-safe legacy storytelling. Team achievements can include multiple trophy/celebration images, optional certificate and match-report links, inter/intra-college category, and winning-squad snapshots. Registered winning-squad players automatically receive Player Trophy Cabinet entries on their public profiles, while manual historical players remain plain text and never create permanent player records. Public team profiles link to dedicated achievement detail pages, and Tactical Board bench replacement suggestions prioritize natural position-group replacements before showing all players. This phase does not alter match creation, live events, statistics aggregation, tournaments, authentication, or deployment behavior.
+
 ## 2. Project Vision
 
 FootStream is a football team, squad, and match-management website. A super admin creates teams and team-admin accounts. Each team admin manages a permanent player pool, creates matches, selects a starting XI and substitutes, controls live match events, and publishes team and match information for public viewers.
@@ -813,7 +825,7 @@ Participant statuses are `invited`, `pending`, `accepted`, `confirmed`, `decline
 
 Tournament squads should be separate from permanent team squads. Squad players may reference registered permanent players or tournament-only manual players. Intra-college allocation from the host team's registered player pool is deferred beyond Part 2.
 
-Permanent team statistics must not be changed by tournament matches. Future player statistics may add separate buckets for overall, normal matches, inter-college tournament, intra-college tournament, and tournament-wise totals.
+Tournament matches use the existing Match and statistics source data. Inter-college registered-opponent statistics still follow the existing collaboration acceptance workflow; intra-college/manual tournament participants remain tournament-scoped. Future work may expand public player/team profiles with richer separate overall/inter/intra breakdown visualizations.
 
 #### Notifications and public portal direction
 
@@ -825,7 +837,7 @@ Future authenticated in-app notifications should cover:
 
 No browser push notifications are part of Phase 8A Parts 1-2.
 
-Future public tournament pages should support upcoming, ongoing, and past tournaments. Initial details should focus on overview, rules, teams, and history. Groups, fixtures, standings, brackets, awards, and tournament statistics remain coming-soon areas until their own phases define them.
+Public tournament pages now support upcoming, ongoing, and past tournaments with public-safe overview, participants, fixtures, results, standings, awards, tournament statistics, share metadata, and printable report access.
 
 #### Models added in Phase 8A Part 2
 
@@ -865,24 +877,31 @@ Phase 8B Part 2 adds tournament matchday lineup preparation only. A host team ad
 
 This phase keeps tournament squad and matchday lineup records separate. A tournament squad is the full eligibility pool; a matchday lineup is the selected players for one future matchup. Matchday selections reference `TournamentSquadPlayer` snapshots and never select permanent `Player` records directly.
 
-Part 2 remains intentionally limited:
-
-- no fixture generation;
-- no tournament `Match` document creation;
-- no live tournament match controls;
-- no Playing XI route beyond the matchday lineup foundation;
-- no groups, standings, knockout progression, tournament statistics, awards, gallery, PDF/QR, referee accounts, payments, sponsors, or Challenge restoration.
+Part 2 remains the matchday lineup foundation. Phase 7B now layers competition endpoints above it for fixture generation, tournament `Match` creation, standings, tournament statistics, awards, public tournament pages, and printable tournament reports. Challenge restoration remains explicitly excluded.
 
 #### Phase 8B Part 2.5 — Match-format and tactical-lineup UX stabilization
 
 Part 2.5 keeps the Part 2 backend scope but improves the lineup preparation experience:
 
 - preset match formats derive total starters automatically: `5v5`, `6v6`, `7v7`, `8v8`, `9v9`, and `11v11`;
-- `custom` is the only format that asks for total players per team, including goalkeeper, from 3 to 11;
-- formation numbers represent outfield lines only, so line totals plus one goalkeeper must equal the derived starter count;
+- `custom` is the only format that asks for total players per team, from 3 to 11;
+- formation totals must equal the derived starter count, and a dedicated goalkeeper is optional because any selected player may occupy any tactical slot;
 - matchday lineup starter snapshots may store deterministic tactical slot placement such as `GK`, `L1-P1`, and `L2-P3`;
 - the dashboard can render an original FootStream-styled football pitch for editable and read-only lineup review;
 - legacy lineups without placement data must render with safe deterministic fallback placement and never require a data migration.
+
+### Phase 7B — Competition engine and discoverability
+
+Phase 7B connects tournaments to the existing match engine without creating a second live engine or duplicate statistics source.
+
+- Team admins can create manual fixture drafts or generate round-robin fixtures for current participants.
+- Submitted/locked tournament lineups can be converted into a single authoritative `Match`.
+- Tournament matches reuse the existing stream/direct result workflows, live engine, Socket.IO behavior, timelines, photos, reports, and collaboration workflow.
+- Standings calculate from completed tournament matches using configured win/draw/loss points and deterministic tiebreaking.
+- Awards calculate from tournament standings and match events: champion, runner-up, golden boot, top assist, MVP, golden glove placeholder, and fair play team.
+- Public tournament pages expose fixtures, results, standings, awards, statistics, share metadata, and a printable report.
+- Super admins receive read-only competition oversight only.
+- Not included: advanced knockout progression, referee accounts, sponsors, payments, tournament gallery, QR/PDF binary generation, or Challenge restoration.
 
 #### Foundation contracts added in Part 1
 

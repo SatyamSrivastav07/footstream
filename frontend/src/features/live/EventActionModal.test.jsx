@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { test } from 'vitest';
-import EventActionModal, { assistOptionsForGoal } from './EventActionModal.jsx';
+import EventActionModal, { assistOptionsForGoal, liveOpponentBenchOptions, liveOpponentOptions } from './EventActionModal.jsx';
+import { buildGoalEventPayload } from './LiveMatchView.jsx';
 
 const player = (number, name, position = 'CM') => ({
   player: `p${number}`,
@@ -75,4 +76,35 @@ test('substitution selectors separate current field and current bench', () => {
   assert.match(html, /Bench Twelve/);
   assert.match(html, /Bench Thirteen/);
   assert.doesNotMatch(html, /Starter Two/);
+});
+
+test('registered opponent live selectors use opponent starting XI only', () => {
+  const options = liveOpponentOptions({
+    currentOpponentLineup: { onField: [
+      { ...player(20, 'Opponent Starter'), sourceType: 'registered' },
+      { ...player(21, 'Temporary Ignored'), sourceType: 'temporary' },
+    ], bench: [
+      { ...player(30, 'Opponent Bench'), sourceType: 'registered' },
+    ] },
+  });
+
+  assert.deepEqual(options.map((item) => item.name), ['Opponent Starter', 'Temporary Ignored']);
+  assert.deepEqual(liveOpponentBenchOptions({ currentOpponentLineup: { onField: [], bench: [player(30, 'Opponent Bench')] } }).map((item) => item.name), ['Opponent Bench']);
+});
+
+test('opponent goal payload omits stale own-team scorer and assist fields', () => {
+  const payload = buildGoalEventPayload({
+    scoringSide: 'opponent',
+    playerId: 'p1',
+    assistPlayerId: 'p2',
+    opponentPlayerId: 'op1',
+    opponentAssistPlayerId: 'op2',
+    temporaryOpponentPlayerName: '',
+  }, { minute: 18, description: '' });
+
+  assert.equal(payload.scoringSide, 'opponent');
+  assert.equal(payload.opponentPlayerId, 'op1');
+  assert.equal(payload.opponentAssistPlayerId, 'op2');
+  assert.equal(payload.playerId, undefined);
+  assert.equal(payload.assistPlayerId, undefined);
 });

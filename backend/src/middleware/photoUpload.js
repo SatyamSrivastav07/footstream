@@ -29,6 +29,25 @@ export const uploadTournamentLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_
 export const uploadTournamentCover = singleImageUpload(5 * 1024 * 1024, 'INVALID_TOURNAMENT_COVER_TYPE', 'cover');
 export const uploadTournamentParticipantLogo = singleImageUpload(2 * 1024 * 1024, 'INVALID_TOURNAMENT_PARTICIPANT_LOGO_TYPE', 'logo');
 export const uploadTournamentSquadPlayerPhoto = singleImageUpload(3 * 1024 * 1024, 'INVALID_TOURNAMENT_SQUAD_PLAYER_PHOTO_TYPE', 'image');
+export const uploadTeamGalleryImages = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 6 },
+  fileFilter: (_req, file, callback) => allowed.has(file.mimetype)
+    ? callback(null, true)
+    : callback(new AppError('Only JPEG, PNG, and WebP gallery images are accepted.', 400, 'INVALID_GALLERY_IMAGE_TYPE')),
+}).array('images', 6);
+export const uploadAchievementTrophy = singleImageUpload(3 * 1024 * 1024, 'INVALID_ACHIEVEMENT_IMAGE_TYPE', 'image');
+export const uploadAchievementImages = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 17 },
+  fileFilter: (_req, file, callback) => allowed.has(file.mimetype)
+    ? callback(null, true)
+    : callback(new AppError('Only JPEG, PNG, and WebP achievement images are accepted.', 400, 'INVALID_ACHIEVEMENT_IMAGE_TYPE')),
+}).fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'trophyImages', maxCount: 6 },
+  { name: 'celebrationPhotos', maxCount: 10 },
+]);
 export const uploadTeamRegistrationMedia = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 2 },
@@ -71,6 +90,24 @@ export const validateTournamentBrandingSignature = (req, _res, next) => {
 export const validateOptionalJoinRequestImageSignature = (req, _res, next) => {
   if (!req.file) return next();
   if (!validSignature(req.file)) return next(new AppError('The selected file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_JOIN_REQUEST_PHOTO_CONTENT'));
+  return next();
+};
+
+export const validateGalleryImageSignatures = (req, _res, next) => {
+  if (!req.files?.length) return next(new AppError('Select at least one gallery image.', 400, 'GALLERY_IMAGES_REQUIRED'));
+  if (req.files.some((file) => !validSignature(file))) return next(new AppError('A selected gallery file is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_GALLERY_IMAGE_CONTENT'));
+  return next();
+};
+
+export const validateOptionalAchievementImageSignature = (req, _res, next) => {
+  const files = [
+    req.file,
+    ...(req.files?.image || []),
+    ...(req.files?.trophyImages || []),
+    ...(req.files?.celebrationPhotos || []),
+  ].filter(Boolean);
+  if (!files.length) return next();
+  if (files.some((file) => !validSignature(file))) return next(new AppError('A selected achievement image is not a valid JPEG, PNG, or WebP image.', 400, 'INVALID_ACHIEVEMENT_IMAGE_CONTENT'));
   return next();
 };
 

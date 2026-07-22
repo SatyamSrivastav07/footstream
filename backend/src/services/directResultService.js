@@ -3,6 +3,7 @@ import MatchEvent from '../models/MatchEvent.js';
 import AppError from '../utils/AppError.js';
 import { calculateScore, compactSnapshot } from './liveMatchService.js';
 import { deriveResult, participatedSnapshot } from './resultService.js';
+import { ensureCollaborationRequest } from './matchCollaborationService.js';
 
 const idString = (value) => String(value?._id || value || '');
 const plain = (value) => (typeof value?.toJSON === 'function' ? value.toJSON() : { ...value });
@@ -11,6 +12,20 @@ const asArray = (value) => (Array.isArray(value) ? value : []);
 const snapshotMap = (match) => new Map(
   [...asArray(match.startingXI), ...asArray(match.substitutes)]
     .map((snapshot) => [idString(snapshot.player), compactSnapshot(snapshot)]),
+);
+
+const startingSnapshotMap = (match) => new Map(
+  asArray(match.startingXI).map((snapshot) => [idString(snapshot.player), compactSnapshot(snapshot)]),
+);
+
+const benchSnapshotMap = (match) => new Map(
+  asArray(match.substitutes).map((snapshot) => [idString(snapshot.player), compactSnapshot(snapshot)]),
+);
+
+const opponentSnapshotMap = (match) => new Map(
+  [...asArray(match.registeredOpponentStartingXI), ...asArray(match.registeredOpponentSubstitutes)]
+    .filter((snapshot) => snapshot.sourceType === 'registered')
+    .map((snapshot) => [idString(snapshot.registeredPlayer || snapshot.player), compactSnapshot(snapshot)]),
 );
 
 const normalizeNumber = (value, fallback = 0) => (value === '' || value === null || value === undefined ? fallback : Number(value));
@@ -75,8 +90,6 @@ const assertLineupReady = (match) => {
   const starters = asArray(match.startingXI);
   const playerIds = starters.map((player) => idString(player.player));
   if (new Set(playerIds).size !== playerIds.length) throw new AppError('Starting lineup contains a duplicate player.', 400, 'DUPLICATE_STARTER');
-  const goalkeepers = starters.filter((player) => String(player.position || '').toUpperCase() === 'GK');
-  if (goalkeepers.length !== 1) throw new AppError('Starting lineup must contain exactly one goalkeeper.', 400, 'INVALID_GOALKEEPER_COUNT');
   if (starters.filter((player) => player.isCaptain).length > 1) throw new AppError('Starting lineup cannot contain more than one captain.', 400, 'DUPLICATE_CAPTAIN');
 };
 
@@ -84,6 +97,14 @@ const requireTeamSnapshot = (snapshots, playerId, field) => {
   const snapshot = snapshots.get(idString(playerId));
   if (!snapshot) throw new AppError('Selected player is not in this match-day squad.', 400, 'PLAYER_NOT_IN_LINEUP', [
     { field, message: 'Choose a player from the selected Starting XI or bench.' },
+  ]);
+  return snapshot;
+};
+
+const requireOpponentSnapshot = (snapshots, playerId, field) => {
+  const snapshot = snapshots.get(idString(playerId));
+  if (!snapshot) throw new AppError('Selected opponent player is not in the registered opponent match-day squad.', 400, 'OPPONENT_PLAYER_NOT_IN_LINEUP', [
+    { field, message: 'Choose an opponent player from the selected opponent Starting XI or bench.' },
   ]);
   return snapshot;
 };
@@ -96,17 +117,11 @@ const eventCommon = (entry, type) => ({
   description: String(entry.description || '').trim(),
 });
 
-const buildGoalEvents = ({ match, input, snapshots, userId }) => {
+const buildGoalEvents = ({ match, input, snapshots, opponentSnapshots, userId }) => {
   const goals = asArray(input.goals);
-  const seen = new Set();
   return goals.map((goal) => {
     const side = goalSide(goal);
     if (!['team', 'opponent'].includes(side)) throw new AppError('Choose which side scored each goal.', 400, 'GOAL_SIDE_REQUIRED');
-    const key = side === 'team'
-      ? `team:${idString(goal.playerId)}:${goal.minute ?? 0}:${idString(goal.assistPlayerId)}`
-      : `opponent:${String(goal.temporaryOpponentPlayerName || '').trim().toLowerCase()}:${goal.minute ?? 0}`;
-    if (seen.has(key)) throw new AppError('Duplicate goal entry found.', 400, 'DUPLICATE_GOAL');
-    seen.add(key);
     const event = { ...eventCommon(goal, 'goal'), match: match._id, scoringSide: side, createdBy: userId };
     if (side === 'team') {
       const scorer = requireTeamSnapshot(snapshots, goal.playerId, 'goals.playerId');
@@ -117,20 +132,35 @@ const buildGoalEvents = ({ match, input, snapshots, userId }) => {
         Object.assign(event, { assistPlayer: assist.player, assistPlayerSnapshot: assist });
       }
     } else {
-      const name = String(goal.temporaryOpponentPlayerName || goal.name || '').trim();
-      if (!name) throw new AppError('Enter the opponent goal scorer name.', 400, 'OPPONENT_SCORER_REQUIRED');
-      Object.assign(event, { team: null, temporaryOpponentPlayerName: name });
+      if (goal.opponentPlayerId) {
+        const scorer = requireOpponentSnapshot(opponentSnapshots, goal.opponentPlayerId, 'goals.opponentPlayerId');
+        Object.assign(event, { team: null, player: scorer.player, playerSnapshot: scorer, temporaryOpponentPlayerName: '' });
+        if (goal.opponentAssistPlayerId) {
+          if (idString(goal.opponentAssistPlayerId) === idString(goal.opponentPlayerId)) throw new AppError('A player cannot assist their own goal.', 400, 'ASSIST_EQUALS_SCORER');
+          const assist = requireOpponentSnapshot(opponentSnapshots, goal.opponentAssistPlayerId, 'goals.opponentAssistPlayerId');
+          Object.assign(event, { assistPlayer: assist.player, assistPlayerSnapshot: assist });
+        }
+      } else {
+        if (goal.opponentAssistPlayerId) throw new AppError('Select the opponent scorer before selecting an opponent assist.', 400, 'OPPONENT_SCORER_REQUIRED');
+        const name = String(goal.temporaryOpponentPlayerName || goal.name || '').trim();
+        if (!name) throw new AppError('Enter the opponent goal scorer name.', 400, 'OPPONENT_SCORER_REQUIRED');
+        Object.assign(event, { team: null, temporaryOpponentPlayerName: name });
+      }
     }
     return event;
   });
 };
 
-const buildCardEvents = ({ match, input, snapshots, userId, key, type }) => asArray(input[key]).map((card) => {
+const buildCardEvents = ({ match, input, snapshots, opponentSnapshots, userId, key, type }) => asArray(input[key]).map((card) => {
   const side = card.side || 'team';
   const event = { ...eventCommon(card, type), match: match._id, createdBy: userId };
   if (side === 'team') {
     const player = requireTeamSnapshot(snapshots, card.playerId, `${key}.playerId`);
     return { ...event, team: match.team, player: player.player, playerSnapshot: player };
+  }
+  if (card.opponentPlayerId) {
+    const player = requireOpponentSnapshot(opponentSnapshots, card.opponentPlayerId, `${key}.opponentPlayerId`);
+    return { ...event, team: null, player: player.player, playerSnapshot: player, temporaryOpponentPlayerName: '' };
   }
   const name = String(card.temporaryOpponentPlayerName || card.name || '').trim();
   if (!name) throw new AppError('Enter the opponent carded player name.', 400, 'OPPONENT_PLAYER_REQUIRED');
@@ -139,6 +169,8 @@ const buildCardEvents = ({ match, input, snapshots, userId, key, type }) => asAr
 
 const buildSubstitutionEvents = ({ match, input, snapshots, userId }) => {
   const seen = new Set();
+  const onField = startingSnapshotMap(match);
+  const bench = benchSnapshotMap(match);
   return asArray(input.substitutions).map((substitution) => {
     const inId = idString(substitution.playerInId);
     const outId = idString(substitution.playerOutId);
@@ -146,8 +178,19 @@ const buildSubstitutionEvents = ({ match, input, snapshots, userId }) => {
     const key = `${outId}:${inId}:${substitution.minute ?? 0}`;
     if (seen.has(key)) throw new AppError('Duplicate substitution entry found.', 400, 'DUPLICATE_SUBSTITUTION');
     seen.add(key);
-    const playerIn = requireTeamSnapshot(snapshots, inId, 'substitutions.playerInId');
-    const playerOut = requireTeamSnapshot(snapshots, outId, 'substitutions.playerOutId');
+    requireTeamSnapshot(snapshots, inId, 'substitutions.playerInId');
+    requireTeamSnapshot(snapshots, outId, 'substitutions.playerOutId');
+    const playerIn = bench.get(inId);
+    const playerOut = onField.get(outId);
+    if (!playerOut) throw new AppError('Selected player out is not currently on the field for this substitution row.', 400, 'PLAYER_NOT_ON_FIELD', [
+      { field: 'substitutions.playerOutId', message: 'Choose a player who is currently on the field at that point in the substitution list.' },
+    ]);
+    if (!playerIn) throw new AppError('Selected player in is not currently available on the bench for this substitution row.', 400, 'PLAYER_NOT_ON_BENCH', [
+      { field: 'substitutions.playerInId', message: 'Choose a player who is currently on the bench at that point in the substitution list.' },
+    ]);
+    onField.delete(outId);
+    bench.delete(inId);
+    onField.set(inId, playerIn);
     return {
       ...eventCommon(substitution, 'substitution'),
       match: match._id,
@@ -163,10 +206,11 @@ const buildSubstitutionEvents = ({ match, input, snapshots, userId }) => {
 
 const buildDirectEvents = ({ match, input, userId }) => {
   const snapshots = snapshotMap(match);
+  const opponentSnapshots = opponentSnapshotMap(match);
   return [
-    ...buildGoalEvents({ match, input, snapshots, userId }),
-    ...buildCardEvents({ match, input, snapshots, userId, key: 'yellowCards', type: 'yellow_card' }),
-    ...buildCardEvents({ match, input, snapshots, userId, key: 'redCards', type: 'red_card' }),
+    ...buildGoalEvents({ match, input, snapshots, opponentSnapshots, userId }),
+    ...buildCardEvents({ match, input, snapshots, opponentSnapshots, userId, key: 'yellowCards', type: 'yellow_card' }),
+    ...buildCardEvents({ match, input, snapshots, opponentSnapshots, userId, key: 'redCards', type: 'red_card' }),
     ...buildSubstitutionEvents({ match, input, snapshots, userId }),
   ].map((event, index) => ({ ...event, sequence: index + 1 }));
 };
@@ -220,6 +264,7 @@ const applyDirectResult = async ({ eventModel, match, input, userId, now }) => {
   match.resultConfirmedBy = userId;
   match.updatedBy = userId;
   await match.save();
+  await ensureCollaborationRequest({ match, userId });
   return { match: plain(match), result: match.result, events: events.map(plain) };
 };
 

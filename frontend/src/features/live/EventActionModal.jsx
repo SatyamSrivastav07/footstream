@@ -15,10 +15,20 @@ const titles = {
 export const assistOptionsForGoal = (onFieldPlayers, selectedGoal) => onFieldPlayers
   .filter((player) => String(player.player) !== String(selectedGoal?.player || ''));
 
+export const liveOpponentOptions = (state) => [
+  ...(state?.currentOpponentOnFieldPlayers || state?.currentOpponentLineup?.onField || []),
+].filter((player) => player.player);
+
+export const liveOpponentBenchOptions = (state) => [
+  ...(state?.currentOpponentBenchPlayers || state?.currentOpponentLineup?.bench || []),
+].filter((player) => player.player);
+
 export default function EventActionModal({ action, state, events, open, onClose, onSubmit, saving, error }) {
   const [form, setForm] = useState({});
   const onFieldPlayers = useMemo(() => state?.currentOnFieldPlayers || state?.currentLineup?.onField || [], [state]);
   const benchPlayers = useMemo(() => state?.currentBenchPlayers || state?.currentLineup?.bench || [], [state]);
+  const opponentPlayers = useMemo(() => liveOpponentOptions(state), [state]);
+  const opponentBenchPlayers = useMemo(() => liveOpponentBenchOptions(state), [state]);
   const temporaryNames = state?.opponent?.temporaryPlayers || [];
   const activeGoals = events.filter((event) => event.type === 'goal' && event.scoringSide === 'team' && !event.isUndone && !event.assistPlayer);
   const selectedGoal = activeGoals.find((event) => String(event._id) === String(form.goalEventId));
@@ -32,6 +42,8 @@ export default function EventActionModal({ action, state, events, open, onClose,
       ownGoalBySide: 'team',
       playerId: '',
       assistPlayerId: '',
+      opponentPlayerId: '',
+      opponentAssistPlayerId: '',
       goalEventId: '',
       playerOutId: '',
       playerInId: '',
@@ -48,19 +60,34 @@ export default function EventActionModal({ action, state, events, open, onClose,
     if (!open) return;
     const onFieldIds = new Set(onFieldPlayers.map((player) => String(player.player)));
     const benchIds = new Set(benchPlayers.map((player) => String(player.player)));
+    const opponentIds = new Set(opponentPlayers.map((player) => String(player.player)));
+    const opponentBenchIds = new Set(opponentBenchPlayers.map((player) => String(player.player)));
     setForm((current) => {
       const next = { ...current };
       if (next.playerId && !onFieldIds.has(String(next.playerId))) next.playerId = '';
       if (next.assistPlayerId && !onFieldIds.has(String(next.assistPlayerId))) next.assistPlayerId = '';
-      if (next.playerOutId && !onFieldIds.has(String(next.playerOutId))) next.playerOutId = '';
-      if (next.playerInId && !benchIds.has(String(next.playerInId))) next.playerInId = '';
+      if (next.opponentPlayerId && !opponentIds.has(String(next.opponentPlayerId))) next.opponentPlayerId = '';
+      if (next.opponentAssistPlayerId && !opponentIds.has(String(next.opponentAssistPlayerId))) next.opponentAssistPlayerId = '';
+      const activeOutIds = next.side === 'opponent' ? opponentIds : onFieldIds;
+      const activeInIds = next.side === 'opponent' ? opponentBenchIds : benchIds;
+      if (next.playerOutId && !activeOutIds.has(String(next.playerOutId))) next.playerOutId = '';
+      if (next.playerInId && !activeInIds.has(String(next.playerInId))) next.playerInId = '';
       return next;
     });
-  }, [open, onFieldPlayers, benchPlayers]);
+  }, [open, onFieldPlayers, benchPlayers, opponentPlayers, opponentBenchPlayers]);
 
   if (!action) return null;
 
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const updateScoringSide = (value) => setForm((current) => ({
+    ...current,
+    scoringSide: value,
+    playerId: value === 'team' ? current.playerId : '',
+    assistPlayerId: value === 'team' ? current.assistPlayerId : '',
+    opponentPlayerId: value === 'opponent' ? current.opponentPlayerId : '',
+    opponentAssistPlayerId: value === 'opponent' ? current.opponentAssistPlayerId : '',
+    temporaryOpponentPlayerName: value === 'opponent' ? current.temporaryOpponentPlayerName : '',
+  }));
   const common = action !== 'assist' && action !== 'undo' && action !== 'substitution';
   const side = action === 'yellowCard' || action === 'redCard' ? form.side || 'team' : form.scoringSide || 'team';
   const submit = (event) => {
@@ -74,7 +101,7 @@ export default function EventActionModal({ action, state, events, open, onClose,
         {error && <div className="rounded-xl border border-red-300/20 bg-red-300/10 p-3 text-sm text-red-100" role="alert">{error}</div>}
 
         {['goal', 'penalty'].includes(action) && (
-          <SelectField label="Scoring side" value={form.scoringSide} onChange={(value) => update('scoringSide', value)}>
+          <SelectField label="Scoring side" value={form.scoringSide} onChange={updateScoringSide}>
             <option value="team">Our team</option>
             <option value="opponent">Opponent</option>
           </SelectField>
@@ -95,7 +122,17 @@ export default function EventActionModal({ action, state, events, open, onClose,
         {['goal', 'yellowCard', 'redCard', 'penalty'].includes(action) && (
           side === 'team'
             ? <PlayerSelect label={action === 'penalty' ? 'Penalty taker' : 'Current on-field player'} value={form.playerId} players={onFieldPlayers} onChange={(value) => update('playerId', value)} />
-            : <OpponentInput value={form.temporaryOpponentPlayerName} names={temporaryNames} onChange={(value) => update('temporaryOpponentPlayerName', value)} />
+            : <OpponentActorField
+                label={action === 'penalty' ? 'Opponent penalty taker' : 'Current opponent on-field player'}
+                value={form.opponentPlayerId}
+                nameValue={form.temporaryOpponentPlayerName}
+                players={opponentPlayers}
+                names={temporaryNames}
+                opponentName={state?.opponent?.name}
+                allowTeamFallback={['goal', 'penalty'].includes(action)}
+                onPlayerChange={(value) => update('opponentPlayerId', value)}
+                onNameChange={(value) => update('temporaryOpponentPlayerName', value)}
+              />
         )}
         {action === 'goal' && form.scoringSide === 'team' && (
           <PlayerSelect
@@ -104,6 +141,15 @@ export default function EventActionModal({ action, state, events, open, onClose,
             players={onFieldPlayers.filter((player) => String(player.player) !== String(form.playerId))}
             allowEmpty
             onChange={(value) => update('assistPlayerId', value)}
+          />
+        )}
+        {action === 'goal' && form.scoringSide === 'opponent' && opponentPlayers.length > 0 && (
+          <PlayerSelect
+            label="Opponent assist (optional)"
+            value={form.opponentAssistPlayerId}
+            players={opponentPlayers.filter((player) => String(player.player) !== String(form.opponentPlayerId))}
+            allowEmpty
+            onChange={(value) => update('opponentAssistPlayerId', value)}
           />
         )}
         {action === 'assist' && (
@@ -122,8 +168,21 @@ export default function EventActionModal({ action, state, events, open, onClose,
         )}
         {action === 'substitution' && (
           <>
-            <PlayerSelect label="Current On Field - Player out" value={form.playerOutId} players={onFieldPlayers} onChange={(value) => update('playerOutId', value)} />
-            <PlayerSelect label="Current Bench - Player in" value={form.playerInId} players={benchPlayers} onChange={(value) => update('playerInId', value)} />
+            <SelectField label="Substitution side" value={form.side} onChange={(value) => setForm((current) => ({ ...current, side: value, playerOutId: '', playerInId: '' }))}>
+              <option value="team">Our team</option>
+              <option value="opponent">Opponent</option>
+            </SelectField>
+            {form.side === 'opponent' ? (
+              <>
+                <PlayerSelect label="Opponent on field - Player out" value={form.playerOutId} players={opponentPlayers} onChange={(value) => update('playerOutId', value)} />
+                <PlayerSelect label="Opponent bench - Player in" value={form.playerInId} players={opponentBenchPlayers} onChange={(value) => update('playerInId', value)} />
+              </>
+            ) : (
+              <>
+                <PlayerSelect label="Current On Field - Player out" value={form.playerOutId} players={onFieldPlayers} onChange={(value) => update('playerOutId', value)} />
+                <PlayerSelect label="Current Bench - Player in" value={form.playerInId} players={benchPlayers} onChange={(value) => update('playerInId', value)} />
+              </>
+            )}
           </>
         )}
         {action === 'penalty' && (
@@ -136,7 +195,9 @@ export default function EventActionModal({ action, state, events, open, onClose,
         {action === 'ownGoal' && (
           form.ownGoalBySide === 'team'
             ? <PlayerSelect label="Current on-field own-goal player" value={form.playerId} players={onFieldPlayers} onChange={(value) => update('playerId', value)} />
-            : <OpponentInput value={form.temporaryOpponentPlayerName} names={temporaryNames} onChange={(value) => update('temporaryOpponentPlayerName', value)} />
+            : opponentPlayers.length > 0
+              ? <PlayerSelect label="Opponent own-goal player" value={form.opponentPlayerId} players={opponentPlayers} onChange={(value) => update('opponentPlayerId', value)} />
+              : <OpponentActorField label="Opponent own-goal player" value={form.opponentPlayerId} nameValue={form.temporaryOpponentPlayerName} players={[]} names={temporaryNames} opponentName={state?.opponent?.name} onPlayerChange={(value) => update('opponentPlayerId', value)} onNameChange={(value) => update('temporaryOpponentPlayerName', value)} />
         )}
         {action === 'undo' && (
           <>
@@ -167,13 +228,43 @@ function SelectField({ label: text, value, onChange, children, required = true }
   return <label className="field-label">{text}<select className="field-input mt-2" required={required} value={value} onChange={(e) => onChange(e.target.value)}>{children}</select></label>;
 }
 
-function PlayerSelect({ label: text, value, players, onChange, allowEmpty = false }) {
+function PlayerSelect({ label: text, value, players, onChange, allowEmpty = false, emptyLabel = 'No assist' }) {
   return (
     <SelectField label={text} value={value} onChange={onChange} required={!allowEmpty}>
-      <option value="">{allowEmpty ? 'No assist' : 'Select player'}</option>
+      <option value="">{allowEmpty ? emptyLabel : 'Select player'}</option>
       {players.map((player) => <option key={player.player} value={player.player}>#{player.jerseyNumber || '-'} - {player.name} ({player.position})</option>)}
     </SelectField>
   );
+}
+
+function OpponentActorField({ label: text, value, nameValue, players, names, opponentName = 'Opponent', allowTeamFallback = false, onPlayerChange, onNameChange }) {
+  if (players.length) {
+    return (
+      <PlayerSelect
+        label={text}
+        value={value}
+        players={players}
+        allowEmpty={allowTeamFallback}
+        emptyLabel={`${opponentName || 'Opponent'} team goal (no scorer)`}
+        onChange={(nextValue) => {
+          onPlayerChange(nextValue);
+          if (nextValue) onNameChange('');
+        }}
+      />
+    );
+  }
+  if (names.length) {
+    return (
+      <SelectField label={text} value={nameValue} onChange={onNameChange} required={!allowTeamFallback}>
+        <option value="">{allowTeamFallback ? `${opponentName || 'Opponent'} team goal (no scorer)` : 'Select opponent player'}</option>
+        {names.map((player, index) => <option key={`${player.name}-${index}`} value={player.name}>#{player.jerseyNumber || '-'} - {player.name} ({player.position || 'Player'})</option>)}
+      </SelectField>
+    );
+  }
+  if (allowTeamFallback) {
+    return <p className="rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 text-sm text-white/60">No opponent scorer selected. This will be recorded as a {opponentName || 'Opponent'} team goal.</p>;
+  }
+  return <OpponentInput value={nameValue} names={names} onChange={onNameChange} />;
 }
 
 function OpponentInput({ value, names, onChange }) {

@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   addAssistToGoal,
   buildCurrentLineup,
+  buildCurrentOpponentLineup,
   buildEventData,
   calculateElapsedSeconds,
   calculateScore,
@@ -129,12 +130,77 @@ test('temporary opponent scorer is accepted', () => {
   assert.equal(data.temporaryOpponentPlayerName, 'Opponent Nine'); assert.equal(data.team, null);
 });
 
+test('registered opponent scorer, assist, card and own goal use selected opponent lineup snapshots', () => {
+  const value = match({
+    registeredOpponentTeam: otherTeamId,
+    registeredOpponentStartingXI: [
+      snapshot(20, { player: playerId(20), registeredPlayer: playerId(20), sourceType: 'registered', name: 'Opponent Scorer' }),
+      snapshot(21, { player: playerId(21), registeredPlayer: playerId(21), sourceType: 'registered', name: 'Opponent Assist' }),
+    ],
+    registeredOpponentSubstitutes: [],
+  });
+  const goal = buildEventData({ match: value, events: [], type: 'goal', input: { scoringSide: 'opponent', opponentPlayerId: playerId(20), opponentAssistPlayerId: playerId(21) } });
+  assert.equal(goal.playerSnapshot.name, 'Opponent Scorer');
+  assert.equal(goal.assistPlayerSnapshot.name, 'Opponent Assist');
+  assert.equal(goal.temporaryOpponentPlayerName, '');
+
+  const card = buildEventData({ match: value, events: [], type: 'yellow_card', input: { side: 'opponent', opponentPlayerId: playerId(20) } });
+  assert.equal(card.playerSnapshot.name, 'Opponent Scorer');
+
+  const ownGoal = buildEventData({ match: value, events: [], type: 'own_goal', input: { ownGoalBySide: 'opponent', opponentPlayerId: playerId(20) } });
+  assert.equal(ownGoal.ownGoalBy.playerSnapshot.name, 'Opponent Scorer');
+  assert.equal(ownGoal.scoringSide, 'team');
+});
+
+test('registered opponent live events reject opponent bench players until they are on field', () => {
+  const value = match({
+    registeredOpponentTeam: otherTeamId,
+    registeredOpponentStartingXI: [
+      snapshot(20, { player: playerId(20), registeredPlayer: playerId(20), sourceType: 'registered', name: 'Opponent Starter' }),
+    ],
+    registeredOpponentSubstitutes: [
+      snapshot(21, { player: playerId(21), registeredPlayer: playerId(21), sourceType: 'registered', name: 'Opponent Bench' }),
+    ],
+  });
+
+  assert.throws(
+    () => buildEventData({ match: value, events: [], type: 'goal', input: { scoringSide: 'opponent', opponentPlayerId: playerId(21) } }),
+    (error) => error.code === 'PLAYER_NOT_ON_FIELD',
+  );
+});
+
+test('registered opponent substitutions update opponent current lineup and dropdown eligibility', () => {
+  const value = match({
+    registeredOpponentTeam: otherTeamId,
+    registeredOpponentStartingXI: [
+      snapshot(20, { player: playerId(20), registeredPlayer: playerId(20), sourceType: 'registered', name: 'Opponent Starter' }),
+    ],
+    registeredOpponentSubstitutes: [
+      snapshot(21, { player: playerId(21), registeredPlayer: playerId(21), sourceType: 'registered', name: 'Opponent Bench' }),
+    ],
+  });
+  const substitution = { ...buildEventData({ match: value, events: [], type: 'substitution', input: { side: 'opponent', playerOutId: playerId(20), playerInId: playerId(21) } }), type: 'substitution', sequence: 1, isUndone: false };
+  const opponentState = buildCurrentOpponentLineup(value, [substitution]);
+  assert.equal(opponentState.onFieldIds.has(playerId(21)), true);
+  assert.equal(opponentState.substitutedOut.has(playerId(20)), true);
+  const goal = buildEventData({ match: value, events: [substitution], type: 'goal', input: { scoringSide: 'opponent', opponentPlayerId: playerId(21) } });
+  assert.equal(goal.playerSnapshot.name, 'Opponent Bench');
+});
+
+test('opponent team goal can be recorded without an individual scorer', () => {
+  const data = buildEventData({ match: match(), events: [], type: 'goal', input: { scoringSide: 'opponent' } });
+  assert.equal(data.temporaryOpponentPlayerName, 'Rivals');
+  assert.equal(data.team, null);
+});
+
 test('bench substituted-out and red-carded players are rejected for on-field events', () => {
   const value = match();
   assert.throws(() => buildEventData({ match: value, events: [], type: 'goal', input: { scoringSide: 'team', playerId: playerId(12) } }), (error) => error.code === 'PLAYER_NOT_ON_FIELD');
   assert.throws(() => buildEventData({ match: value, events: [], type: 'yellow_card', input: { side: 'team', playerId: playerId(12) } }), (error) => error.code === 'PLAYER_NOT_ON_FIELD');
   const substitution = { ...buildEventData({ match: value, events: [], type: 'substitution', input: { playerOutId: playerId(5), playerInId: playerId(12) } }), type: 'substitution', sequence: 1, isUndone: false };
   assert.doesNotThrow(() => buildEventData({ match: value, events: [substitution], type: 'goal', input: { scoringSide: 'team', playerId: playerId(12) } }));
+  assert.doesNotThrow(() => buildEventData({ match: value, events: [substitution], type: 'goal', input: { scoringSide: 'team', playerId: playerId(6), assistPlayerId: playerId(12) } }));
+  assert.throws(() => buildEventData({ match: value, events: [substitution], type: 'goal', input: { scoringSide: 'team', playerId: playerId(6), assistPlayerId: playerId(5) } }), (error) => error.code === 'PLAYER_ALREADY_SUBSTITUTED_OUT');
   assert.throws(() => buildEventData({ match: value, events: [substitution], type: 'penalty_scored', input: { scoringSide: 'team', playerId: playerId(5) } }), (error) => error.code === 'PLAYER_ALREADY_SUBSTITUTED_OUT');
   const red = { ...buildEventData({ match: value, events: [substitution], type: 'red_card', input: { side: 'team', playerId: playerId(12) } }), type: 'red_card', sequence: 2, isUndone: false };
   const state = currentLineupEligibility(value, [substitution, red]);

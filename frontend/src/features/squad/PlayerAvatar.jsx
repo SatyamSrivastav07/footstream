@@ -22,7 +22,7 @@ export default function PlayerAvatar({ src, name, className = "" }) {
     <img
       src={src}
       alt={`${name} player portrait`}
-      className={`object-cover ${className}`}
+      className={`bg-black/20 object-contain ${className}`}
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}

@@ -32,7 +32,7 @@ export const updateLineupValidator = [
 
 export const updateLineupSideValidator = [
   ...lineupParamsValidator,
-  body('action').isIn(['formation', 'addStarter', 'addSubstitute', 'removePlayer', 'setCaptain', 'setGoalkeeper', 'assignSlot', 'clearSlot']).withMessage('Lineup action is invalid.'),
+  body('action').isIn(['formation', 'addStarter', 'addSubstitute', 'removePlayer', 'setCaptain', 'setGoalkeeper', 'assignSlot', 'autoPlace', 'clearSlot']).withMessage('Lineup action is invalid.'),
   body('squadPlayerId').if(body('action').isIn(['addStarter', 'addSubstitute', 'removePlayer', 'setCaptain', 'setGoalkeeper', 'assignSlot', 'clearSlot'])).isMongoId().withMessage('Squad player is required.'),
   body('slotId').if(body('action').equals('assignSlot')).isString().trim().matches(/^(GK|L\d-P\d)$/).withMessage('Pitch slot is invalid.'),
   body('formation').if(body('action').equals('formation')).isString().trim().isLength({ min: 1, max: 40 }).withMessage('Formation is required.'),

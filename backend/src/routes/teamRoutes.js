@@ -68,6 +68,8 @@ import {
   getTeamResult, getTeamStatistics, patchTeamPhoto, patchTeamResult, postTeamPhotos,
 } from '../controllers/phaseFiveController.js';
 import {
+  uploadAchievementImages,
+  uploadTeamGalleryImages,
   uploadMatchPhotos,
   uploadPlayerPhoto,
   uploadTeamCover,
@@ -77,6 +79,8 @@ import {
   uploadTournamentParticipantLogo,
   uploadTournamentSquadPlayerPhoto,
   validatePhotoSignatures,
+  validateGalleryImageSignatures,
+  validateOptionalAchievementImageSignature,
   validatePlayerImageSignature,
   validateTeamImageSignature,
   validateTournamentBrandingSignature,
@@ -86,11 +90,24 @@ import { deleteOwnedStream, patchOwnedStreamStatus, putOwnedStream, readOwnedStr
 import { configureStreamValidator, streamIdValidator, streamStatusValidator } from '../validators/streamValidators.js';
 import { getTeamDirectResult, putTeamDirectResult } from '../controllers/directResultController.js';
 import { directResultIdValidator, directResultValidator } from '../validators/directResultValidators.js';
+import {
+  getAdminChatTeams,
+  getCommunityMessages,
+  getDirectConversations,
+  getDirectMessages,
+  getTeamAdminChatUnread,
+  postCommunityMessage,
+  postCommunityRead,
+  postDirectConversation,
+  postDirectMessage,
+  postDirectRead,
+} from '../controllers/teamChatController.js';
 import { approveTeamJoinRequest, getTeamJoinRequest, listTeamJoinRequests, rejectTeamJoinRequest } from '../controllers/joinRequestController.js';
 import { approveJoinRequestValidator, joinRequestIdValidator, listJoinRequestsValidator, rejectJoinRequestValidator } from '../validators/joinRequestValidators.js';
 import { body, param, query } from 'express-validator';
 import {
   authenticatedMutationLimiter,
+  teamChatPostLimiter,
   tournamentCreateLimiter,
   tournamentMutationLimiter,
   tournamentParticipantLimiter,
@@ -109,15 +126,30 @@ import {
   putTeamAnnouncement,
 } from '../controllers/engagementController.js';
 import { announcementValidator, chatMatchIdValidator, deleteChatValidator, pollBodyValidator, pollIdValidator, updatePollValidator } from '../validators/engagementValidators.js';
+import {
+  adminChatTeamsValidator,
+  conversationIdValidator,
+  createConversationValidator,
+  listTeamAdminChatValidator,
+  postTeamAdminChatValidator,
+} from '../validators/teamChatValidators.js';
 import { postMatchReminder } from '../controllers/followController.js';
 import {
   createHostedTournament,
   deleteHosted,
   getHosted,
   getTeamTournament,
+  hostedTournamentAwards,
+  hostedTournamentFixtures,
+  hostedTournamentReport,
+  hostedTournamentStandings,
+  hostedTournamentStatistics,
   hostedReviewHistory,
   listHosted,
   listTeamTournaments,
+  postCreateMatchFromHostedFixture,
+  postGenerateHostedFixtures,
+  postHostedTournamentFixture,
   publishHosted,
   resubmitHosted,
   submitHosted,
@@ -179,8 +211,11 @@ import {
 } from '../controllers/tournamentLineupController.js';
 import {
   createTournamentValidator,
+  tournamentFixtureGenerationValidator,
+  tournamentFixtureValidator,
   tournamentIdValidator,
   tournamentListValidator,
+  tournamentMatchFromFixtureValidator,
   updateTournamentValidator,
 } from '../validators/tournamentValidators.js';
 import {
@@ -209,6 +244,39 @@ import {
   updateLineupSideValidator,
   updateLineupValidator,
 } from '../validators/tournamentLineupValidators.js';
+import {
+  getMatchChecklist,
+  getOwnProfileStrength,
+  getTeamAchievements,
+  getTeamActivity,
+  getTeamCollaboration,
+  getTeamCollaborations,
+  getTeamGalleryPosts,
+  getTeamMatchCollaboration,
+  getTeamMatchReport,
+  getTeamWhatsAppSetting,
+  patchOwnPublicProfile,
+  patchTeamAchievement,
+  patchTeamGalleryPost,
+  patchTeamMatchCollaboration,
+  postTeamMatchCollaborationInvite,
+  postTeamAchievement,
+  postTeamGalleryPost,
+  removeTeamAchievement,
+  removeTeamGalleryPost,
+} from '../controllers/phaseSixFiveController.js';
+import {
+  achievementParamsValidator,
+  achievementValidator,
+  activityListValidator,
+  collaborationIdValidator,
+  galleryListValidator,
+  galleryPostParamsValidator,
+  galleryPostValidator,
+  matchCollaborationValidator,
+  teamProfileUpdateValidator,
+  updateAchievementValidator,
+} from '../validators/phaseSixFiveValidators.js';
 const router = Router();
 const validateMatch = validateWithStatus(400);
 
@@ -216,6 +284,34 @@ router.use(protect, requireRole(USER_ROLES.TEAM_ADMIN));
 router.use((req, res, next) => ['GET', 'HEAD', 'OPTIONS'].includes(req.method) ? next() : authenticatedMutationLimiter(req, res, next));
 router.use(requireOperationalTeamForMutation);
 router.get('/current', getAssignedTeam);
+router.get('/admin-chat/community/messages', listTeamAdminChatValidator, validateMatch, getCommunityMessages);
+router.post('/admin-chat/community/messages', teamChatPostLimiter, postTeamAdminChatValidator, validateMatch, postCommunityMessage);
+router.post('/admin-chat/community/read', postCommunityRead);
+router.get('/admin-chat/teams', adminChatTeamsValidator, validateMatch, getAdminChatTeams);
+router.get('/admin-chat/conversations', getDirectConversations);
+router.post('/admin-chat/conversations', teamChatPostLimiter, createConversationValidator, validateMatch, postDirectConversation);
+router.get('/admin-chat/conversations/:conversationId/messages', conversationIdValidator, listTeamAdminChatValidator, validateMatch, getDirectMessages);
+router.post('/admin-chat/conversations/:conversationId/messages', teamChatPostLimiter, conversationIdValidator, postTeamAdminChatValidator, validateMatch, postDirectMessage);
+router.post('/admin-chat/conversations/:conversationId/read', conversationIdValidator, validateMatch, postDirectRead);
+router.get('/admin-chat/unread-count', getTeamAdminChatUnread);
+router.get('/community/whatsapp', getTeamWhatsAppSetting);
+router.get('/activity', activityListValidator, validateMatch, getTeamActivity);
+router.get('/profile/strength', getOwnProfileStrength);
+router.patch('/profile/public', teamProfileUpdateValidator, validateMatch, patchOwnPublicProfile);
+router.route('/gallery-posts')
+  .get(galleryListValidator, validateMatch, getTeamGalleryPosts)
+  .post(uploadLimiter, uploadTeamGalleryImages, validateGalleryImageSignatures, galleryPostValidator, validateMatch, postTeamGalleryPost);
+router.route('/gallery-posts/:postId')
+  .patch(galleryPostParamsValidator, galleryPostValidator, validateMatch, patchTeamGalleryPost)
+  .delete(galleryPostParamsValidator, validateMatch, removeTeamGalleryPost);
+router.route('/achievements')
+  .get(getTeamAchievements)
+  .post(uploadLimiter, uploadAchievementImages, validateOptionalAchievementImageSignature, achievementValidator, validateMatch, postTeamAchievement);
+router.route('/achievements/:achievementId')
+  .patch(achievementParamsValidator, updateAchievementValidator, validateMatch, patchTeamAchievement)
+  .delete(achievementParamsValidator, validateMatch, removeTeamAchievement);
+router.get('/collaborations', getTeamCollaborations);
+router.get('/collaborations/:collaborationId', collaborationIdValidator, validateMatch, getTeamCollaboration);
 router.route('/hosted-tournaments')
   .get(tournamentListValidator, validateMatch, listHosted)
   .post(tournamentCreateLimiter, createTournamentValidator, validateMatch, createHostedTournament);
@@ -231,6 +327,14 @@ router.delete('/hosted-tournaments/:tournamentId/logo', tournamentMutationLimite
 router.put('/hosted-tournaments/:tournamentId/cover', uploadLimiter, tournamentIdValidator, validateMatch, uploadTournamentCover, validateTournamentBrandingSignature, putTournamentCover);
 router.delete('/hosted-tournaments/:tournamentId/cover', tournamentMutationLimiter, tournamentIdValidator, validateMatch, deleteTournamentCover);
 router.get('/hosted-tournaments/:tournamentId/review-history', tournamentIdValidator, validateMatch, hostedReviewHistory);
+router.get('/hosted-tournaments/:tournamentId/fixtures', tournamentIdValidator, validateMatch, hostedTournamentFixtures);
+router.post('/hosted-tournaments/:tournamentId/fixtures', tournamentParticipantLimiter, tournamentFixtureValidator, validateMatch, postHostedTournamentFixture);
+router.post('/hosted-tournaments/:tournamentId/fixtures/generate', tournamentParticipantLimiter, tournamentFixtureGenerationValidator, validateMatch, postGenerateHostedFixtures);
+router.post('/hosted-tournaments/:tournamentId/fixtures/:lineupId/create-match', tournamentParticipantLimiter, tournamentMatchFromFixtureValidator, validateMatch, postCreateMatchFromHostedFixture);
+router.get('/hosted-tournaments/:tournamentId/standings', tournamentIdValidator, validateMatch, hostedTournamentStandings);
+router.get('/hosted-tournaments/:tournamentId/awards', tournamentIdValidator, validateMatch, hostedTournamentAwards);
+router.get('/hosted-tournaments/:tournamentId/statistics', tournamentIdValidator, validateMatch, hostedTournamentStatistics);
+router.get('/hosted-tournaments/:tournamentId/report', tournamentIdValidator, validateMatch, hostedTournamentReport);
 router.get('/hosted-tournaments/:tournamentId/squads', squadListValidator, validateMatch, hostedSquads);
 router.route('/hosted-tournaments/:tournamentId/lineups')
   .get(lineupListValidator, validateMatch, hostedLineups)
@@ -327,6 +431,16 @@ router.route('/matches/:matchId/stream')
   .put(configureStreamValidator, validateMatch, putOwnedStream)
   .delete(streamIdValidator, validateMatch, deleteOwnedStream);
 router.patch('/matches/:matchId/stream/status', streamStatusValidator, validateMatch, patchOwnedStreamStatus);
+router.get('/matches/:matchId/checklist', matchIdValidator, validateMatch, getMatchChecklist);
+router.get('/matches/:matchId/report', matchIdValidator, validateMatch, getTeamMatchReport);
+router.post('/matches/:matchId/collaboration/invite', matchIdValidator, validateMatch, postTeamMatchCollaborationInvite);
+router.get('/matches/:matchId/collaboration', matchIdValidator, validateMatch, getTeamMatchCollaboration);
+router.patch('/matches/:matchId/collaboration/accept', matchCollaborationValidator, validateMatch, patchTeamMatchCollaboration('accept'));
+router.patch('/matches/:matchId/collaboration/request-changes', matchCollaborationValidator, validateMatch, patchTeamMatchCollaboration('request-changes'));
+router.patch('/matches/:matchId/collaboration/reject', matchCollaborationValidator, validateMatch, patchTeamMatchCollaboration('reject'));
+router.patch('/matches/:matchId/collaboration/accept-changes', matchCollaborationValidator, validateMatch, patchTeamMatchCollaboration('accept-changes'));
+router.patch('/matches/:matchId/collaboration/reject-changes', matchCollaborationValidator, validateMatch, patchTeamMatchCollaboration('reject-changes'));
+router.patch('/matches/:matchId/collaboration/cancel', matchCollaborationValidator, validateMatch, patchTeamMatchCollaboration('cancel'));
 router.route('/matches/:matchId/result')
   .get(resultIdValidator, validateMatch, getTeamResult)
   .patch(updateResultValidator, validateMatch, patchTeamResult);

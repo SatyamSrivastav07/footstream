@@ -1,7 +1,8 @@
-import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Trophy, UserCog, UserPlus, UsersRound, X, ClipboardCheck } from 'lucide-react';
+import { BarChart3, Bell, Building2, CalendarDays, ClipboardList, History, Image, LayoutDashboard, LogOut, Menu, MessageCircle, Settings, ShieldCheck, Sparkles, Trophy, UserCog, UserPlus, UsersRound, X, ClipboardCheck, ShieldQuestion } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import api from '../api/client.js';
+import api, { socketUrl } from '../api/client.js';
 import Brand from '../components/Brand.jsx';
 import { TOURNAMENTS_ENABLED } from '../config/features.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -12,6 +13,7 @@ export default function DashboardLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadCategories, setUnreadCategories] = useState({});
+  const [teamAdminChatUnread, setTeamAdminChatUnread] = useState(0);
   const home = user.role === 'superAdmin' ? '/admin' : '/team';
 
   const loadUnread = useCallback(async () => {
@@ -25,18 +27,54 @@ export default function DashboardLayout() {
     }
   }, []);
 
+  const loadTeamAdminChatUnread = useCallback(async () => {
+    if (user.role !== 'teamAdmin') return;
+    try {
+      const response = await api.get('/team/admin-chat/unread-count');
+      setTeamAdminChatUnread(response.data.data.count || 0);
+    } catch {
+      setTeamAdminChatUnread(0);
+    }
+  }, [user.role]);
+
   useEffect(() => {
     loadUnread();
     window.addEventListener('footstream:notifications-changed', loadUnread);
     return () => window.removeEventListener('footstream:notifications-changed', loadUnread);
   }, [loadUnread]);
 
+  useEffect(() => {
+    loadTeamAdminChatUnread();
+    window.addEventListener('footstream:team-admin-chat-read', loadTeamAdminChatUnread);
+    return () => window.removeEventListener('footstream:team-admin-chat-read', loadTeamAdminChatUnread);
+  }, [loadTeamAdminChatUnread]);
+
+  useEffect(() => {
+    if (user.role !== 'teamAdmin') return undefined;
+    const socket = io(socketUrl, { withCredentials: true, reconnection: true });
+    socket.on('connect', () => socket.emit('join-team-admin-chat'));
+    const handleMessage = (payload) => {
+      const senderId = payload?.message?.sender?.id;
+      if (senderId && String(senderId) === String(user._id || user.id)) return;
+      if (window.location.pathname === '/team/chat') {
+        loadTeamAdminChatUnread();
+        return;
+      }
+      setTeamAdminChatUnread((current) => current + 1);
+    };
+    socket.on('team-admin-chat:community-message', handleMessage);
+    socket.on('team-admin-chat:direct-message', handleMessage);
+    return () => socket.disconnect();
+  }, [loadTeamAdminChatUnread, user._id, user.id, user.role]);
+
   const dot = (count) => count > 0 ? <span className="ml-auto size-2 rounded-full bg-red-400" aria-label={`${count} unread notifications`} /> : null;
   const unreadDot = dot(unreadCount);
   const teamRequestDot = dot(unreadCategories.teamRequests || 0);
   const joinRequestDot = dot(unreadCategories.joinRequests || 0);
+  const collaborationDot = dot(unreadCategories.matchCollaborations || 0);
   const tournamentReviewDot = dot(unreadCategories.tournamentReview || 0);
   const tournamentDot = dot((unreadCategories.hostedTournaments || 0) + (unreadCategories.myTournaments || 0));
+  const teamAdminChatDot = dot(teamAdminChatUnread);
   const adminTournamentPath = TOURNAMENTS_ENABLED ? '/admin/tournaments' : '/tournaments-coming-soon';
   const teamTournamentPath = TOURNAMENTS_ENABLED ? '/team/tournaments' : '/tournaments-coming-soon';
 
@@ -55,11 +93,13 @@ export default function DashboardLayout() {
 
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-white/[0.07] bg-[#09150f] px-5 py-6 transition-transform lg:translate-x-0 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between">
-          <Brand />
+          <NavLink to={home} className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-lime-300/70" onClick={() => setMobileOpen(false)} aria-label="Go to dashboard overview">
+            <Brand />
+          </NavLink>
           <button type="button" className="icon-button lg:hidden" onClick={() => setMobileOpen(false)} aria-label="Close navigation"><X size={19} /></button>
         </div>
 
-        <nav className="mt-12 space-y-2" aria-label="Main navigation">
+        <nav className="mt-12 flex-1 space-y-2 overflow-y-auto pr-1" aria-label="Main navigation">
           <NavLink to={home} end className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
             <LayoutDashboard size={18} /> Overview
           </NavLink>
@@ -70,6 +110,9 @@ export default function DashboardLayout() {
               </NavLink>
               <NavLink to="/admin/team-admins" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserCog size={18} /> Team admins
+              </NavLink>
+              <NavLink to="/admin/platform-settings" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Settings size={18} /> Platform Settings
               </NavLink>
               <NavLink to="/admin/teams/pending" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <ClipboardList size={18} /> Pending Teams {teamRequestDot}
@@ -85,6 +128,15 @@ export default function DashboardLayout() {
           )}
           {user.role === 'teamAdmin' && (
             <>
+              <NavLink to="/team/chat" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <MessageCircle size={18} /> Team Admin Chat {teamAdminChatDot}
+              </NavLink>
+              <NavLink to="/team/collaborations" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <ShieldQuestion size={18} /> Match Verification {collaborationDot}
+              </NavLink>
+              <NavLink to="/team/activity" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Sparkles size={18} /> Activity
+              </NavLink>
               <NavLink to="/team/squad" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UsersRound size={18} /> Squad
               </NavLink>
@@ -93,6 +145,12 @@ export default function DashboardLayout() {
               </NavLink>
               <NavLink to="/team/join-requests" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <UserPlus size={18} /> Join Requests {joinRequestDot}
+              </NavLink>
+              <NavLink to="/team/gallery-posts" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Image size={18} /> Gallery Posts
+              </NavLink>
+              <NavLink to="/team/achievements" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
+                <Trophy size={18} /> Achievements
               </NavLink>
               <NavLink to={teamTournamentPath} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMobileOpen(false)}>
                 <Trophy size={18} /> Tournament {tournamentDot}

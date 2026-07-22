@@ -3,6 +3,7 @@ import {
   assignSlot,
   addStarter,
   addSubstitute,
+  autoPlaceLineupSide,
   clearSlot,
   createLineup,
   getAdminLineup,
@@ -30,6 +31,7 @@ const sideMutation = async ({ req, side }) => {
   if (req.body.action === 'removePlayer') return removePlayer({ ...base, squadPlayerId: req.body.squadPlayerId });
   if (req.body.action === 'setCaptain') return setCaptain({ ...base, squadPlayerId: req.body.squadPlayerId });
   if (req.body.action === 'assignSlot') return assignSlot({ ...base, squadPlayerId: req.body.squadPlayerId, slotId: req.body.slotId });
+  if (req.body.action === 'autoPlace') return autoPlaceLineupSide(base);
   if (req.body.action === 'clearSlot') return clearSlot({ ...base, squadPlayerId: req.body.squadPlayerId });
   return setGoalkeeper({ ...base, squadPlayerId: req.body.squadPlayerId });
 };

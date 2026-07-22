@@ -26,10 +26,6 @@ vi.mock("../api/client.js", () => ({
   },
 }));
 
-vi.mock("../config/features.js", () => ({
-  WHATSAPP_COMMUNITY_URL: "https://chat.whatsapp.com/footstream-official",
-}));
-
 vi.mock("../context/AuthContext.jsx", () => ({
   useAuth: () => ({ user: authMock.user }),
 }));
@@ -41,6 +37,23 @@ afterEach(() => {
 
 test("team admin My Team page shows the FootStream official WhatsApp group action", async () => {
   api.get.mockResolvedValueOnce({ data: { data: { team: authMock.user.team } } });
+  api.get.mockResolvedValueOnce({
+    data: {
+      data: {
+        setting: {
+          enabled: true,
+          url: "https://chat.whatsapp.com/footstream-official",
+        },
+      },
+    },
+  });
+  api.get.mockResolvedValueOnce({
+    data: {
+      data: {
+        profileStrength: { percentage: 25, missing: ["Motto"] },
+      },
+    },
+  });
 
   render(
     <MemoryRouter>

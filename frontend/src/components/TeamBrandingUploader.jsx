@@ -105,7 +105,7 @@ export default function TeamBrandingUploader({ kind, initialImage, uploadUrl, de
         <ImagePlus size={18} className="text-lime-200" />
       </div>
       <div className={`mt-4 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] ${config.shape}`}>
-        {displayed ? <img src={displayed} alt={`${config.label} preview`} className="size-full object-cover" /> : <div className="grid size-full place-items-center text-xs font-semibold text-white/35">No {config.label.toLowerCase()}</div>}
+        {displayed ? <img src={displayed} alt={`${config.label} preview`} className="size-full object-contain" /> : <div className="grid size-full place-items-center text-xs font-semibold text-white/35">No {config.label.toLowerCase()}</div>}
       </div>
       {fileInfo && <p className="mt-3 truncate text-xs text-emerald-100/50">{fileInfo}</p>}
       {progress > 0 && <p className="mt-2 text-xs text-lime-200">{progress}% uploaded</p>}

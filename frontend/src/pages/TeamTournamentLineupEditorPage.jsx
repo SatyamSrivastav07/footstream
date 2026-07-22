@@ -26,8 +26,18 @@ function PlayerRow({ player, side, selected, disabled, onAction }) {
 }
 
 function SelectedPlayer({ player, side, disabled, onAction }) {
+  const handleDragStart = (event) => {
+    if (disabled || !player?.id) return;
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', player.id);
+  };
+
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3">
+    <div
+      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/[0.08] bg-white/[0.035] p-3"
+      draggable={!disabled}
+      onDragStart={handleDragStart}
+    >
       <span>{player.name} <span className="text-xs text-white/40">#{player.jersey || '-'} · {player.position}</span></span>
       {!disabled && <div className="flex flex-wrap gap-2">
         <button type="button" className="secondary-button text-xs" onClick={() => onAction(side, 'setCaptain', player.id)}>Captain</button>
@@ -38,11 +48,9 @@ function SelectedPlayer({ player, side, disabled, onAction }) {
   );
 }
 
-function SidePanel({ label, participant, side, lineup, eligible, playersOnField, maxMatchday, disabled, onAction, onFormation, selectedPlayerId, onSelectPlayer, onSlotAssign }) {
+function SidePanel({ label, participant, side, lineup, eligible, playersOnField, maxMatchday, disabled, onAction, onFormation, selectedPlayerId, onSelectPlayer, onSlotAssign, onAutoPlace }) {
   const data = lineup?.[side] || {};
   const selectedIds = new Set([...(data.startingPlayers || []), ...(data.substitutes || [])].map((player) => player.id));
-  const assignedStarterIds = new Set((data.startingPlayers || []).filter((player) => player.slotId).map((player) => player.id));
-  const unassignedStarters = (data.startingPlayers || []).filter((player) => !assignedStarterIds.has(player.id));
   const presets = TOURNAMENT_FORMATION_PRESETS[playersOnField] || [];
   return (
     <section className="rounded-3xl border border-white/[0.08] bg-white/[0.035] p-5">
@@ -79,9 +87,18 @@ function SidePanel({ label, participant, side, lineup, eligible, playersOnField,
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="font-bold">Tactical pitch</h3>
-            <p className="text-xs text-white/45">Select a starter, then choose a pitch slot. All starters must be placed before submit/lock.</p>
+            <p className="text-xs text-white/45">Optional preview: select a starter, drag a starter, or use auto-place. Submission only requires the correct starter count.</p>
           </div>
-          <StatusBadge>{assignedStarterIds.size}/{data.startingPlayers?.length || 0} placed</StatusBadge>
+          {!disabled && (
+            <button
+              type="button"
+              className="secondary-button text-xs"
+              disabled={!data.formation || !(data.startingPlayers || []).length}
+              onClick={() => onAutoPlace(side)}
+            >
+              Auto-place starters
+            </button>
+          )}
         </div>
         <FootballPitchLineup
           formation={data.formation}
@@ -97,13 +114,15 @@ function SidePanel({ label, participant, side, lineup, eligible, playersOnField,
             if (selectedPlayerId) onSlotAssign(side, selectedPlayerId, slot.slotId);
             else if (currentPlayer) onSelectPlayer(side, currentPlayer.id);
           }}
+          onSlotDrop={(slot, currentPlayer, draggedPlayerId) => {
+            if (draggedPlayerId && draggedPlayerId !== currentPlayer?.id) onSlotAssign(side, draggedPlayerId, slot.slotId);
+          }}
         />
-        {!disabled && unassignedStarters.length > 0 && <div className="mt-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-3 text-sm text-amber-100">Unassigned starters: {unassignedStarters.map((player) => player.name).join(', ')}</div>}
       </div>
 
       <div className="mt-5 grid gap-3 text-sm text-white/65 md:grid-cols-2">
         <p>Captain: <span className="font-bold text-white">{data.captain?.name || 'Not selected'}</span></p>
-        <p>Goalkeeper: <span className="font-bold text-white">{data.goalkeeper?.name || 'Not selected'}</span></p>
+        <p>Goalkeeper marker: <span className="font-bold text-white">{data.goalkeeper?.name || 'Optional'}</span></p>
       </div>
 
       <div className="mt-6">
@@ -168,6 +187,7 @@ export default function TeamTournamentLineupEditorPage() {
   const onFormation = (side, formation, customFormation) => mutate(() => tournamentApi.updateLineupSide(tournamentId, lineupId, side, { action: 'formation', formation, customFormation }));
   const onSelectPlayer = (side, squadPlayerId) => setSelectedPitchPlayers((current) => ({ ...current, [side]: current[side] === squadPlayerId ? '' : squadPlayerId }));
   const onSlotAssign = (side, squadPlayerId, slotId) => mutate(() => tournamentApi.updateLineupSide(tournamentId, lineupId, side, { action: 'assignSlot', squadPlayerId, slotId })).then(() => setSelectedPitchPlayers((current) => ({ ...current, [side]: '' })));
+  const onAutoPlace = (side) => mutate(() => tournamentApi.updateLineupSide(tournamentId, lineupId, side, { action: 'autoPlace' })).then(() => setSelectedPitchPlayers((current) => ({ ...current, [side]: '' })));
 
   if (loading) return <div className="skeleton h-96" />;
   if (error && !lineup) return <div className="rounded-2xl border border-red-300/20 bg-red-300/10 p-5 text-red-100">{error}</div>;
@@ -192,8 +212,8 @@ export default function TeamTournamentLineupEditorPage() {
       {error && <div className="mt-5 rounded-2xl border border-red-300/20 bg-red-300/10 p-4 text-red-100">{error}</div>}
 
       <div className="mt-7 grid gap-6">
-        <SidePanel label="Home" participant={lineup.homeParticipant} side="home" lineup={lineup} eligible={eligible.home} playersOnField={tournament.playersOnField} maxMatchday={tournament.maximumMatchdaySquad} disabled={disabled} onAction={onAction} onFormation={onFormation} selectedPlayerId={selectedPitchPlayers.home} onSelectPlayer={onSelectPlayer} onSlotAssign={onSlotAssign} />
-        <SidePanel label="Away" participant={lineup.awayParticipant} side="away" lineup={lineup} eligible={eligible.away} playersOnField={tournament.playersOnField} maxMatchday={tournament.maximumMatchdaySquad} disabled={disabled} onAction={onAction} onFormation={onFormation} selectedPlayerId={selectedPitchPlayers.away} onSelectPlayer={onSelectPlayer} onSlotAssign={onSlotAssign} />
+        <SidePanel label="Home" participant={lineup.homeParticipant} side="home" lineup={lineup} eligible={eligible.home} playersOnField={tournament.playersOnField} maxMatchday={tournament.maximumMatchdaySquad} disabled={disabled} onAction={onAction} onFormation={onFormation} selectedPlayerId={selectedPitchPlayers.home} onSelectPlayer={onSelectPlayer} onSlotAssign={onSlotAssign} onAutoPlace={onAutoPlace} />
+        <SidePanel label="Away" participant={lineup.awayParticipant} side="away" lineup={lineup} eligible={eligible.away} playersOnField={tournament.playersOnField} maxMatchday={tournament.maximumMatchdaySquad} disabled={disabled} onAction={onAction} onFormation={onFormation} selectedPlayerId={selectedPitchPlayers.away} onSelectPlayer={onSelectPlayer} onSlotAssign={onSlotAssign} onAutoPlace={onAutoPlace} />
       </div>
 
       <section className="mt-7 rounded-3xl border border-white/[0.08] bg-white/[0.035] p-5">

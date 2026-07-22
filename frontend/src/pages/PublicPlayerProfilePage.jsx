@@ -2,7 +2,9 @@ import {
   Award,
   Footprints,
   GraduationCap,
+  Shield,
   Shirt,
+  Trophy,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -50,7 +52,7 @@ export default function PublicPlayerProfilePage() {
   }, [playerId]);
   if (!data && !error) return <LoadingScreen />;
   if (!data) return <PublicError message={error} />;
-  const { player, statistics, recentMatches } = data;
+  const { player, statistics, recentMatches, trophyCabinet = [] } = data;
   return (
     <>
       <PublicBreadcrumbs
@@ -126,6 +128,39 @@ export default function PublicPlayerProfilePage() {
               <p className="mt-2 text-sm text-white/40">{label}</p>
             </article>
           ))}
+        </div>
+      </section>
+      <section className="mt-10">
+        <p className="eyebrow">Trophy Cabinet</p>
+        <h2 className="panel-title">Team achievements</h2>
+        <div className="mt-5">
+          {trophyCabinet.length ? (
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {trophyCabinet.map((trophy) => (
+                <article className="panel overflow-hidden p-0" key={trophy.id}>
+                  {(trophy.trophyImages?.[0]?.imageUrl || trophy.teamLogo) && (
+                    <img
+                      className="aspect-video w-full bg-black/20 object-contain p-1"
+                      src={trophy.trophyImages?.[0]?.imageUrl || trophy.teamLogo}
+                      alt={`${trophy.tournamentName} trophy`}
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="p-5">
+                    <p className="eyebrow">{trophy.category === 'intra_college' ? 'Intra College' : 'Inter College'}</p>
+                    <h3 className="mt-2 font-display text-2xl font-bold text-white">{trophy.tournamentName}</h3>
+                    <p className="mt-1 text-lime-200">{trophy.position} · {trophy.year}</p>
+                    <Link className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-100/70 hover:text-lime-200" to={`/teams/${trophy.teamSlug}`}>
+                      <Shield size={15} /> {trophy.teamName}
+                    </Link>
+                    {trophy.achievementUrl && <Link className="secondary-button mt-4 w-fit" to={trophy.achievementUrl}><Trophy size={15} /> View achievement</Link>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <PublicEmpty title="No trophies yet" message="Team achievements linked to this player will appear here." />
+          )}
         </div>
       </section>
       <section className="mt-10">

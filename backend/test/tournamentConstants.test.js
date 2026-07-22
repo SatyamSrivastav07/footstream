@@ -150,6 +150,13 @@ test('host editability and super-admin review contracts are role and ownership b
   }), true);
   assert.equal(canHostEditTournament({
     userRole: 'teamAdmin',
+    userTeamId: { _id: 'team1' },
+    hostTeamId: { _id: 'team1' },
+    approvalStatus: TOURNAMENT_APPROVAL_STATUS.DRAFT,
+    lifecycleStatus: TOURNAMENT_LIFECYCLE_STATUS.DRAFT,
+  }), true);
+  assert.equal(canHostEditTournament({
+    userRole: 'teamAdmin',
     userTeamId: 'team2',
     hostTeamId: 'team1',
     approvalStatus: TOURNAMENT_APPROVAL_STATUS.DRAFT,

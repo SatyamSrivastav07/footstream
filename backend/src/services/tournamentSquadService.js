@@ -9,6 +9,7 @@ import {
   TOURNAMENT_PLAYER_SOURCE_TYPE,
   TOURNAMENT_SQUAD_STATUS,
   isTournamentPubliclyVisible,
+  startersForMatchFormat,
 } from '../constants/tournamentConstants.js';
 import Player from '../models/Player.js';
 import Tournament from '../models/Tournament.js';
@@ -41,6 +42,9 @@ const playerPhotoSnapshot = (player = {}) => {
 };
 
 const isGoalkeeper = ({ position, isGoalkeeper }) => Boolean(isGoalkeeper) || position === 'GK';
+
+const effectiveMinimumSquad = (tournament = {}) =>
+  startersForMatchFormat(tournament.matchFormat, tournament.playersOnField) || Number(tournament.minimumSquad) || 1;
 
 const requireHostTeam = (user) => {
   if (!user?.team) throw new AppError('A team-admin account must be assigned to a team.', 403, 'TOURNAMENT_ACCESS_DENIED');
@@ -151,7 +155,7 @@ export const listHostedSquads = async ({ user, tournamentId }) => {
       return {
         participant: serializeTournamentParticipantPublic(participant),
         squad: squad ? { ...serializeTournamentSquadHost(squad, [], participant), playerCount: countMap.get(idString(squad._id)) || 0 } : null,
-        minimumSquad: tournament.minimumSquad,
+        minimumSquad: effectiveMinimumSquad(tournament),
         maximumSquad: tournament.maximumSquad,
       };
     }),
@@ -262,9 +266,6 @@ const assertManualInput = (input) => {
 export const addManualSquadPlayer = async ({ user, tournamentId, participantId, input }) => {
   const { tournament, participant, squad } = await findOwnedSquadContext({ user, tournamentId, participantId });
   assertSquadEditable(tournament, squad);
-  if (participant.participantType === TOURNAMENT_PARTICIPANT_TYPE.REGISTERED_TEAM) {
-    throw new AppError('Registered participants must select permanent registered players.', 400, 'TOURNAMENT_PLAYER_INELIGIBLE');
-  }
   assertManualInput(input);
   const count = await TournamentSquadPlayer.countDocuments({ squad: squad._id, isActive: true });
   if (count >= tournament.maximumSquad) throw new AppError('Tournament squad is full.', 409, 'TOURNAMENT_SQUAD_SIZE_INVALID');
@@ -354,10 +355,12 @@ export const setViceCaptain = (args) => setLeadership({ ...args, role: 'viceCapt
 
 const validateSquadReady = async ({ tournament, squad }) => {
   const players = await TournamentSquadPlayer.find({ squad: squad._id, isActive: true }).lean();
-  if (players.length < tournament.minimumSquad || players.length > tournament.maximumSquad) throw new AppError('Tournament squad size is invalid.', 409, 'TOURNAMENT_SQUAD_SIZE_INVALID');
+  const minimumSquad = effectiveMinimumSquad(tournament);
+  if (players.length < minimumSquad || players.length > tournament.maximumSquad) {
+    throw new AppError(`Tournament squad needs ${minimumSquad}-${tournament.maximumSquad} players for ${tournament.matchFormat || 'this format'}.`, 409, 'TOURNAMENT_SQUAD_SIZE_INVALID');
+  }
   if (!squad.captain || !players.some((player) => idString(player._id) === idString(squad.captain))) throw new AppError('Captain is required before squad submission.', 409, 'TOURNAMENT_SQUAD_CAPTAIN_REQUIRED');
   if (squad.viceCaptain && idString(squad.viceCaptain) === idString(squad.captain)) throw new AppError('Captain and vice captain cannot match.', 409, 'TOURNAMENT_SQUAD_INVALID_STATUS');
-  if (!players.some((player) => player.goalkeeper || player.position === 'GK')) throw new AppError('At least one goalkeeper is required.', 409, 'TOURNAMENT_SQUAD_GOALKEEPER_REQUIRED');
   const jerseys = players.map((player) => player.jersey).filter((jersey) => jersey !== null && jersey !== undefined);
   if (jerseys.length !== players.length || new Set(jerseys).size !== jerseys.length) throw new AppError('Every squad player needs a unique tournament jersey number.', 409, 'TOURNAMENT_SQUAD_JERSEY_CONFLICT');
 };

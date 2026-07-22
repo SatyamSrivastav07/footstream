@@ -33,6 +33,12 @@ import AdminPendingTeamsPage from "./pages/AdminPendingTeamsPage.jsx";
 import AdminTeamDetailPage from "./pages/AdminTeamDetailPage.jsx";
 import TeamJoinRequestsPage from "./pages/TeamJoinRequestsPage.jsx";
 import TeamJoinRequestDetailsPage from "./pages/TeamJoinRequestDetailsPage.jsx";
+import TeamChatPage from "./pages/TeamChatPage.jsx";
+import TeamCollaborationsPage from "./pages/TeamCollaborationsPage.jsx";
+import TeamActivityPage from "./pages/TeamActivityPage.jsx";
+import TeamAchievementsPage from "./pages/TeamAchievementsPage.jsx";
+import TeamGalleryPostsPage from "./pages/TeamGalleryPostsPage.jsx";
+import AdminPlatformSettingsPage from "./pages/AdminPlatformSettingsPage.jsx";
 import NotificationsPage from "./pages/NotificationsPage.jsx";
 import AdminTeamRegistrationRequestsPage from "./pages/AdminTeamRegistrationRequestsPage.jsx";
 import AdminTeamRegistrationRequestDetailsPage from "./pages/AdminTeamRegistrationRequestDetailsPage.jsx";
@@ -44,6 +50,9 @@ const PublicMatchPage = lazy(() => import("./pages/PublicMatchPage.jsx"));
 const TeamDirectoryPage = lazy(() => import("./pages/TeamDirectoryPage.jsx"));
 const PublicTeamProfilePage = lazy(
   () => import("./pages/PublicTeamProfilePage.jsx"),
+);
+const PublicTeamAchievementPage = lazy(
+  () => import("./pages/PublicTeamAchievementPage.jsx"),
 );
 const PublicTeamCollectionPage = lazy(
   () => import("./pages/PublicTeamCollectionPage.jsx"),
@@ -207,6 +216,14 @@ function App() {
           }
         />
         <Route
+          path="/teams/:teamSlug/achievements/:achievementId"
+          element={
+            <LazyPublic>
+              <PublicTeamAchievementPage />
+            </LazyPublic>
+          }
+        />
+        <Route
           path="/teams/:teamSlug"
           element={
             <LazyPublic>
@@ -335,6 +352,7 @@ function App() {
               path="/admin/team-admins"
               element={<SuperAdminDashboard section="team-admins" />}
             />
+            <Route path="/admin/platform-settings" element={<AdminPlatformSettingsPage />} />
             <Route path="/admin/team-requests" element={<AdminTeamRegistrationRequestsPage />} />
             <Route path="/admin/team-requests/:requestId" element={<AdminTeamRegistrationRequestDetailsPage />} />
             {TOURNAMENTS_ENABLED ? (
@@ -393,6 +411,12 @@ function App() {
             <Route path="/team/squad/tactical-board" element={<TacticalBoardPage />} />
             <Route path="/team/join-requests" element={<TeamJoinRequestsPage />} />
             <Route path="/team/join-requests/:requestId" element={<TeamJoinRequestDetailsPage />} />
+            <Route path="/team/chat" element={<TeamChatPage />} />
+            <Route path="/team/collaborations" element={<TeamCollaborationsPage />} />
+            <Route path="/team/collaborations/:collaborationId" element={<TeamCollaborationsPage />} />
+            <Route path="/team/activity" element={<TeamActivityPage />} />
+            <Route path="/team/gallery-posts" element={<TeamGalleryPostsPage />} />
+            <Route path="/team/achievements" element={<TeamAchievementsPage />} />
             {TOURNAMENTS_ENABLED ? (
               <>
                 <Route path="/team/tournaments" element={<LazyDashboard><TeamTournamentsPage /></LazyDashboard>} />

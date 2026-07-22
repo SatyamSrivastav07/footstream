@@ -1,10 +1,10 @@
 import mongoose from 'mongoose';
 
 export const MATCH_TYPES = Object.freeze(['friendly', 'league', 'knockout', 'practice']);
-export const MATCH_FORMATS = Object.freeze(['5v5', '7v7', '11v11']);
+export const MATCH_FORMATS = Object.freeze(['5v5', '6v6', '7v7', '8v8', '9v9', '11v11']);
 export const MATCH_MODES = Object.freeze(['stream', 'direct']);
 export const TEAM_SIDES = Object.freeze(['home', 'away']);
-export const MATCH_FORMATIONS = Object.freeze(['1-2-1', '2-1-1', '1-1-2', '2-3-1', '3-2-1', '2-2-2', '4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom']);
+export const MATCH_FORMATIONS = Object.freeze(['1-2-1', '2-1-1', '1-1-2', '2-2-1', '2-1-2', '1-3-1', '2-3-1', '3-2-1', '2-2-2', '3-3-1', '2-3-2', '3-2-2', '3-3-2', '3-2-3', '2-3-3', '4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom']);
 export const MATCH_STATUSES = Object.freeze(['scheduled', 'live', 'half_time', 'completed', 'cancelled']);
 export const MATCH_PERIODS = Object.freeze([
   'not_started', 'first_half', 'half_time', 'second_half', 'extra_time_first',
@@ -44,6 +44,11 @@ const playerSnapshotSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+const starterCountForMatchFormat = (matchFormat = '11v11') => {
+  const match = /^(\d+)v\1$/.exec(String(matchFormat || ''));
+  return match ? Number(match[1]) : 11;
+};
 
 const opponentPlayerSnapshotSchema = new mongoose.Schema(
   {
@@ -128,7 +133,7 @@ const matchSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator(value) {
-          const required = this.matchFormat === '5v5' ? 5 : this.matchFormat === '7v7' ? 7 : 11;
+          const required = starterCountForMatchFormat(this.matchFormat);
           return value.length === required;
         },
         message: 'Starting lineup does not match the match format.',
@@ -142,8 +147,8 @@ const matchSchema = new mongoose.Schema(
       default: [],
       validate: {
         validator(value) {
-          if (!this.registeredOpponentTeam) return value.length === 0;
-          const required = this.matchFormat === '5v5' ? 5 : this.matchFormat === '7v7' ? 7 : 11;
+          if (!this.registeredOpponentTeam && !this.tournamentCompetition) return value.length === 0;
+          const required = starterCountForMatchFormat(this.matchFormat);
           return value.length === 0 || value.length === required;
         },
         message: 'Registered opponent lineup does not match the match format.',
@@ -191,7 +196,10 @@ const matchSchema = new mongoose.Schema(
 matchSchema.pre('validate', function validateFormation() {
   const compatible = {
     '5v5': ['1-2-1', '2-1-1', '1-1-2'],
+    '6v6': ['2-2-1', '2-1-2', '1-3-1'],
     '7v7': ['2-3-1', '3-2-1', '2-2-2'],
+    '8v8': ['3-3-1', '2-3-2', '3-2-2'],
+    '9v9': ['3-3-2', '3-2-3', '2-3-3'],
     '11v11': ['4-3-3', '4-2-3-1', '4-4-2', '3-5-2', '3-4-3', '5-3-2', 'custom'],
   };
   if (this.formation && !compatible[this.matchFormat]?.includes(this.formation)) {

@@ -20,7 +20,7 @@ export function TeamLogo({ team, className = "size-20 rounded-2xl" }) {
     <img
       src={team.logo}
       alt={`${team.name} logo`}
-      className={`object-cover ${className}`}
+      className={`bg-black/20 object-contain ${className}`}
       loading="lazy"
       decoding="async"
       onError={() => setFailed(true)}
